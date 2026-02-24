@@ -1,0 +1,77 @@
+{
+  "tournament": "Kumpoo Tervasulan Eliitti 2025",
+  "name": "Women's Singles C",
+  "code": "WS C",
+  "category": "Open C",
+  "sheet": "WS C-Main Draw",
+  "draw_type": "main_draw",
+  "format": "round_robin",
+  "players": [
+    {
+      "position": 1,
+      "name": "Minja Hakala",
+      "club": "YlTe",
+      "seed": "1",
+      "status": "WDN"
+    },
+    {
+      "position": 2,
+      "name": "Tiia Laurila",
+      "club": "HaHe",
+      "seed": "2",
+      "status": null
+    },
+    {
+      "position": 3,
+      "name": "Mira Kangasniemi",
+      "club": "KauWi",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 4,
+      "name": "Eeva-Liisa Kaikkonen",
+      "club": "TeSu",
+      "seed": null,
+      "status": null
+    }
+  ],
+  "matches": [
+    {
+      "match": 1,
+      "player1": "Minja Hakala",
+      "player2": "Tiia Laurila"
+    },
+    {
+      "match": 2,
+      "player1": "Minja Hakala",
+      "player2": "Mira Kangasniemi"
+    },
+    {
+      "match": 3,
+      "player1": "Minja Hakala",
+      "player2": "Eeva-Liisa Kaikkonen"
+    },
+    {
+      "match": 4,
+      "player1": "Tiia Laurila",
+      "player2": "Mira Kangasniemi"
+    },
+    {
+      "match": 5,
+      "player1": "Tiia Laurila",
+      "player2": "Eeva-Liisa Kaikkonen"
+    },
+    {
+      "match": 6,
+      "player1": "Mira Kangasniemi",
+      "player2": "Eeva-Liisa Kaikkonen"
+    }
+  ],
+  "clubs": [
+    "HaHe",
+    "KauWi",
+    "TeSu",
+    "YlTe"
+  ]
+}

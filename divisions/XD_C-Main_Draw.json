@@ -1,0 +1,148 @@
+{
+  "tournament": "Kumpoo Tervasulan Eliitti 2025",
+  "name": "Mixed Doubles C",
+  "code": "XD C",
+  "category": "Open C",
+  "sheet": "XD C-Main Draw",
+  "draw_type": "main_draw",
+  "format": "elimination",
+  "drawSize": 8,
+  "players": [
+    {
+      "position": 1,
+      "players": [
+        {
+          "name": "Jukka Penttinen",
+          "club": "LoTe"
+        },
+        {
+          "name": "Raija Tuomela",
+          "club": "JuPy"
+        }
+      ],
+      "seed": "1",
+      "status": null
+    },
+    {
+      "position": 3,
+      "players": [
+        {
+          "name": "Le Nguyen",
+          "club": "TeSu"
+        },
+        {
+          "name": "Parisa Rezaeei",
+          "club": "TeSu"
+        }
+      ],
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 5,
+      "players": [
+        {
+          "name": "Kare Hämeenaho",
+          "club": "TeSu"
+        },
+        {
+          "name": "Eeva-Liisa Kaikkonen",
+          "club": "TeSu"
+        }
+      ],
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 6,
+      "players": [
+        {
+          "name": "Kari Laurila",
+          "club": "HaHe"
+        },
+        {
+          "name": "Tiia Laurila",
+          "club": "HaHe"
+        }
+      ],
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 8,
+      "players": [
+        {
+          "name": "Sami Hätälä",
+          "club": "TeSu"
+        },
+        {
+          "name": "Xiaoyan Zhou",
+          "club": "TeSu"
+        }
+      ],
+      "seed": "2",
+      "status": null
+    }
+  ],
+  "rounds": [
+    {
+      "name": "Quarter-Final",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Jukka Penttinen / Raija Tuomela",
+          "player2": "Bye",
+          "notes": "Jukka Penttinen / Raija Tuomela auto-advances"
+        },
+        {
+          "match": 2,
+          "player1": "Le Nguyen / Parisa Rezaeei",
+          "player2": "Bye",
+          "notes": "Le Nguyen / Parisa Rezaeei auto-advances"
+        },
+        {
+          "match": 3,
+          "player1": "Kare Hämeenaho / Eeva-Liisa Kaikkonen",
+          "player2": "Kari Laurila / Tiia Laurila"
+        },
+        {
+          "match": 4,
+          "player1": "Bye",
+          "player2": "Sami Hätälä / Xiaoyan Zhou",
+          "notes": "Sami Hätälä / Xiaoyan Zhou auto-advances"
+        }
+      ]
+    },
+    {
+      "name": "Semi-Final",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Winner QF-M1",
+          "player2": "Winner QF-M2"
+        },
+        {
+          "match": 2,
+          "player1": "Winner QF-M3",
+          "player2": "Winner QF-M4"
+        }
+      ]
+    },
+    {
+      "name": "Final",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Winner SF-M1",
+          "player2": "Winner SF-M2"
+        }
+      ]
+    }
+  ],
+  "clubs": [
+    "HaHe",
+    "JuPy",
+    "LoTe",
+    "TeSu"
+  ]
+}

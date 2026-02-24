@@ -1,0 +1,141 @@
+{
+  "tournament": "Kumpoo Tervasulan Eliitti 2025",
+  "name": "Boys' Singles U15",
+  "code": "BS U15",
+  "category": "Junior",
+  "sheet": "BS U15-Main Draw",
+  "draw_type": "main_draw",
+  "format": "group_playoff",
+  "groups": [
+    {
+      "name": "Group A",
+      "players": [
+        {
+          "position": 1,
+          "name": "Arttu Pirneskoski",
+          "club": "YlTe",
+          "seed": "1",
+          "status": null
+        },
+        {
+          "position": 2,
+          "name": "Veikka Mustaparta",
+          "club": "TeSu",
+          "seed": null,
+          "status": "WDN"
+        },
+        {
+          "position": 3,
+          "name": "Juhana Paaso",
+          "club": "TeSu",
+          "seed": null,
+          "status": null
+        }
+      ],
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Arttu Pirneskoski",
+          "player2": "Veikka Mustaparta"
+        },
+        {
+          "match": 2,
+          "player1": "Arttu Pirneskoski",
+          "player2": "Juhana Paaso"
+        },
+        {
+          "match": 3,
+          "player1": "Veikka Mustaparta",
+          "player2": "Juhana Paaso"
+        }
+      ]
+    },
+    {
+      "name": "Group B",
+      "players": [
+        {
+          "position": 1,
+          "name": "Matti Isomaa",
+          "club": "YlTe",
+          "seed": "2",
+          "status": null
+        },
+        {
+          "position": 2,
+          "name": "Jimi Manninen",
+          "club": "HaHe",
+          "seed": null,
+          "status": null
+        },
+        {
+          "position": 3,
+          "name": "Naitik Diwate",
+          "club": "TeSu",
+          "seed": null,
+          "status": null
+        },
+        {
+          "position": 4,
+          "name": "Leo Takalo",
+          "club": "TeSu",
+          "seed": null,
+          "status": null
+        }
+      ],
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Matti Isomaa",
+          "player2": "Jimi Manninen"
+        },
+        {
+          "match": 2,
+          "player1": "Matti Isomaa",
+          "player2": "Naitik Diwate"
+        },
+        {
+          "match": 3,
+          "player1": "Matti Isomaa",
+          "player2": "Leo Takalo"
+        },
+        {
+          "match": 4,
+          "player1": "Jimi Manninen",
+          "player2": "Naitik Diwate"
+        },
+        {
+          "match": 5,
+          "player1": "Jimi Manninen",
+          "player2": "Leo Takalo"
+        },
+        {
+          "match": 6,
+          "player1": "Naitik Diwate",
+          "player2": "Leo Takalo"
+        }
+      ]
+    }
+  ],
+  "playoff": {
+    "format": "elimination",
+    "drawSize": 2,
+    "rounds": [
+      {
+        "name": "Final",
+        "matches": [
+          {
+            "match": 1,
+            "player1": "Slot 1",
+            "player2": "Slot 2"
+          }
+        ]
+      }
+    ]
+  },
+  "playoff_file": "BS_U15-Playoff.json",
+  "clubs": [
+    "HaHe",
+    "TeSu",
+    "YlTe"
+  ]
+}

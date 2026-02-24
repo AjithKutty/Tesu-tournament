@@ -1,0 +1,183 @@
+{
+  "tournament": "Kumpoo Tervasulan Eliitti 2025",
+  "name": "Mixed Doubles A",
+  "code": "XD A",
+  "category": "Open A",
+  "sheet": "XD A-Main Draw",
+  "draw_type": "main_draw",
+  "format": "elimination",
+  "drawSize": 8,
+  "players": [
+    {
+      "position": 1,
+      "players": [
+        {
+          "name": "Iiro Romppainen",
+          "club": "TeSu"
+        },
+        {
+          "name": "Emilia Mattila",
+          "club": "TeSu"
+        }
+      ],
+      "seed": "1",
+      "status": null
+    },
+    {
+      "position": 3,
+      "players": [
+        {
+          "name": "Tapio Kukkonen",
+          "club": "SaSuPa"
+        },
+        {
+          "name": "Jutta Risikko",
+          "club": "KauWi"
+        }
+      ],
+      "seed": null,
+      "status": "SUB"
+    },
+    {
+      "position": 4,
+      "players": [
+        {
+          "name": "Heikki Roivainen",
+          "club": "HämSu"
+        },
+        {
+          "name": "Mira Kangasniemi",
+          "club": "KauWi"
+        }
+      ],
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 5,
+      "players": [
+        {
+          "name": "Anton Ketola",
+          "club": "BadU"
+        },
+        {
+          "name": "Raisa Kauppi",
+          "club": "Sisu"
+        }
+      ],
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 6,
+      "players": [
+        {
+          "name": "Juha Heikkinen",
+          "club": "HPC"
+        },
+        {
+          "name": "Mira Mustonen",
+          "club": "KajSu"
+        }
+      ],
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 7,
+      "players": [
+        {
+          "name": "Janne Haurinen",
+          "club": "SoMaSe"
+        },
+        {
+          "name": "Teija Härkönen",
+          "club": "KajSu"
+        }
+      ],
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 8,
+      "players": [
+        {
+          "name": "Elias Vuollet",
+          "club": "SC Kokkola"
+        },
+        {
+          "name": "Eerika Laakso",
+          "club": "TU"
+        }
+      ],
+      "seed": "2",
+      "status": null
+    }
+  ],
+  "rounds": [
+    {
+      "name": "Quarter-Final",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Iiro Romppainen / Emilia Mattila",
+          "player2": "Bye",
+          "notes": "Iiro Romppainen / Emilia Mattila auto-advances"
+        },
+        {
+          "match": 2,
+          "player1": "Tapio Kukkonen / Jutta Risikko",
+          "player2": "Heikki Roivainen / Mira Kangasniemi"
+        },
+        {
+          "match": 3,
+          "player1": "Anton Ketola / Raisa Kauppi",
+          "player2": "Juha Heikkinen / Mira Mustonen"
+        },
+        {
+          "match": 4,
+          "player1": "Janne Haurinen / Teija Härkönen",
+          "player2": "Elias Vuollet / Eerika Laakso"
+        }
+      ]
+    },
+    {
+      "name": "Semi-Final",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Winner QF-M1",
+          "player2": "Winner QF-M2"
+        },
+        {
+          "match": 2,
+          "player1": "Winner QF-M3",
+          "player2": "Winner QF-M4"
+        }
+      ]
+    },
+    {
+      "name": "Final",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Winner SF-M1",
+          "player2": "Winner SF-M2"
+        }
+      ]
+    }
+  ],
+  "clubs": [
+    "BadU",
+    "HPC",
+    "HämSu",
+    "KajSu",
+    "KauWi",
+    "SC Kokkola",
+    "SaSuPa",
+    "Sisu",
+    "SoMaSe",
+    "TU",
+    "TeSu"
+  ]
+}

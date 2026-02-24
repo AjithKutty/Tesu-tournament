@@ -1,0 +1,83 @@
+{
+  "tournament": "Kumpoo Tervasulan Eliitti 2025",
+  "name": "Boys' Doubles U17",
+  "code": "BD U17",
+  "category": "Junior",
+  "sheet": "BD U17-Main Draw",
+  "draw_type": "main_draw",
+  "format": "round_robin",
+  "players": [
+    {
+      "position": 1,
+      "players": [
+        {
+          "name": "Viktor Cristobal",
+          "club": "TeSu",
+          "seed": null
+        },
+        {
+          "name": "Arttu Mäkelä",
+          "club": "TeSu",
+          "seed": null
+        }
+      ],
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 2,
+      "players": [
+        {
+          "name": "Roope Häyrynen",
+          "club": "KajSu",
+          "seed": null
+        },
+        {
+          "name": "Leevi Pyykkönen",
+          "club": "KajSu",
+          "seed": null
+        }
+      ],
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 3,
+      "players": [
+        {
+          "name": "Aatu Mustaparta",
+          "club": "TeSu",
+          "seed": null
+        },
+        {
+          "name": "Roope Vähäkuopus",
+          "club": "TeSu",
+          "seed": null
+        }
+      ],
+      "seed": null,
+      "status": null
+    }
+  ],
+  "matches": [
+    {
+      "match": 1,
+      "player1": "Viktor Cristobal / Arttu Mäkelä",
+      "player2": "Roope Häyrynen / Leevi Pyykkönen"
+    },
+    {
+      "match": 2,
+      "player1": "Viktor Cristobal / Arttu Mäkelä",
+      "player2": "Aatu Mustaparta / Roope Vähäkuopus"
+    },
+    {
+      "match": 3,
+      "player1": "Roope Häyrynen / Leevi Pyykkönen",
+      "player2": "Aatu Mustaparta / Roope Vähäkuopus"
+    }
+  ],
+  "clubs": [
+    "KajSu",
+    "TeSu"
+  ]
+}

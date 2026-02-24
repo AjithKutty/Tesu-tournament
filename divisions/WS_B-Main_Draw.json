@@ -1,0 +1,54 @@
+{
+  "tournament": "Kumpoo Tervasulan Eliitti 2025",
+  "name": "Women's Singles B",
+  "code": "WS B",
+  "category": "Open B",
+  "sheet": "WS B-Main Draw",
+  "draw_type": "main_draw",
+  "format": "round_robin",
+  "players": [
+    {
+      "position": 1,
+      "name": "Emilia Mattila",
+      "club": "TeSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 2,
+      "name": "Teija Härkönen",
+      "club": "KajSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 3,
+      "name": "Jaana Kopsala",
+      "club": "TU",
+      "seed": null,
+      "status": null
+    }
+  ],
+  "matches": [
+    {
+      "match": 1,
+      "player1": "Emilia Mattila",
+      "player2": "Teija Härkönen"
+    },
+    {
+      "match": 2,
+      "player1": "Emilia Mattila",
+      "player2": "Jaana Kopsala"
+    },
+    {
+      "match": 3,
+      "player1": "Teija Härkönen",
+      "player2": "Jaana Kopsala"
+    }
+  ],
+  "clubs": [
+    "KajSu",
+    "TU",
+    "TeSu"
+  ]
+}

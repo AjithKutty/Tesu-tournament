@@ -1,0 +1,2165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kumpoo Tervasulan Eliitti 2025</title>
+<style>
+:root {
+    --primary: #0d2137;
+    --primary-light: #163a5c;
+    --accent: #00b894;
+    --accent-dark: #00997a;
+    --bg: #f0f4f8;
+    --card-bg: #ffffff;
+    --text: #2d3748;
+    --text-light: #718096;
+    --border: #e2e8f0;
+    --junior: #38a169;
+    --open: #3182ce;
+    --veterans: #dd6b20;
+    --elite: #805ad5;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .hero { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; text-align: center; padding: 3rem 1rem 2rem; }
+  .hero h1 { font-size: 2.2rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .hero .subtitle { font-size: 1.1rem; opacity: 0.85; margin-bottom: 1rem; }
+  .hero .meta { display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; font-size: 0.95rem; opacity: 0.75; }
+  .shuttlecock { font-size: 2.5rem; margin-bottom: 0.5rem; display: block; }
+  .stats-bar { display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; background: var(--card-bg); padding: 1rem; border-bottom: 1px solid var(--border); box-shadow: var(--shadow); }
+  .stat { text-align: center; }
+  .stat .num { font-size: 1.5rem; font-weight: 700; color: var(--accent-dark); }
+  .stat .label { font-size: 0.8rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.05em; }
+  .tabs-wrapper { position: sticky; top: 0; z-index: 100; background: var(--card-bg); border-bottom: 2px solid var(--border); box-shadow: var(--shadow); }
+  .tabs { display: flex; justify-content: center; gap: 0; max-width: 900px; margin: 0 auto; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab-btn { padding: 0.9rem 1.4rem; border: none; background: none; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: var(--text-light); border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+  .tab-btn:hover { color: var(--text); background: #f7fafc; }
+  .tab-btn.active { color: var(--accent-dark); border-bottom-color: var(--accent); }
+  .content { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .cat-header { margin-bottom: 1.5rem; }
+  .cat-header h2 { font-size: 1.4rem; margin-bottom: 0.2rem; }
+  .cat-header p { color: var(--text-light); font-size: 0.9rem; }
+  .division-card { background: var(--card-bg); border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 1.5rem; overflow: hidden; border: 1px solid var(--border); }
+  .division-header { padding: 1rem 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; transition: background 0.15s; }
+  .division-header:hover { background: #f7fafc; }
+  .division-header .left { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .division-header h3 { font-size: 1.05rem; font-weight: 600; }
+  .badge { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 20px; font-size: 0.7rem; font-weight: 700; color: white; text-transform: uppercase; letter-spacing: 0.04em; }
+  .badge-junior { background: var(--junior); }
+  .badge-open { background: var(--open); }
+  .badge-veterans { background: var(--veterans); }
+  .badge-elite { background: var(--elite); }
+  .format-tag { font-size: 0.78rem; color: var(--text-light); background: var(--bg); padding: 0.2rem 0.6rem; border-radius: 6px; }
+  .chevron { font-size: 1.2rem; color: var(--text-light); transition: transform 0.3s; }
+  .division-card.open .chevron { transform: rotate(180deg); }
+  .division-body { display: none; padding: 0 1.2rem 1.2rem; }
+  .division-card.open .division-body { display: block; }
+  .draw-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 0.5rem; }
+  .draw-table th { text-align: left; padding: 0.5rem 0.6rem; background: var(--bg); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-light); border-bottom: 2px solid var(--border); }
+  .draw-table td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border); }
+  .draw-table tr:last-child td { border-bottom: none; }
+  .draw-table tr:hover { background: #f7fafc; }
+  .seed { color: var(--accent-dark); font-weight: 700; font-size: 0.8rem; }
+  .club { color: var(--text-light); font-size: 0.82rem; }
+  .wdn { color: #e53e3e; font-weight: 600; font-size: 0.75rem; }
+  .sub { color: #d69e2e; font-weight: 600; font-size: 0.75rem; }
+  .group-title { font-size: 0.95rem; font-weight: 700; margin: 1rem 0 0.3rem; padding: 0.4rem 0.7rem; background: var(--primary); color: white; border-radius: 6px; display: inline-block; }
+  .group-title:first-child { margin-top: 0; }
+  .section-title { font-size: 0.95rem; font-weight: 700; margin: 1.2rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 2px solid var(--accent); color: var(--primary); }
+  .bracket { display: flex; gap: 0; overflow-x: auto; padding: 0.5rem 0; }
+  .bracket-round { min-width: 220px; flex-shrink: 0; }
+  .bracket-round-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-light); padding: 0.3rem 0.5rem; background: var(--bg); border-radius: 4px; margin-bottom: 0.4rem; text-align: center; letter-spacing: 0.05em; }
+  .bracket-match { background: var(--bg); border-radius: 6px; margin-bottom: 0.5rem; border: 1px solid var(--border); overflow: hidden; font-size: 0.8rem; }
+  .bracket-match .match-num { font-size: 0.65rem; color: var(--text-light); padding: 0.15rem 0.4rem; background: var(--border); }
+  .bracket-match .player-slot { padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .bracket-match .player-slot:last-child { border-bottom: none; }
+  .bracket-match .player-slot.bye-slot { color: var(--text-light); font-style: italic; }
+  .bracket-connector { display: flex; align-items: center; justify-content: center; min-width: 20px; color: var(--text-light); font-size: 1.2rem; flex-shrink: 0; }
+  .rr-matches { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.4rem; margin-top: 0.5rem; }
+  .rr-match { display: flex; align-items: center; gap: 0.5rem; background: var(--bg); border-radius: 6px; padding: 0.4rem 0.7rem; font-size: 0.82rem; border: 1px solid var(--border); }
+  .rr-match .vs { font-weight: 700; color: var(--accent-dark); font-size: 0.7rem; flex-shrink: 0; }
+  .rr-match .p1, .rr-match .p2 { flex: 1; }
+  .rr-match .p2 { text-align: right; }
+  .clubs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.8rem; margin-top: 1rem; }
+  .club-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 1rem; box-shadow: var(--shadow); font-size: 0.9rem; }
+  .club-card strong { color: var(--primary); }
+  .footer { text-align: center; padding: 2rem 1rem; color: var(--text-light); font-size: 0.8rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 1.5rem; }
+    .stats-bar { gap: 1rem; }
+    .tab-btn { padding: 0.7rem 0.9rem; font-size: 0.82rem; }
+    .content { padding: 1rem 0.5rem 2rem; }
+    .draw-table { font-size: 0.82rem; }
+    .draw-table th, .draw-table td { padding: 0.35rem 0.4rem; }
+    .bracket-round { min-width: 180px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+<span class="shuttlecock">&#127992;</span>
+<h1>Kumpoo Tervasulan Eliitti 2025</h1>
+<p class="subtitle">Badminton Tournament Draws</p>
+<div class="meta">
+<span>Hosted by TeSu (Tervasulka)</span>
+<span>badmintonfinland.tournamentsoftware.com</span>
+</div>
+</div>
+
+<div class="stats-bar">
+<div class="stat"><div class="num">28</div><div class="label">Divisions</div></div>
+<div class="stat"><div class="num">32</div><div class="label">Clubs</div></div>
+<div class="stat"><div class="num">210+</div><div class="label">Players</div></div>
+<div class="stat"><div class="num">6</div><div class="label">Categories</div></div>
+</div>
+
+<div class="tabs-wrapper">
+<div class="tabs">
+<button class="tab-btn active" data-tab="opena">Open A</button><button class="tab-btn" data-tab="openb">Open B</button><button class="tab-btn" data-tab="open">Open C</button><button class="tab-btn" data-tab="junior">Junior</button><button class="tab-btn" data-tab="veterans">Veterans</button><button class="tab-btn" data-tab="elite">Elite</button><button class="tab-btn" data-tab="clubs">Clubs</button>
+</div>
+</div>
+
+<div class="content">
+
+<div class="tab-panel active" id="tab-opena">
+<div class="cat-header">
+<h2>Open A Division</h2>
+<p>Men&#x27;s Singles, Men&#x27;s Doubles, Women&#x27;s Doubles, Mixed Doubles</p>
+</div>
+<div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Men&#x27;s Doubles A</h3>
+<span class="badge badge-open">Elimination Bracket</span>
+<span class="format-tag">15 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Jukka Häivälä / Heikki Roivainen <span class="seed">[1]</span></td><td class="club">HPC / HämSu</td></tr><tr><td>3</td><td>Juha Heikkinen / Henri Kangas</td><td class="club">HPC / TeSu</td></tr><tr><td>4</td><td>Mikko Luhtaniemi / Jenny Nyström <span class="wdn">WDN</span></td><td class="club">HBC / HBC</td></tr><tr><td>5</td><td>Joel Pennanen / Luka Penttinen <span class="seed">[3/4]</span></td><td class="club">ESB / HamSu</td></tr><tr><td>6</td><td>Aaro Romppainen / Elias Vuollet</td><td class="club">TeSu / SC Kokkola</td></tr><tr><td>7</td><td>Sami Gröhn / Jani Pernu</td><td class="club">TeSu / TeSu</td></tr><tr><td>8</td><td>Janne Julkunen / Antti Laitala</td><td class="club">HPC / HPC</td></tr><tr><td>9</td><td>Teppo Aho / Jesse Viitanen</td><td class="club">PuPo / PuPo</td></tr><tr><td>10</td><td>Hoang Nguyen / Aki-Petteri Pokka</td><td class="club">TeSu / TeSu</td></tr><tr><td>11</td><td>Jukka-Pekka Kivistö / Tommi Salonpää</td><td class="club">HPC / HPC</td></tr><tr><td>12</td><td>Janne Haurinen / Marko Koivusaari <span class="seed">[3/4]</span></td><td class="club">SoMaSe / TeSu</td></tr><tr><td>13</td><td>Tapio Kukkonen / Jaakko Raasakka <span class="sub">SUB</span></td><td class="club">SaSuPa / TeSu</td></tr><tr><td>14</td><td>Sami Pajunen / Tommi Ruoho</td><td class="club">ESB / ESB</td></tr><tr><td>15</td><td>Mika Pasanen / Teemu Rantala</td><td class="club">HPC / KajSu</td></tr><tr><td>16</td><td>Anton Ketola / Iiro Romppainen <span class="seed">[2]</span></td><td class="club">BadU / TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Game Draws</div>
+<div class="bracket">
+<div class="bracket-round">
+<div class="bracket-round-title">Round 1</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot">Jukka Häivälä / Heikki Roivainen</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot">Juha Heikkinen / Henri Kangas</div>
+<div class="player-slot">Mikko Luhtaniemi / Jenny Nyström</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot">Joel Pennanen / Luka Penttinen</div>
+<div class="player-slot">Aaro Romppainen / Elias Vuollet</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot">Sami Gröhn / Jani Pernu</div>
+<div class="player-slot">Janne Julkunen / Antti Laitala</div>
+</div><div class="bracket-match">
+<div class="match-num">M5</div>
+<div class="player-slot">Teppo Aho / Jesse Viitanen</div>
+<div class="player-slot">Hoang Nguyen / Aki-Petteri Pokka</div>
+</div><div class="bracket-match">
+<div class="match-num">M6</div>
+<div class="player-slot">Jukka-Pekka Kivistö / Tommi Salonpää</div>
+<div class="player-slot">Janne Haurinen / Marko Koivusaari</div>
+</div><div class="bracket-match">
+<div class="match-num">M7</div>
+<div class="player-slot">Tapio Kukkonen / Jaakko Raasakka</div>
+<div class="player-slot">Sami Pajunen / Tommi Ruoho</div>
+</div><div class="bracket-match">
+<div class="match-num">M8</div>
+<div class="player-slot">Mika Pasanen / Teemu Rantala</div>
+<div class="player-slot">Anton Ketola / Iiro Romppainen</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Quarter-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner R1-M1</div>
+<div class="player-slot bye-slot">Winner R1-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner R1-M3</div>
+<div class="player-slot bye-slot">Winner R1-M4</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot bye-slot">Winner R1-M5</div>
+<div class="player-slot bye-slot">Winner R1-M6</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot bye-slot">Winner R1-M7</div>
+<div class="player-slot bye-slot">Winner R1-M8</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Semi-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner QF-M1</div>
+<div class="player-slot bye-slot">Winner QF-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner QF-M3</div>
+<div class="player-slot bye-slot">Winner QF-M4</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner SF-M1</div>
+<div class="player-slot bye-slot">Winner SF-M2</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Men&#x27;s Singles A</h3>
+<span class="badge badge-open">Elimination Bracket</span>
+<span class="format-tag">12 players</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Luka Penttinen <span class="seed">[1]</span></td><td class="club">HamSu</td></tr><tr><td>3</td><td>Janne Haurinen</td><td class="club">SoMaSe</td></tr><tr><td>4</td><td>Eetu Hanhineva</td><td class="club">HPC</td></tr><tr><td>5</td><td>Elias Vuollet <span class="seed">[3/4]</span></td><td class="club">SC Kokkola</td></tr><tr><td>7</td><td>Tommi Salonpää</td><td class="club">HPC</td></tr><tr><td>8</td><td>Iiro Romppainen</td><td class="club">TeSu</td></tr><tr><td>9</td><td>Miikka Pylväs</td><td class="club">YlTe</td></tr><tr><td>10</td><td>Ilari Leskelä</td><td class="club">HPC</td></tr><tr><td>12</td><td>Marko Koivusaari <span class="seed">[3/4]</span></td><td class="club">TeSu</td></tr><tr><td>13</td><td>Heikki Roivainen</td><td class="club">HämSu</td></tr><tr><td>14</td><td>Joel Pennanen</td><td class="club">ESB</td></tr><tr><td>16</td><td>Anton Ketola <span class="seed">[2]</span></td><td class="club">BadU</td></tr>
+</tbody>
+</table>
+<div class="section-title">Game Draws</div>
+<div class="bracket">
+<div class="bracket-round">
+<div class="bracket-round-title">Round 1</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot">Luka Penttinen</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot">Janne Haurinen</div>
+<div class="player-slot">Eetu Hanhineva</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot">Elias Vuollet</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot">Tommi Salonpää</div>
+<div class="player-slot">Iiro Romppainen</div>
+</div><div class="bracket-match">
+<div class="match-num">M5</div>
+<div class="player-slot">Miikka Pylväs</div>
+<div class="player-slot">Ilari Leskelä</div>
+</div><div class="bracket-match">
+<div class="match-num">M6</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Marko Koivusaari</div>
+</div><div class="bracket-match">
+<div class="match-num">M7</div>
+<div class="player-slot">Heikki Roivainen</div>
+<div class="player-slot">Joel Pennanen</div>
+</div><div class="bracket-match">
+<div class="match-num">M8</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Anton Ketola</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Quarter-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner R1-M1</div>
+<div class="player-slot bye-slot">Winner R1-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner R1-M3</div>
+<div class="player-slot bye-slot">Winner R1-M4</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot bye-slot">Winner R1-M5</div>
+<div class="player-slot bye-slot">Winner R1-M6</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot bye-slot">Winner R1-M7</div>
+<div class="player-slot bye-slot">Winner R1-M8</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Semi-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner QF-M1</div>
+<div class="player-slot bye-slot">Winner QF-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner QF-M3</div>
+<div class="player-slot bye-slot">Winner QF-M4</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner SF-M1</div>
+<div class="player-slot bye-slot">Winner SF-M2</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Women&#x27;s Doubles A</h3>
+<span class="badge badge-open">Round Robin</span>
+<span class="format-tag">3 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Mira Mustonen / Sonja Perälä <span class="sub">SUB</span></td><td class="club">KajSu / RVS</td></tr><tr><td>2</td><td>Raisa Kauppi / Emilia Mattila</td><td class="club">Sisu / TeSu</td></tr><tr><td>3</td><td>Henna Hukari / Eerika Laakso</td><td class="club">TU / TU</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Mira Mustonen / Sonja Perälä</span>
+<span class="vs">VS</span>
+<span class="p2">Raisa Kauppi / Emilia Mattila</span>
+</div><div class="rr-match">
+<span class="p1">Mira Mustonen / Sonja Perälä</span>
+<span class="vs">VS</span>
+<span class="p2">Henna Hukari / Eerika Laakso</span>
+</div><div class="rr-match">
+<span class="p1">Raisa Kauppi / Emilia Mattila</span>
+<span class="vs">VS</span>
+<span class="p2">Henna Hukari / Eerika Laakso</span>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Mixed Doubles A</h3>
+<span class="badge badge-open">Elimination Bracket</span>
+<span class="format-tag">7 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Iiro Romppainen / Emilia Mattila <span class="seed">[1]</span></td><td class="club">TeSu / TeSu</td></tr><tr><td>3</td><td>Tapio Kukkonen / Jutta Risikko <span class="sub">SUB</span></td><td class="club">SaSuPa / KauWi</td></tr><tr><td>4</td><td>Heikki Roivainen / Mira Kangasniemi</td><td class="club">HämSu / KauWi</td></tr><tr><td>5</td><td>Anton Ketola / Raisa Kauppi</td><td class="club">BadU / Sisu</td></tr><tr><td>6</td><td>Juha Heikkinen / Mira Mustonen</td><td class="club">HPC / KajSu</td></tr><tr><td>7</td><td>Janne Haurinen / Teija Härkönen</td><td class="club">SoMaSe / KajSu</td></tr><tr><td>8</td><td>Elias Vuollet / Eerika Laakso <span class="seed">[2]</span></td><td class="club">SC Kokkola / TU</td></tr>
+</tbody>
+</table>
+<div class="section-title">Game Draws</div>
+<div class="bracket">
+<div class="bracket-round">
+<div class="bracket-round-title">Quarter-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot">Iiro Romppainen / Emilia Mattila</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot">Tapio Kukkonen / Jutta Risikko</div>
+<div class="player-slot">Heikki Roivainen / Mira Kangasniemi</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot">Anton Ketola / Raisa Kauppi</div>
+<div class="player-slot">Juha Heikkinen / Mira Mustonen</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot">Janne Haurinen / Teija Härkönen</div>
+<div class="player-slot">Elias Vuollet / Eerika Laakso</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Semi-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner QF-M1</div>
+<div class="player-slot bye-slot">Winner QF-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner QF-M3</div>
+<div class="player-slot bye-slot">Winner QF-M4</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner SF-M1</div>
+<div class="player-slot bye-slot">Winner SF-M2</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="tab-panel" id="tab-openb">
+<div class="cat-header">
+<h2>Open B Division</h2>
+<p>Men&#x27;s Singles, Women&#x27;s Singles, Men&#x27;s Doubles, Mixed Doubles</p>
+</div>
+<div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Men&#x27;s Doubles B</h3>
+<span class="badge badge-open">Elimination Bracket</span>
+<span class="format-tag">19 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Jaakko Hakala / Miikka Pylväs <span class="seed">[1]</span></td><td class="club">YlTe / YlTe</td></tr><tr><td>3</td><td>Teemu Karvonen / Timo Surakka <span class="sub">SUB</span></td><td class="club">KäKa / KäKa</td></tr><tr><td>5</td><td>Hoang Nguyen / Harri Suhonen <span class="seed">[5/8]</span></td><td class="club">TeSu / TeSu</td></tr><tr><td>7</td><td>Tapani Kilpi / Marko Mäkelä <span class="sub">SUB</span></td><td class="club">TeSu / HalSu</td></tr><tr><td>9</td><td>Mika Pasanen / Aleksi Petäjäkangas <span class="seed">[3/4]</span></td><td class="club">HPC / TeSu</td></tr><tr><td>11</td><td>Heikki Huotari / Matias Laakko</td><td class="club">MaSu / TeSu</td></tr><tr><td>13</td><td>Axel Lejon Öhrling / Oscar Syk <span class="seed">[5/8]</span></td><td class="club">Luleå BMK / Luleå BMK</td></tr><tr><td>15</td><td>Harri Huttula / Kalle Kouri</td><td class="club">BMK Hoppet Haparanda / BMK Hoppet Haparanda</td></tr><tr><td>16</td><td>Olli Komulainen / Janne Raasakka</td><td class="club">TeSu / TeSu</td></tr><tr><td>17</td><td>Walter Ekstrand / Niklas Hukari</td><td class="club">JeBa / TU</td></tr><tr><td>18</td><td>Hampus Hansson / Milo Stridsman</td><td class="club">Luleå BMK / Luleå BMK</td></tr><tr><td>20</td><td>Jenni Lahti / Nelly Määttä <span class="seed">[5/8]</span></td><td class="club">TeSu / TeSu</td></tr><tr><td>22</td><td>Bong Kosol / Teemu Rantala</td><td class="club">SC Kokkola / KajSu</td></tr><tr><td>24</td><td>Teppo Aho / Jesse Viitanen <span class="seed">[3/4]</span></td><td class="club">PuPo / PuPo</td></tr><tr><td>25</td><td>Jukka-Pekka Kivistö / Matti Peitso</td><td class="club">HPC / HPC</td></tr><tr><td>26</td><td>Janne Heikkilä / Pragnesh Prajapati</td><td class="club">YlTe / TeSu</td></tr><tr><td>28</td><td>Sami Gröhn / Jarkko Seppä <span class="seed">[5/8]</span></td><td class="club">TeSu / HPC</td></tr><tr><td>30</td><td>Tommi Koskela / Narasimhulu Thoti</td><td class="club">TeSu / TeSu</td></tr><tr><td>32</td><td>Pihla Mäkelä / Emilia Ojala <span class="seed">[2]</span></td><td class="club">LaSuPa / Sulkaset</td></tr>
+</tbody>
+</table>
+<div class="section-title">Game Draws</div>
+<div class="bracket">
+<div class="bracket-round">
+<div class="bracket-round-title">Round 1</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot">Jaakko Hakala / Miikka Pylväs</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot">Teemu Karvonen / Timo Surakka</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot">Hoang Nguyen / Harri Suhonen</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot">Tapani Kilpi / Marko Mäkelä</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M5</div>
+<div class="player-slot">Mika Pasanen / Aleksi Petäjäkangas</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M6</div>
+<div class="player-slot">Heikki Huotari / Matias Laakko</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M7</div>
+<div class="player-slot">Axel Lejon Öhrling / Oscar Syk</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M8</div>
+<div class="player-slot">Harri Huttula / Kalle Kouri</div>
+<div class="player-slot">Olli Komulainen / Janne Raasakka</div>
+</div><div class="bracket-match">
+<div class="match-num">M9</div>
+<div class="player-slot">Walter Ekstrand / Niklas Hukari</div>
+<div class="player-slot">Hampus Hansson / Milo Stridsman</div>
+</div><div class="bracket-match">
+<div class="match-num">M10</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Jenni Lahti / Nelly Määttä</div>
+</div><div class="bracket-match">
+<div class="match-num">M11</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Bong Kosol / Teemu Rantala</div>
+</div><div class="bracket-match">
+<div class="match-num">M12</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Teppo Aho / Jesse Viitanen</div>
+</div><div class="bracket-match">
+<div class="match-num">M13</div>
+<div class="player-slot">Jukka-Pekka Kivistö / Matti Peitso</div>
+<div class="player-slot">Janne Heikkilä / Pragnesh Prajapati</div>
+</div><div class="bracket-match">
+<div class="match-num">M14</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Sami Gröhn / Jarkko Seppä</div>
+</div><div class="bracket-match">
+<div class="match-num">M15</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Tommi Koskela / Narasimhulu Thoti</div>
+</div><div class="bracket-match">
+<div class="match-num">M16</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Pihla Mäkelä / Emilia Ojala</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Round 2</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner R1-M1</div>
+<div class="player-slot bye-slot">Winner R1-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner R1-M3</div>
+<div class="player-slot bye-slot">Winner R1-M4</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot bye-slot">Winner R1-M5</div>
+<div class="player-slot bye-slot">Winner R1-M6</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot bye-slot">Winner R1-M7</div>
+<div class="player-slot bye-slot">Winner R1-M8</div>
+</div><div class="bracket-match">
+<div class="match-num">M5</div>
+<div class="player-slot bye-slot">Winner R1-M9</div>
+<div class="player-slot bye-slot">Winner R1-M10</div>
+</div><div class="bracket-match">
+<div class="match-num">M6</div>
+<div class="player-slot bye-slot">Winner R1-M11</div>
+<div class="player-slot bye-slot">Winner R1-M12</div>
+</div><div class="bracket-match">
+<div class="match-num">M7</div>
+<div class="player-slot bye-slot">Winner R1-M13</div>
+<div class="player-slot bye-slot">Winner R1-M14</div>
+</div><div class="bracket-match">
+<div class="match-num">M8</div>
+<div class="player-slot bye-slot">Winner R1-M15</div>
+<div class="player-slot bye-slot">Winner R1-M16</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Quarter-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner R2-M1</div>
+<div class="player-slot bye-slot">Winner R2-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner R2-M3</div>
+<div class="player-slot bye-slot">Winner R2-M4</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot bye-slot">Winner R2-M5</div>
+<div class="player-slot bye-slot">Winner R2-M6</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot bye-slot">Winner R2-M7</div>
+<div class="player-slot bye-slot">Winner R2-M8</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Semi-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner QF-M1</div>
+<div class="player-slot bye-slot">Winner QF-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner QF-M3</div>
+<div class="player-slot bye-slot">Winner QF-M4</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner SF-M1</div>
+<div class="player-slot bye-slot">Winner SF-M2</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Men&#x27;s Singles B</h3>
+<span class="badge badge-open">Elimination Bracket</span>
+<span class="format-tag">17 players</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Jukka Häivälä <span class="seed">[1]</span></td><td class="club">HPC</td></tr><tr><td>3</td><td>Joonas Raasakka <span class="wdn">WDN</span></td><td class="club">TeSu</td></tr><tr><td>5</td><td>Axel Lejon Öhrling <span class="seed">[5/8]</span></td><td class="club">Luleå BMK</td></tr><tr><td>7</td><td>Teemu Rantala</td><td class="club">KajSu</td></tr><tr><td>9</td><td>Henri Kangas <span class="seed">[3/4]</span></td><td class="club">TeSu</td></tr><tr><td>11</td><td>Walter Ekstrand</td><td class="club">JeBa</td></tr><tr><td>13</td><td>Milo Stridsman <span class="seed">[5/8]</span></td><td class="club">Luleå BMK</td></tr><tr><td>15</td><td>Aaro Romppainen</td><td class="club">TeSu</td></tr><tr><td>17</td><td>Oscar Syk</td><td class="club">Luleå BMK</td></tr><tr><td>18</td><td>Mika Pasanen</td><td class="club">HPC</td></tr><tr><td>20</td><td>Pauli Alapukki <span class="seed">[5/8]</span></td><td class="club">TeSu</td></tr><tr><td>22</td><td>Jaakko Raasakka</td><td class="club">TeSu</td></tr><tr><td>24</td><td>Niklas Hukari <span class="seed">[3/4]</span></td><td class="club">TU</td></tr><tr><td>26</td><td>Matti Peitso</td><td class="club">HPC</td></tr><tr><td>28</td><td>Hampus Hansson <span class="seed">[5/8]</span></td><td class="club">Luleå BMK</td></tr><tr><td>30</td><td>David Cristobal Hornillos</td><td class="club">TeSu</td></tr><tr><td>32</td><td>Jaakko Hakala <span class="seed">[2]</span></td><td class="club">YlTe</td></tr>
+</tbody>
+</table>
+<div class="section-title">Game Draws</div>
+<div class="bracket">
+<div class="bracket-round">
+<div class="bracket-round-title">Round 1</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot">Jukka Häivälä</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot">Joonas Raasakka</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot">Axel Lejon Öhrling</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot">Teemu Rantala</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M5</div>
+<div class="player-slot">Henri Kangas</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M6</div>
+<div class="player-slot">Walter Ekstrand</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M7</div>
+<div class="player-slot">Milo Stridsman</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M8</div>
+<div class="player-slot">Aaro Romppainen</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M9</div>
+<div class="player-slot">Oscar Syk</div>
+<div class="player-slot">Mika Pasanen</div>
+</div><div class="bracket-match">
+<div class="match-num">M10</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Pauli Alapukki</div>
+</div><div class="bracket-match">
+<div class="match-num">M11</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Jaakko Raasakka</div>
+</div><div class="bracket-match">
+<div class="match-num">M12</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Niklas Hukari</div>
+</div><div class="bracket-match">
+<div class="match-num">M13</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Matti Peitso</div>
+</div><div class="bracket-match">
+<div class="match-num">M14</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Hampus Hansson</div>
+</div><div class="bracket-match">
+<div class="match-num">M15</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">David Cristobal Hornillos</div>
+</div><div class="bracket-match">
+<div class="match-num">M16</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Jaakko Hakala</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Round 2</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner R1-M1</div>
+<div class="player-slot bye-slot">Winner R1-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner R1-M3</div>
+<div class="player-slot bye-slot">Winner R1-M4</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot bye-slot">Winner R1-M5</div>
+<div class="player-slot bye-slot">Winner R1-M6</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot bye-slot">Winner R1-M7</div>
+<div class="player-slot bye-slot">Winner R1-M8</div>
+</div><div class="bracket-match">
+<div class="match-num">M5</div>
+<div class="player-slot bye-slot">Winner R1-M9</div>
+<div class="player-slot bye-slot">Winner R1-M10</div>
+</div><div class="bracket-match">
+<div class="match-num">M6</div>
+<div class="player-slot bye-slot">Winner R1-M11</div>
+<div class="player-slot bye-slot">Winner R1-M12</div>
+</div><div class="bracket-match">
+<div class="match-num">M7</div>
+<div class="player-slot bye-slot">Winner R1-M13</div>
+<div class="player-slot bye-slot">Winner R1-M14</div>
+</div><div class="bracket-match">
+<div class="match-num">M8</div>
+<div class="player-slot bye-slot">Winner R1-M15</div>
+<div class="player-slot bye-slot">Winner R1-M16</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Quarter-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner R2-M1</div>
+<div class="player-slot bye-slot">Winner R2-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner R2-M3</div>
+<div class="player-slot bye-slot">Winner R2-M4</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot bye-slot">Winner R2-M5</div>
+<div class="player-slot bye-slot">Winner R2-M6</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot bye-slot">Winner R2-M7</div>
+<div class="player-slot bye-slot">Winner R2-M8</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Semi-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner QF-M1</div>
+<div class="player-slot bye-slot">Winner QF-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner QF-M3</div>
+<div class="player-slot bye-slot">Winner QF-M4</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner SF-M1</div>
+<div class="player-slot bye-slot">Winner SF-M2</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Women&#x27;s Singles B</h3>
+<span class="badge badge-open">Round Robin</span>
+<span class="format-tag">3 players</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Emilia Mattila</td><td class="club">TeSu</td></tr><tr><td>2</td><td>Teija Härkönen</td><td class="club">KajSu</td></tr><tr><td>3</td><td>Jaana Kopsala</td><td class="club">TU</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Emilia Mattila</span>
+<span class="vs">VS</span>
+<span class="p2">Teija Härkönen</span>
+</div><div class="rr-match">
+<span class="p1">Emilia Mattila</span>
+<span class="vs">VS</span>
+<span class="p2">Jaana Kopsala</span>
+</div><div class="rr-match">
+<span class="p1">Teija Härkönen</span>
+<span class="vs">VS</span>
+<span class="p2">Jaana Kopsala</span>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Mixed Doubles B</h3>
+<span class="badge badge-open">Elimination Bracket</span>
+<span class="format-tag">7 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Aaro Romppainen / Henna Hukari <span class="seed">[1]</span></td><td class="club">TeSu / TU</td></tr><tr><td>3</td><td>Harri Lukkarila / Sonja Perälä</td><td class="club">RVS / RVS</td></tr><tr><td>4</td><td>Henri Kangas / Jutta Risikko</td><td class="club">TeSu / KauWi</td></tr><tr><td>5</td><td>Jaakko Hakala / Minja Hakala <span class="wdn">WDN</span></td><td class="club">YlTe / YlTe</td></tr><tr><td>6</td><td>Jukka-Pekka Kivistö / Raisa Kauppi</td><td class="club">HPC / Sisu</td></tr><tr><td>7</td><td>Niklas Hukari / Jaana Kopsala</td><td class="club">TU / TU</td></tr><tr><td>8</td><td>Marko Mäkelä / Tuulikki Mäkelä <span class="seed">[2]</span></td><td class="club">HalSu / HalSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Game Draws</div>
+<div class="bracket">
+<div class="bracket-round">
+<div class="bracket-round-title">Quarter-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot">Aaro Romppainen / Henna Hukari</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot">Harri Lukkarila / Sonja Perälä</div>
+<div class="player-slot">Henri Kangas / Jutta Risikko</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot">Jaakko Hakala / Minja Hakala</div>
+<div class="player-slot">Jukka-Pekka Kivistö / Raisa Kauppi</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot">Niklas Hukari / Jaana Kopsala</div>
+<div class="player-slot">Marko Mäkelä / Tuulikki Mäkelä</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Semi-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner QF-M1</div>
+<div class="player-slot bye-slot">Winner QF-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner QF-M3</div>
+<div class="player-slot bye-slot">Winner QF-M4</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner SF-M1</div>
+<div class="player-slot bye-slot">Winner SF-M2</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="tab-panel" id="tab-open">
+<div class="cat-header">
+<h2>Open C Division</h2>
+<p>Men&#x27;s Singles, Women&#x27;s Singles, Men&#x27;s Doubles, Women&#x27;s Doubles, Mixed Doubles</p>
+</div>
+<div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Men&#x27;s Doubles C</h3>
+<span class="badge badge-open">Elimination Bracket</span>
+<span class="format-tag">14 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Henna Hukari / Eerika Laakso <span class="seed">[1]</span></td><td class="club">TU / TU</td></tr><tr><td>3</td><td>Ari Fingerroos / Pete Pietilä</td><td class="club">RVS / HPC</td></tr><tr><td>4</td><td>Md Mozammel Hossain / Le Nguyen</td><td class="club">TeSu / TeSu</td></tr><tr><td>5</td><td>Joonas Koskinen / Harri Lukkarila <span class="seed">[3/4]</span></td><td class="club">RVS / RVS</td></tr><tr><td>6</td><td>Harri Huttula / Kalle Kouri</td><td class="club">BMK Hoppet Haparanda / BMK Hoppet Haparanda</td></tr><tr><td>7</td><td>David Cristobal Hornillos / Ajith Kutty</td><td class="club">TeSu / TeSu</td></tr><tr><td>8</td><td>Jaana Kopsala / Eemeli Tolonen</td><td class="club">TU / KajSu</td></tr><tr><td>9</td><td>Teemu Karvonen / Timo Surakka</td><td class="club">KäKa / KäKa</td></tr><tr><td>10</td><td>Pauli Alapukki / Anssi Isopahkala <span class="wdn">WDN</span></td><td class="club">TeSu / HPC</td></tr><tr><td>11</td><td>Pragnesh Prajapati / Narasimhulu Thoti</td><td class="club">TeSu / TeSu</td></tr><tr><td>12</td><td>Janne Heikkilä / Olli Komulainen <span class="seed">[3/4]</span></td><td class="club">YlTe / TeSu</td></tr><tr><td>13</td><td>Heikki Huotari / Matias Laakko</td><td class="club">MaSu / TeSu</td></tr><tr><td>14</td><td>Sanath K S / Bijith Kokkanchalil</td><td class="club">TeSu / TeSu</td></tr><tr><td>16</td><td>Bong Kosol / Miika Surakka <span class="seed">[2]</span></td><td class="club">SC Kokkola / KäKa</td></tr>
+</tbody>
+</table>
+<div class="section-title">Game Draws</div>
+<div class="bracket">
+<div class="bracket-round">
+<div class="bracket-round-title">Round 1</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot">Henna Hukari / Eerika Laakso</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot">Ari Fingerroos / Pete Pietilä</div>
+<div class="player-slot">Md Mozammel Hossain / Le Nguyen</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot">Joonas Koskinen / Harri Lukkarila</div>
+<div class="player-slot">Harri Huttula / Kalle Kouri</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot">David Cristobal Hornillos / Ajith Kutty</div>
+<div class="player-slot">Jaana Kopsala / Eemeli Tolonen</div>
+</div><div class="bracket-match">
+<div class="match-num">M5</div>
+<div class="player-slot">Teemu Karvonen / Timo Surakka</div>
+<div class="player-slot">Pauli Alapukki / Anssi Isopahkala</div>
+</div><div class="bracket-match">
+<div class="match-num">M6</div>
+<div class="player-slot">Pragnesh Prajapati / Narasimhulu Thoti</div>
+<div class="player-slot">Janne Heikkilä / Olli Komulainen</div>
+</div><div class="bracket-match">
+<div class="match-num">M7</div>
+<div class="player-slot">Heikki Huotari / Matias Laakko</div>
+<div class="player-slot">Sanath K S / Bijith Kokkanchalil</div>
+</div><div class="bracket-match">
+<div class="match-num">M8</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Bong Kosol / Miika Surakka</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Quarter-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner R1-M1</div>
+<div class="player-slot bye-slot">Winner R1-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner R1-M3</div>
+<div class="player-slot bye-slot">Winner R1-M4</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot bye-slot">Winner R1-M5</div>
+<div class="player-slot bye-slot">Winner R1-M6</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot bye-slot">Winner R1-M7</div>
+<div class="player-slot bye-slot">Winner R1-M8</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Semi-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner QF-M1</div>
+<div class="player-slot bye-slot">Winner QF-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner QF-M3</div>
+<div class="player-slot bye-slot">Winner QF-M4</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner SF-M1</div>
+<div class="player-slot bye-slot">Winner SF-M2</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Men&#x27;s Singles C</h3>
+<span class="badge badge-open">Elimination Bracket</span>
+<span class="format-tag">25 players</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Anssi Isopahkala <span class="seed">[1]</span> <span class="wdn">WDN</span></td><td class="club">HPC</td></tr><tr><td>3</td><td>Timo Surakka</td><td class="club">KäKa</td></tr><tr><td>4</td><td>Abin Babu</td><td class="club">TeSu</td></tr><tr><td>5</td><td>Markus Heikkinen <span class="seed">[5/8]</span></td><td class="club">TeSu</td></tr><tr><td>7</td><td>Leevi Pyykkönen</td><td class="club">KajSu</td></tr><tr><td>8</td><td>Ajith Kutty</td><td class="club">TeSu</td></tr><tr><td>9</td><td>Tommi Koskela <span class="seed">[3/4]</span></td><td class="club">TeSu</td></tr><tr><td>11</td><td>Mikko Luhtaniemi <span class="wdn">WDN</span></td><td class="club">HBC</td></tr><tr><td>12</td><td>Matias Laakko</td><td class="club">TeSu</td></tr><tr><td>13</td><td>Bong Kosol <span class="seed">[5/8]</span></td><td class="club">SC Kokkola</td></tr><tr><td>15</td><td>Tapani Kilpi</td><td class="club">TeSu</td></tr><tr><td>16</td><td>Teemu Karvonen</td><td class="club">KäKa</td></tr><tr><td>17</td><td>Antti Ropponen</td><td class="club">TeSu</td></tr><tr><td>18</td><td>Jaakob Vuollet</td><td class="club">SC Kokkola</td></tr><tr><td>19</td><td>Jesse Viitanen</td><td class="club">PuPo</td></tr><tr><td>20</td><td>Jenni Lahti <span class="seed">[5/8]</span></td><td class="club">TeSu</td></tr><tr><td>21</td><td>Roope Häyrynen</td><td class="club">KajSu</td></tr><tr><td>22</td><td>Kare Hämeenaho</td><td class="club">TeSu</td></tr><tr><td>24</td><td>Casimir Aalto <span class="seed">[3/4]</span></td><td class="club">MaSu</td></tr><tr><td>25</td><td>Lars Forchini</td><td class="club">TeSu</td></tr><tr><td>26</td><td>Miika Surakka</td><td class="club">KäKa</td></tr><tr><td>28</td><td>Juhana Paaso <span class="sub">SUB</span></td><td class="club">TeSu</td></tr><tr><td>29</td><td>Eemeli Tolonen</td><td class="club">KajSu</td></tr><tr><td>30</td><td>Gyrass Ksatria</td><td class="club"></td></tr><tr><td>32</td><td>Aleksi Petäjäkangas <span class="seed">[2]</span></td><td class="club">TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Game Draws</div>
+<div class="bracket">
+<div class="bracket-round">
+<div class="bracket-round-title">Round 1</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot">Anssi Isopahkala</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot">Timo Surakka</div>
+<div class="player-slot">Abin Babu</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot">Markus Heikkinen</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot">Leevi Pyykkönen</div>
+<div class="player-slot">Ajith Kutty</div>
+</div><div class="bracket-match">
+<div class="match-num">M5</div>
+<div class="player-slot">Tommi Koskela</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M6</div>
+<div class="player-slot">Mikko Luhtaniemi</div>
+<div class="player-slot">Matias Laakko</div>
+</div><div class="bracket-match">
+<div class="match-num">M7</div>
+<div class="player-slot">Bong Kosol</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M8</div>
+<div class="player-slot">Tapani Kilpi</div>
+<div class="player-slot">Teemu Karvonen</div>
+</div><div class="bracket-match">
+<div class="match-num">M9</div>
+<div class="player-slot">Antti Ropponen</div>
+<div class="player-slot">Jaakob Vuollet</div>
+</div><div class="bracket-match">
+<div class="match-num">M10</div>
+<div class="player-slot">Jesse Viitanen</div>
+<div class="player-slot">Jenni Lahti</div>
+</div><div class="bracket-match">
+<div class="match-num">M11</div>
+<div class="player-slot">Roope Häyrynen</div>
+<div class="player-slot">Kare Hämeenaho</div>
+</div><div class="bracket-match">
+<div class="match-num">M12</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Casimir Aalto</div>
+</div><div class="bracket-match">
+<div class="match-num">M13</div>
+<div class="player-slot">Lars Forchini</div>
+<div class="player-slot">Miika Surakka</div>
+</div><div class="bracket-match">
+<div class="match-num">M14</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Juhana Paaso</div>
+</div><div class="bracket-match">
+<div class="match-num">M15</div>
+<div class="player-slot">Eemeli Tolonen</div>
+<div class="player-slot">Gyrass Ksatria</div>
+</div><div class="bracket-match">
+<div class="match-num">M16</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Aleksi Petäjäkangas</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Round 2</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner R1-M1</div>
+<div class="player-slot bye-slot">Winner R1-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner R1-M3</div>
+<div class="player-slot bye-slot">Winner R1-M4</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot bye-slot">Winner R1-M5</div>
+<div class="player-slot bye-slot">Winner R1-M6</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot bye-slot">Winner R1-M7</div>
+<div class="player-slot bye-slot">Winner R1-M8</div>
+</div><div class="bracket-match">
+<div class="match-num">M5</div>
+<div class="player-slot bye-slot">Winner R1-M9</div>
+<div class="player-slot bye-slot">Winner R1-M10</div>
+</div><div class="bracket-match">
+<div class="match-num">M6</div>
+<div class="player-slot bye-slot">Winner R1-M11</div>
+<div class="player-slot bye-slot">Winner R1-M12</div>
+</div><div class="bracket-match">
+<div class="match-num">M7</div>
+<div class="player-slot bye-slot">Winner R1-M13</div>
+<div class="player-slot bye-slot">Winner R1-M14</div>
+</div><div class="bracket-match">
+<div class="match-num">M8</div>
+<div class="player-slot bye-slot">Winner R1-M15</div>
+<div class="player-slot bye-slot">Winner R1-M16</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Quarter-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner R2-M1</div>
+<div class="player-slot bye-slot">Winner R2-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner R2-M3</div>
+<div class="player-slot bye-slot">Winner R2-M4</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot bye-slot">Winner R2-M5</div>
+<div class="player-slot bye-slot">Winner R2-M6</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot bye-slot">Winner R2-M7</div>
+<div class="player-slot bye-slot">Winner R2-M8</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Semi-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner QF-M1</div>
+<div class="player-slot bye-slot">Winner QF-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner QF-M3</div>
+<div class="player-slot bye-slot">Winner QF-M4</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner SF-M1</div>
+<div class="player-slot bye-slot">Winner SF-M2</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Women&#x27;s Doubles C</h3>
+<span class="badge badge-open">Round Robin</span>
+<span class="format-tag">3 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Eeva-Liisa Kaikkonen / Parisa Rezaeei</td><td class="club">TeSu / TeSu</td></tr><tr><td>2</td><td>Mira Kangasniemi / Jutta Risikko</td><td class="club">KauWi / KauWi</td></tr><tr><td>3</td><td>Henna Salonpää / Raija Tuomela</td><td class="club">RVS / JuPy</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Eeva-Liisa Kaikkonen / Parisa Rezaeei</span>
+<span class="vs">VS</span>
+<span class="p2">Mira Kangasniemi / Jutta Risikko</span>
+</div><div class="rr-match">
+<span class="p1">Eeva-Liisa Kaikkonen / Parisa Rezaeei</span>
+<span class="vs">VS</span>
+<span class="p2">Henna Salonpää / Raija Tuomela</span>
+</div><div class="rr-match">
+<span class="p1">Mira Kangasniemi / Jutta Risikko</span>
+<span class="vs">VS</span>
+<span class="p2">Henna Salonpää / Raija Tuomela</span>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Women&#x27;s Singles C</h3>
+<span class="badge badge-open">Round Robin</span>
+<span class="format-tag">4 players</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Minja Hakala <span class="seed">[1]</span> <span class="wdn">WDN</span></td><td class="club">YlTe</td></tr><tr><td>2</td><td>Tiia Laurila <span class="seed">[2]</span></td><td class="club">HaHe</td></tr><tr><td>3</td><td>Mira Kangasniemi</td><td class="club">KauWi</td></tr><tr><td>4</td><td>Eeva-Liisa Kaikkonen</td><td class="club">TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Minja Hakala</span>
+<span class="vs">VS</span>
+<span class="p2">Tiia Laurila</span>
+</div><div class="rr-match">
+<span class="p1">Minja Hakala</span>
+<span class="vs">VS</span>
+<span class="p2">Mira Kangasniemi</span>
+</div><div class="rr-match">
+<span class="p1">Minja Hakala</span>
+<span class="vs">VS</span>
+<span class="p2">Eeva-Liisa Kaikkonen</span>
+</div><div class="rr-match">
+<span class="p1">Tiia Laurila</span>
+<span class="vs">VS</span>
+<span class="p2">Mira Kangasniemi</span>
+</div><div class="rr-match">
+<span class="p1">Tiia Laurila</span>
+<span class="vs">VS</span>
+<span class="p2">Eeva-Liisa Kaikkonen</span>
+</div><div class="rr-match">
+<span class="p1">Mira Kangasniemi</span>
+<span class="vs">VS</span>
+<span class="p2">Eeva-Liisa Kaikkonen</span>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Mixed Doubles C</h3>
+<span class="badge badge-open">Elimination Bracket</span>
+<span class="format-tag">5 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Jukka Penttinen / Raija Tuomela <span class="seed">[1]</span></td><td class="club">LoTe / JuPy</td></tr><tr><td>3</td><td>Le Nguyen / Parisa Rezaeei</td><td class="club">TeSu / TeSu</td></tr><tr><td>5</td><td>Kare Hämeenaho / Eeva-Liisa Kaikkonen</td><td class="club">TeSu / TeSu</td></tr><tr><td>6</td><td>Kari Laurila / Tiia Laurila</td><td class="club">HaHe / HaHe</td></tr><tr><td>8</td><td>Sami Hätälä / Xiaoyan Zhou <span class="seed">[2]</span></td><td class="club">TeSu / TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Game Draws</div>
+<div class="bracket">
+<div class="bracket-round">
+<div class="bracket-round-title">Quarter-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot">Jukka Penttinen / Raija Tuomela</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot">Le Nguyen / Parisa Rezaeei</div>
+<div class="player-slot bye-slot">Bye</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot">Kare Hämeenaho / Eeva-Liisa Kaikkonen</div>
+<div class="player-slot">Kari Laurila / Tiia Laurila</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot bye-slot">Bye</div>
+<div class="player-slot">Sami Hätälä / Xiaoyan Zhou</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Semi-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner QF-M1</div>
+<div class="player-slot bye-slot">Winner QF-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner QF-M3</div>
+<div class="player-slot bye-slot">Winner QF-M4</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner SF-M1</div>
+<div class="player-slot bye-slot">Winner SF-M2</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="tab-panel" id="tab-junior">
+<div class="cat-header">
+<h2>Junior Division</h2>
+<p>Boys&#x27; Singles &amp; Doubles — U11, U13, U15, U17</p>
+</div>
+<div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Boys&#x27; Doubles U13</h3>
+<span class="badge badge-junior">Round Robin</span>
+<span class="format-tag">3 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Marouane Arifi / Swaraj Sabat</td><td class="club">TeSu / TeSu</td></tr><tr><td>2</td><td>Somnas Dasanayake / Senuka Weeraddana</td><td class="club">TeSu / TeSu</td></tr><tr><td>3</td><td>Jonathan Jinu John / Joose Orpana</td><td class="club">TeSu / YlTe</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Marouane Arifi / Swaraj Sabat</span>
+<span class="vs">VS</span>
+<span class="p2">Somnas Dasanayake / Senuka Weeraddana</span>
+</div><div class="rr-match">
+<span class="p1">Marouane Arifi / Swaraj Sabat</span>
+<span class="vs">VS</span>
+<span class="p2">Jonathan Jinu John / Joose Orpana</span>
+</div><div class="rr-match">
+<span class="p1">Somnas Dasanayake / Senuka Weeraddana</span>
+<span class="vs">VS</span>
+<span class="p2">Jonathan Jinu John / Joose Orpana</span>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Boys&#x27; Doubles U15</h3>
+<span class="badge badge-junior">Round Robin</span>
+<span class="format-tag">3 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Niilo Niskanen / Arttu Pirneskoski</td><td class="club">YlTe / YlTe</td></tr><tr><td>2</td><td>Naitik Diwate / Juhana Paaso</td><td class="club">TeSu / TeSu</td></tr><tr><td>3</td><td>Jonathan Jinu John / Joose Orpana</td><td class="club">TeSu / YlTe</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Niilo Niskanen / Arttu Pirneskoski</span>
+<span class="vs">VS</span>
+<span class="p2">Naitik Diwate / Juhana Paaso</span>
+</div><div class="rr-match">
+<span class="p1">Niilo Niskanen / Arttu Pirneskoski</span>
+<span class="vs">VS</span>
+<span class="p2">Jonathan Jinu John / Joose Orpana</span>
+</div><div class="rr-match">
+<span class="p1">Naitik Diwate / Juhana Paaso</span>
+<span class="vs">VS</span>
+<span class="p2">Jonathan Jinu John / Joose Orpana</span>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Boys&#x27; Doubles U17</h3>
+<span class="badge badge-junior">Round Robin</span>
+<span class="format-tag">3 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Viktor Cristobal / Arttu Mäkelä</td><td class="club">TeSu / TeSu</td></tr><tr><td>2</td><td>Roope Häyrynen / Leevi Pyykkönen</td><td class="club">KajSu / KajSu</td></tr><tr><td>3</td><td>Aatu Mustaparta / Roope Vähäkuopus</td><td class="club">TeSu / TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Viktor Cristobal / Arttu Mäkelä</span>
+<span class="vs">VS</span>
+<span class="p2">Roope Häyrynen / Leevi Pyykkönen</span>
+</div><div class="rr-match">
+<span class="p1">Viktor Cristobal / Arttu Mäkelä</span>
+<span class="vs">VS</span>
+<span class="p2">Aatu Mustaparta / Roope Vähäkuopus</span>
+</div><div class="rr-match">
+<span class="p1">Roope Häyrynen / Leevi Pyykkönen</span>
+<span class="vs">VS</span>
+<span class="p2">Aatu Mustaparta / Roope Vähäkuopus</span>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Boys&#x27; Singles U11</h3>
+<span class="badge badge-junior">Round Robin</span>
+<span class="format-tag">4 players</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Luka Heikkilä <span class="seed">[1]</span></td><td class="club">YlTe</td></tr><tr><td>2</td><td>Siwei Lucas Qiu <span class="seed">[2]</span></td><td class="club">ParBa</td></tr><tr><td>3</td><td>Ann Nelson</td><td class="club">TeSu</td></tr><tr><td>4</td><td>Ashlyn Jinu</td><td class="club">TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Luka Heikkilä</span>
+<span class="vs">VS</span>
+<span class="p2">Siwei Lucas Qiu</span>
+</div><div class="rr-match">
+<span class="p1">Luka Heikkilä</span>
+<span class="vs">VS</span>
+<span class="p2">Ann Nelson</span>
+</div><div class="rr-match">
+<span class="p1">Luka Heikkilä</span>
+<span class="vs">VS</span>
+<span class="p2">Ashlyn Jinu</span>
+</div><div class="rr-match">
+<span class="p1">Siwei Lucas Qiu</span>
+<span class="vs">VS</span>
+<span class="p2">Ann Nelson</span>
+</div><div class="rr-match">
+<span class="p1">Siwei Lucas Qiu</span>
+<span class="vs">VS</span>
+<span class="p2">Ashlyn Jinu</span>
+</div><div class="rr-match">
+<span class="p1">Ann Nelson</span>
+<span class="vs">VS</span>
+<span class="p2">Ashlyn Jinu</span>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Boys&#x27; Singles U13</h3>
+<span class="badge badge-junior">Groups + Playoff</span>
+<span class="format-tag">9 players</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="group-title">Group A</div>
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Jonathan Jinu John <span class="seed">[1]</span></td><td class="club">TeSu</td></tr><tr><td>2</td><td>Marouane Arifi <span class="seed">[3/4]</span></td><td class="club">TeSu</td></tr><tr><td>3</td><td>Sathvik Sanath</td><td class="club">TeSu</td></tr><tr><td>4</td><td>Senuka Weeraddana</td><td class="club">TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Jonathan Jinu John</span>
+<span class="vs">VS</span>
+<span class="p2">Marouane Arifi</span>
+</div><div class="rr-match">
+<span class="p1">Jonathan Jinu John</span>
+<span class="vs">VS</span>
+<span class="p2">Sathvik Sanath</span>
+</div><div class="rr-match">
+<span class="p1">Jonathan Jinu John</span>
+<span class="vs">VS</span>
+<span class="p2">Senuka Weeraddana</span>
+</div><div class="rr-match">
+<span class="p1">Marouane Arifi</span>
+<span class="vs">VS</span>
+<span class="p2">Sathvik Sanath</span>
+</div><div class="rr-match">
+<span class="p1">Marouane Arifi</span>
+<span class="vs">VS</span>
+<span class="p2">Senuka Weeraddana</span>
+</div><div class="rr-match">
+<span class="p1">Sathvik Sanath</span>
+<span class="vs">VS</span>
+<span class="p2">Senuka Weeraddana</span>
+</div>
+</div>
+<div class="group-title">Group B</div>
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Joose Orpana <span class="seed">[2]</span></td><td class="club">YlTe</td></tr><tr><td>2</td><td>Ashwath Kutty <span class="seed">[3/4]</span></td><td class="club">TeSu</td></tr><tr><td>3</td><td>Nandhan Krishnamoorthy Thiyagarajan</td><td class="club">TeSu</td></tr><tr><td>4</td><td>Somnas Dasanayake</td><td class="club">TeSu</td></tr><tr><td>5</td><td>Aarush Navalde</td><td class="club">TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Joose Orpana</span>
+<span class="vs">VS</span>
+<span class="p2">Ashwath Kutty</span>
+</div><div class="rr-match">
+<span class="p1">Joose Orpana</span>
+<span class="vs">VS</span>
+<span class="p2">Nandhan Krishnamoorthy Thiyagarajan</span>
+</div><div class="rr-match">
+<span class="p1">Joose Orpana</span>
+<span class="vs">VS</span>
+<span class="p2">Somnas Dasanayake</span>
+</div><div class="rr-match">
+<span class="p1">Joose Orpana</span>
+<span class="vs">VS</span>
+<span class="p2">Aarush Navalde</span>
+</div><div class="rr-match">
+<span class="p1">Ashwath Kutty</span>
+<span class="vs">VS</span>
+<span class="p2">Nandhan Krishnamoorthy Thiyagarajan</span>
+</div><div class="rr-match">
+<span class="p1">Ashwath Kutty</span>
+<span class="vs">VS</span>
+<span class="p2">Somnas Dasanayake</span>
+</div><div class="rr-match">
+<span class="p1">Ashwath Kutty</span>
+<span class="vs">VS</span>
+<span class="p2">Aarush Navalde</span>
+</div><div class="rr-match">
+<span class="p1">Nandhan Krishnamoorthy Thiyagarajan</span>
+<span class="vs">VS</span>
+<span class="p2">Somnas Dasanayake</span>
+</div><div class="rr-match">
+<span class="p1">Nandhan Krishnamoorthy Thiyagarajan</span>
+<span class="vs">VS</span>
+<span class="p2">Aarush Navalde</span>
+</div><div class="rr-match">
+<span class="p1">Somnas Dasanayake</span>
+<span class="vs">VS</span>
+<span class="p2">Aarush Navalde</span>
+</div>
+</div>
+<div class="section-title" style="margin-top:1.5rem;">Playoff Bracket (Top from each group)</div>
+<div class="bracket">
+<div class="bracket-round">
+<div class="bracket-round-title">Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Slot 1</div>
+<div class="player-slot bye-slot">Slot 2</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Boys&#x27; Singles U15</h3>
+<span class="badge badge-junior">Groups + Playoff</span>
+<span class="format-tag">7 players</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="group-title">Group A</div>
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Arttu Pirneskoski <span class="seed">[1]</span></td><td class="club">YlTe</td></tr><tr><td>2</td><td>Veikka Mustaparta <span class="wdn">WDN</span></td><td class="club">TeSu</td></tr><tr><td>3</td><td>Juhana Paaso</td><td class="club">TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Arttu Pirneskoski</span>
+<span class="vs">VS</span>
+<span class="p2">Veikka Mustaparta</span>
+</div><div class="rr-match">
+<span class="p1">Arttu Pirneskoski</span>
+<span class="vs">VS</span>
+<span class="p2">Juhana Paaso</span>
+</div><div class="rr-match">
+<span class="p1">Veikka Mustaparta</span>
+<span class="vs">VS</span>
+<span class="p2">Juhana Paaso</span>
+</div>
+</div>
+<div class="group-title">Group B</div>
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Matti Isomaa <span class="seed">[2]</span></td><td class="club">YlTe</td></tr><tr><td>2</td><td>Jimi Manninen</td><td class="club">HaHe</td></tr><tr><td>3</td><td>Naitik Diwate</td><td class="club">TeSu</td></tr><tr><td>4</td><td>Leo Takalo</td><td class="club">TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Matti Isomaa</span>
+<span class="vs">VS</span>
+<span class="p2">Jimi Manninen</span>
+</div><div class="rr-match">
+<span class="p1">Matti Isomaa</span>
+<span class="vs">VS</span>
+<span class="p2">Naitik Diwate</span>
+</div><div class="rr-match">
+<span class="p1">Matti Isomaa</span>
+<span class="vs">VS</span>
+<span class="p2">Leo Takalo</span>
+</div><div class="rr-match">
+<span class="p1">Jimi Manninen</span>
+<span class="vs">VS</span>
+<span class="p2">Naitik Diwate</span>
+</div><div class="rr-match">
+<span class="p1">Jimi Manninen</span>
+<span class="vs">VS</span>
+<span class="p2">Leo Takalo</span>
+</div><div class="rr-match">
+<span class="p1">Naitik Diwate</span>
+<span class="vs">VS</span>
+<span class="p2">Leo Takalo</span>
+</div>
+</div>
+<div class="section-title" style="margin-top:1.5rem;">Playoff Bracket (Top from each group)</div>
+<div class="bracket">
+<div class="bracket-round">
+<div class="bracket-round-title">Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Slot 1</div>
+<div class="player-slot bye-slot">Slot 2</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Boys&#x27; Singles U17</h3>
+<span class="badge badge-junior">Groups + Playoff</span>
+<span class="format-tag">17 players</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="group-title">Group A</div>
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Aleksi Petäjäkangas <span class="seed">[1]</span></td><td class="club">TeSu</td></tr><tr><td>2</td><td>Matti Isomaa</td><td class="club">YlTe</td></tr><tr><td>3</td><td>Eemeli Tolonen</td><td class="club">KajSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Aleksi Petäjäkangas</span>
+<span class="vs">VS</span>
+<span class="p2">Matti Isomaa</span>
+</div><div class="rr-match">
+<span class="p1">Aleksi Petäjäkangas</span>
+<span class="vs">VS</span>
+<span class="p2">Eemeli Tolonen</span>
+</div><div class="rr-match">
+<span class="p1">Matti Isomaa</span>
+<span class="vs">VS</span>
+<span class="p2">Eemeli Tolonen</span>
+</div>
+</div>
+<div class="group-title">Group B</div>
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Niilo Niskanen <span class="seed">[2]</span></td><td class="club">YlTe</td></tr><tr><td>2</td><td>Aatu Mustaparta</td><td class="club">TeSu</td></tr><tr><td>3</td><td>Miika Surakka</td><td class="club">KäKa</td></tr><tr><td>4</td><td>Veikka Mustaparta <span class="wdn">WDN</span></td><td class="club">TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Niilo Niskanen</span>
+<span class="vs">VS</span>
+<span class="p2">Aatu Mustaparta</span>
+</div><div class="rr-match">
+<span class="p1">Niilo Niskanen</span>
+<span class="vs">VS</span>
+<span class="p2">Miika Surakka</span>
+</div><div class="rr-match">
+<span class="p1">Niilo Niskanen</span>
+<span class="vs">VS</span>
+<span class="p2">Veikka Mustaparta</span>
+</div><div class="rr-match">
+<span class="p1">Aatu Mustaparta</span>
+<span class="vs">VS</span>
+<span class="p2">Miika Surakka</span>
+</div><div class="rr-match">
+<span class="p1">Aatu Mustaparta</span>
+<span class="vs">VS</span>
+<span class="p2">Veikka Mustaparta</span>
+</div><div class="rr-match">
+<span class="p1">Miika Surakka</span>
+<span class="vs">VS</span>
+<span class="p2">Veikka Mustaparta</span>
+</div>
+</div>
+<div class="group-title">Group C</div>
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Pauli Alapukki <span class="seed">[3/4]</span></td><td class="club">TeSu</td></tr><tr><td>2</td><td>Roope Häyrynen <span class="seed">[5/8]</span></td><td class="club">KajSu</td></tr><tr><td>3</td><td>Naitik Diwate</td><td class="club">TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Pauli Alapukki</span>
+<span class="vs">VS</span>
+<span class="p2">Roope Häyrynen</span>
+</div><div class="rr-match">
+<span class="p1">Pauli Alapukki</span>
+<span class="vs">VS</span>
+<span class="p2">Naitik Diwate</span>
+</div><div class="rr-match">
+<span class="p1">Roope Häyrynen</span>
+<span class="vs">VS</span>
+<span class="p2">Naitik Diwate</span>
+</div>
+</div>
+<div class="group-title">Group D</div>
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Casimir Aalto <span class="seed">[3/4]</span></td><td class="club">MaSu</td></tr><tr><td>2</td><td>Leevi Pyykkönen <span class="seed">[5/8]</span></td><td class="club">KajSu</td></tr><tr><td>3</td><td>Arttu Mäkelä</td><td class="club">TeSu</td></tr><tr><td>4</td><td>Roope Vähäkuopus</td><td class="club">TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Casimir Aalto</span>
+<span class="vs">VS</span>
+<span class="p2">Leevi Pyykkönen</span>
+</div><div class="rr-match">
+<span class="p1">Casimir Aalto</span>
+<span class="vs">VS</span>
+<span class="p2">Arttu Mäkelä</span>
+</div><div class="rr-match">
+<span class="p1">Casimir Aalto</span>
+<span class="vs">VS</span>
+<span class="p2">Roope Vähäkuopus</span>
+</div><div class="rr-match">
+<span class="p1">Leevi Pyykkönen</span>
+<span class="vs">VS</span>
+<span class="p2">Arttu Mäkelä</span>
+</div><div class="rr-match">
+<span class="p1">Leevi Pyykkönen</span>
+<span class="vs">VS</span>
+<span class="p2">Roope Vähäkuopus</span>
+</div><div class="rr-match">
+<span class="p1">Arttu Mäkelä</span>
+<span class="vs">VS</span>
+<span class="p2">Roope Vähäkuopus</span>
+</div>
+</div>
+<div class="group-title">Group E</div>
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Jaakob Vuollet <span class="seed">[5/8]</span></td><td class="club">SC Kokkola</td></tr><tr><td>2</td><td>Walter Ekstrand <span class="seed">[5/8]</span></td><td class="club">JeBa</td></tr><tr><td>3</td><td>Viktor Cristobal</td><td class="club">TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Jaakob Vuollet</span>
+<span class="vs">VS</span>
+<span class="p2">Walter Ekstrand</span>
+</div><div class="rr-match">
+<span class="p1">Jaakob Vuollet</span>
+<span class="vs">VS</span>
+<span class="p2">Viktor Cristobal</span>
+</div><div class="rr-match">
+<span class="p1">Walter Ekstrand</span>
+<span class="vs">VS</span>
+<span class="p2">Viktor Cristobal</span>
+</div>
+</div>
+<div class="section-title" style="margin-top:1.5rem;">Playoff Bracket (Top from each group)</div>
+<div class="bracket">
+<div class="bracket-round">
+<div class="bracket-round-title">Quarter-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Slot 1</div>
+<div class="player-slot bye-slot">Slot 2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Slot 3</div>
+<div class="player-slot bye-slot">Slot 4</div>
+</div><div class="bracket-match">
+<div class="match-num">M3</div>
+<div class="player-slot bye-slot">Slot 5</div>
+<div class="player-slot bye-slot">Slot 6</div>
+</div><div class="bracket-match">
+<div class="match-num">M4</div>
+<div class="player-slot bye-slot">Slot 7</div>
+<div class="player-slot bye-slot">Slot 8</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Semi-Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner QF-M1</div>
+<div class="player-slot bye-slot">Winner QF-M2</div>
+</div><div class="bracket-match">
+<div class="match-num">M2</div>
+<div class="player-slot bye-slot">Winner QF-M3</div>
+<div class="player-slot bye-slot">Winner QF-M4</div>
+</div>
+</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
+<div class="bracket-round-title">Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Winner SF-M1</div>
+<div class="player-slot bye-slot">Winner SF-M2</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="tab-panel" id="tab-veterans">
+<div class="cat-header">
+<h2>Veterans Division</h2>
+<p>Men&#x27;s Singles &amp; Doubles, Mixed Doubles — 35+, 45+</p>
+</div>
+<div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Men&#x27;s Doubles 35+</h3>
+<span class="badge badge-veterans">Round Robin</span>
+<span class="format-tag">3 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Juha Heikkinen / Juha Vuollet</td><td class="club">HPC / SC Kokkola</td></tr><tr><td>2</td><td>Janne Julkunen / Antti Laitala</td><td class="club">HPC / HPC</td></tr><tr><td>3</td><td>Jarkko Seppä / Harri Suhonen</td><td class="club">HPC / TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Juha Heikkinen / Juha Vuollet</span>
+<span class="vs">VS</span>
+<span class="p2">Janne Julkunen / Antti Laitala</span>
+</div><div class="rr-match">
+<span class="p1">Juha Heikkinen / Juha Vuollet</span>
+<span class="vs">VS</span>
+<span class="p2">Jarkko Seppä / Harri Suhonen</span>
+</div><div class="rr-match">
+<span class="p1">Janne Julkunen / Antti Laitala</span>
+<span class="vs">VS</span>
+<span class="p2">Jarkko Seppä / Harri Suhonen</span>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Men&#x27;s Doubles 45+</h3>
+<span class="badge badge-veterans">Round Robin</span>
+<span class="format-tag">4 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Janne Vuollet / Juha Vuollet <span class="seed">[1]</span></td><td class="club">SC Kokkola / SC Kokkola</td></tr><tr><td>2</td><td>Juha Seppälä / Simo Tolonen <span class="seed">[2]</span></td><td class="club">KajSu / KajSu</td></tr><tr><td>3</td><td>Ari Fingerroos / Pete Pietilä</td><td class="club">RVS / HPC</td></tr><tr><td>4</td><td>Tapani Kilpi / Janne Raasakka</td><td class="club">TeSu / TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Janne Vuollet / Juha Vuollet</span>
+<span class="vs">VS</span>
+<span class="p2">Juha Seppälä / Simo Tolonen</span>
+</div><div class="rr-match">
+<span class="p1">Janne Vuollet / Juha Vuollet</span>
+<span class="vs">VS</span>
+<span class="p2">Ari Fingerroos / Pete Pietilä</span>
+</div><div class="rr-match">
+<span class="p1">Janne Vuollet / Juha Vuollet</span>
+<span class="vs">VS</span>
+<span class="p2">Tapani Kilpi / Janne Raasakka</span>
+</div><div class="rr-match">
+<span class="p1">Juha Seppälä / Simo Tolonen</span>
+<span class="vs">VS</span>
+<span class="p2">Ari Fingerroos / Pete Pietilä</span>
+</div><div class="rr-match">
+<span class="p1">Juha Seppälä / Simo Tolonen</span>
+<span class="vs">VS</span>
+<span class="p2">Tapani Kilpi / Janne Raasakka</span>
+</div><div class="rr-match">
+<span class="p1">Ari Fingerroos / Pete Pietilä</span>
+<span class="vs">VS</span>
+<span class="p2">Tapani Kilpi / Janne Raasakka</span>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Men&#x27;s Singles 35+</h3>
+<span class="badge badge-veterans">Round Robin</span>
+<span class="format-tag">3 players</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Ajith Kutty</td><td class="club">TeSu</td></tr><tr><td>2</td><td>Jukka Häivälä</td><td class="club">HPC</td></tr><tr><td>3</td><td>Miikka Pylväs</td><td class="club">YlTe</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Ajith Kutty</span>
+<span class="vs">VS</span>
+<span class="p2">Jukka Häivälä</span>
+</div><div class="rr-match">
+<span class="p1">Ajith Kutty</span>
+<span class="vs">VS</span>
+<span class="p2">Miikka Pylväs</span>
+</div><div class="rr-match">
+<span class="p1">Jukka Häivälä</span>
+<span class="vs">VS</span>
+<span class="p2">Miikka Pylväs</span>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Men&#x27;s Singles 45+</h3>
+<span class="badge badge-veterans">Groups + Playoff</span>
+<span class="format-tag">6 players</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="group-title">Group A</div>
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Juha Vuollet <span class="seed">[1]</span></td><td class="club">SC Kokkola</td></tr><tr><td>2</td><td>Markku Leskelä</td><td class="club">JySS</td></tr><tr><td>3</td><td>Mikko Venetvaara</td><td class="club">TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Juha Vuollet</span>
+<span class="vs">VS</span>
+<span class="p2">Markku Leskelä</span>
+</div><div class="rr-match">
+<span class="p1">Juha Vuollet</span>
+<span class="vs">VS</span>
+<span class="p2">Mikko Venetvaara</span>
+</div><div class="rr-match">
+<span class="p1">Markku Leskelä</span>
+<span class="vs">VS</span>
+<span class="p2">Mikko Venetvaara</span>
+</div>
+</div>
+<div class="group-title">Group B</div>
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>David Cristobal Hornillos <span class="seed">[2]</span></td><td class="club">TeSu</td></tr><tr><td>2</td><td>Jani Järvinen</td><td class="club">HaHe</td></tr><tr><td>3</td><td>Jukka Penttinen</td><td class="club">LoTe</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">David Cristobal Hornillos</span>
+<span class="vs">VS</span>
+<span class="p2">Jani Järvinen</span>
+</div><div class="rr-match">
+<span class="p1">David Cristobal Hornillos</span>
+<span class="vs">VS</span>
+<span class="p2">Jukka Penttinen</span>
+</div><div class="rr-match">
+<span class="p1">Jani Järvinen</span>
+<span class="vs">VS</span>
+<span class="p2">Jukka Penttinen</span>
+</div>
+</div>
+<div class="section-title" style="margin-top:1.5rem;">Playoff Bracket (Top from each group)</div>
+<div class="bracket">
+<div class="bracket-round">
+<div class="bracket-round-title">Final</div>
+<div class="bracket-match">
+<div class="match-num">M1</div>
+<div class="player-slot bye-slot">Slot 1</div>
+<div class="player-slot bye-slot">Slot 2</div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Mixed Doubles 35+</h3>
+<span class="badge badge-veterans">Round Robin</span>
+<span class="format-tag">3 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Antti Laitala / Teija Härkönen</td><td class="club">HPC / KajSu</td></tr><tr><td>2</td><td>Harri Lukkarila / Sonja Perälä</td><td class="club">RVS / RVS</td></tr><tr><td>3</td><td>Tapio Kukkonen / Mira Mustonen</td><td class="club">SaSuPa / KajSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Antti Laitala / Teija Härkönen</span>
+<span class="vs">VS</span>
+<span class="p2">Harri Lukkarila / Sonja Perälä</span>
+</div><div class="rr-match">
+<span class="p1">Antti Laitala / Teija Härkönen</span>
+<span class="vs">VS</span>
+<span class="p2">Tapio Kukkonen / Mira Mustonen</span>
+</div><div class="rr-match">
+<span class="p1">Harri Lukkarila / Sonja Perälä</span>
+<span class="vs">VS</span>
+<span class="p2">Tapio Kukkonen / Mira Mustonen</span>
+</div>
+</div>
+</div>
+</div>
+</div><div class="tab-panel" id="tab-elite">
+<div class="cat-header">
+<h2>Elite Division</h2>
+<p>Men&#x27;s Singles, Women&#x27;s Singles, Mixed Doubles</p>
+</div>
+<div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Men&#x27;s Singles Elite</h3>
+<span class="badge badge-elite">Round Robin</span>
+<span class="format-tag">4 players</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Sami Pajunen <span class="seed">[1]</span></td><td class="club">ESB</td></tr><tr><td>2</td><td>Tommi Ruoho <span class="seed">[2]</span></td><td class="club">ESB</td></tr><tr><td>3</td><td>Elmeri Lybeck</td><td class="club">Klaki</td></tr><tr><td>4</td><td>Paulus Huhtamäki</td><td class="club">AK</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Sami Pajunen</span>
+<span class="vs">VS</span>
+<span class="p2">Tommi Ruoho</span>
+</div><div class="rr-match">
+<span class="p1">Sami Pajunen</span>
+<span class="vs">VS</span>
+<span class="p2">Elmeri Lybeck</span>
+</div><div class="rr-match">
+<span class="p1">Sami Pajunen</span>
+<span class="vs">VS</span>
+<span class="p2">Paulus Huhtamäki</span>
+</div><div class="rr-match">
+<span class="p1">Tommi Ruoho</span>
+<span class="vs">VS</span>
+<span class="p2">Elmeri Lybeck</span>
+</div><div class="rr-match">
+<span class="p1">Tommi Ruoho</span>
+<span class="vs">VS</span>
+<span class="p2">Paulus Huhtamäki</span>
+</div><div class="rr-match">
+<span class="p1">Elmeri Lybeck</span>
+<span class="vs">VS</span>
+<span class="p2">Paulus Huhtamäki</span>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Women&#x27;s Singles Elite</h3>
+<span class="badge badge-elite">Round Robin</span>
+<span class="format-tag">3 players</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Player</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Nelly Määttä</td><td class="club">TeSu</td></tr><tr><td>2</td><td>Pihla Mäkelä</td><td class="club">LaSuPa</td></tr><tr><td>3</td><td>Emilia Ojala</td><td class="club">Sulkaset</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Nelly Määttä</span>
+<span class="vs">VS</span>
+<span class="p2">Pihla Mäkelä</span>
+</div><div class="rr-match">
+<span class="p1">Nelly Määttä</span>
+<span class="vs">VS</span>
+<span class="p2">Emilia Ojala</span>
+</div><div class="rr-match">
+<span class="p1">Pihla Mäkelä</span>
+<span class="vs">VS</span>
+<span class="p2">Emilia Ojala</span>
+</div>
+</div>
+</div>
+</div><div class="division-card">
+<div class="division-header" onclick="toggleCard(this)">
+<div class="left">
+<h3>Mixed Doubles Elite</h3>
+<span class="badge badge-elite">Round Robin</span>
+<span class="format-tag">4 pairs</span>
+</div>
+<span class="chevron">&#9660;</span>
+</div>
+<div class="division-body">
+<div class="section-title">Players</div>
+<table class="draw-table">
+<thead><tr><th>#</th><th>Pair</th><th>Club</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Sami Pajunen / Pihla Mäkelä <span class="sub">SUB</span></td><td class="club">ESB / LaSuPa</td></tr><tr><td>2</td><td>Tommi Ruoho / Emilia Ojala <span class="seed">[2]</span></td><td class="club">ESB / Sulkaset</td></tr><tr><td>3</td><td>Elmeri Lybeck / Nelly Määttä</td><td class="club">Klaki / TeSu</td></tr><tr><td>4</td><td>Paulus Huhtamäki / Jenni Lahti</td><td class="club">AK / TeSu</td></tr>
+</tbody>
+</table>
+<div class="section-title">Matches</div>
+<div class="rr-matches">
+<div class="rr-match">
+<span class="p1">Sami Pajunen / Pihla Mäkelä</span>
+<span class="vs">VS</span>
+<span class="p2">Tommi Ruoho / Emilia Ojala</span>
+</div><div class="rr-match">
+<span class="p1">Sami Pajunen / Pihla Mäkelä</span>
+<span class="vs">VS</span>
+<span class="p2">Elmeri Lybeck / Nelly Määttä</span>
+</div><div class="rr-match">
+<span class="p1">Sami Pajunen / Pihla Mäkelä</span>
+<span class="vs">VS</span>
+<span class="p2">Paulus Huhtamäki / Jenni Lahti</span>
+</div><div class="rr-match">
+<span class="p1">Tommi Ruoho / Emilia Ojala</span>
+<span class="vs">VS</span>
+<span class="p2">Elmeri Lybeck / Nelly Määttä</span>
+</div><div class="rr-match">
+<span class="p1">Tommi Ruoho / Emilia Ojala</span>
+<span class="vs">VS</span>
+<span class="p2">Paulus Huhtamäki / Jenni Lahti</span>
+</div><div class="rr-match">
+<span class="p1">Elmeri Lybeck / Nelly Määttä</span>
+<span class="vs">VS</span>
+<span class="p2">Paulus Huhtamäki / Jenni Lahti</span>
+</div>
+</div>
+</div>
+</div>
+</div><div class="tab-panel" id="tab-clubs">
+<div class="cat-header">
+<h2>Participating Clubs</h2>
+<p>32 clubs from Finland and abroad</p>
+</div>
+<div class="clubs-grid">
+<div class="club-card"><strong>AK</strong></div><div class="club-card"><strong>BMK Hoppet Haparanda</strong></div><div class="club-card"><strong>BadU</strong></div><div class="club-card"><strong>ESB</strong></div><div class="club-card"><strong>HBC</strong></div><div class="club-card"><strong>HPC</strong></div><div class="club-card"><strong>HaHe</strong></div><div class="club-card"><strong>HalSu</strong></div><div class="club-card"><strong>HamSu</strong></div><div class="club-card"><strong>HämSu</strong></div><div class="club-card"><strong>JeBa</strong></div><div class="club-card"><strong>JuPy</strong></div><div class="club-card"><strong>JySS</strong></div><div class="club-card"><strong>KajSu</strong></div><div class="club-card"><strong>KauWi</strong></div><div class="club-card"><strong>Klaki</strong></div><div class="club-card"><strong>KäKa</strong></div><div class="club-card"><strong>LaSuPa</strong></div><div class="club-card"><strong>LoTe</strong></div><div class="club-card"><strong>Luleå BMK</strong></div><div class="club-card"><strong>MaSu</strong></div><div class="club-card"><strong>ParBa</strong></div><div class="club-card"><strong>PuPo</strong></div><div class="club-card"><strong>RVS</strong></div><div class="club-card"><strong>SC Kokkola</strong></div><div class="club-card"><strong>SaSuPa</strong></div><div class="club-card"><strong>Sisu</strong></div><div class="club-card"><strong>SoMaSe</strong></div><div class="club-card"><strong>Sulkaset</strong></div><div class="club-card"><strong>TU</strong></div><div class="club-card"><strong>TeSu</strong></div><div class="club-card"><strong>YlTe</strong></div>
+</div>
+</div>
+
+</div>
+
+<div class="footer">
+Kumpoo Tervasulan Eliitti 2025 &middot; Data from Badminton Finland Tournament Planner
+</div>
+
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+function toggleCard(header) {
+  header.closest('.division-card').classList.toggle('open');
+}
+</script>
+</body>
+</html>

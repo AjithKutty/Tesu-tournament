@@ -1,0 +1,23 @@
+{
+  "tournament": "Kumpoo Tervasulan Eliitti 2025",
+  "name": "Boys' Singles U13 Playoff",
+  "code": "BS U13",
+  "category": "Junior",
+  "sheet": "BS U13-Playoff",
+  "draw_type": "playoff",
+  "format": "elimination",
+  "linked_main_draw": "BS_U13-Main_Draw.json",
+  "drawSize": 2,
+  "rounds": [
+    {
+      "name": "Final",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Slot 1",
+          "player2": "Slot 2"
+        }
+      ]
+    }
+  ]
+}

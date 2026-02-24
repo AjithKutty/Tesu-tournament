@@ -1,0 +1,386 @@
+{
+  "tournament": "Kumpoo Tervasulan Eliitti 2025",
+  "name": "Men's Singles C",
+  "code": "MS C",
+  "category": "Open C",
+  "sheet": "MS C-Main Draw",
+  "draw_type": "main_draw",
+  "format": "elimination",
+  "drawSize": 32,
+  "players": [
+    {
+      "position": 1,
+      "name": "Anssi Isopahkala",
+      "club": "HPC",
+      "seed": "1",
+      "status": "WDN"
+    },
+    {
+      "position": 3,
+      "name": "Timo Surakka",
+      "club": "KäKa",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 4,
+      "name": "Abin Babu",
+      "club": "TeSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 5,
+      "name": "Markus Heikkinen",
+      "club": "TeSu",
+      "seed": "5/8",
+      "status": null
+    },
+    {
+      "position": 7,
+      "name": "Leevi Pyykkönen",
+      "club": "KajSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 8,
+      "name": "Ajith Kutty",
+      "club": "TeSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 9,
+      "name": "Tommi Koskela",
+      "club": "TeSu",
+      "seed": "3/4",
+      "status": null
+    },
+    {
+      "position": 11,
+      "name": "Mikko Luhtaniemi",
+      "club": "HBC",
+      "seed": null,
+      "status": "WDN"
+    },
+    {
+      "position": 12,
+      "name": "Matias Laakko",
+      "club": "TeSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 13,
+      "name": "Bong Kosol",
+      "club": "SC Kokkola",
+      "seed": "5/8",
+      "status": null
+    },
+    {
+      "position": 15,
+      "name": "Tapani Kilpi",
+      "club": "TeSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 16,
+      "name": "Teemu Karvonen",
+      "club": "KäKa",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 17,
+      "name": "Antti Ropponen",
+      "club": "TeSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 18,
+      "name": "Jaakob Vuollet",
+      "club": "SC Kokkola",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 19,
+      "name": "Jesse Viitanen",
+      "club": "PuPo",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 20,
+      "name": "Jenni Lahti",
+      "club": "TeSu",
+      "seed": "5/8",
+      "status": null
+    },
+    {
+      "position": 21,
+      "name": "Roope Häyrynen",
+      "club": "KajSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 22,
+      "name": "Kare Hämeenaho",
+      "club": "TeSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 24,
+      "name": "Casimir Aalto",
+      "club": "MaSu",
+      "seed": "3/4",
+      "status": null
+    },
+    {
+      "position": 25,
+      "name": "Lars Forchini",
+      "club": "TeSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 26,
+      "name": "Miika Surakka",
+      "club": "KäKa",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 28,
+      "name": "Juhana Paaso",
+      "club": "TeSu",
+      "seed": null,
+      "status": "SUB"
+    },
+    {
+      "position": 29,
+      "name": "Eemeli Tolonen",
+      "club": "KajSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 30,
+      "name": "Gyrass Ksatria",
+      "club": null,
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 32,
+      "name": "Aleksi Petäjäkangas",
+      "club": "TeSu",
+      "seed": "2",
+      "status": null
+    }
+  ],
+  "rounds": [
+    {
+      "name": "Round 1",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Anssi Isopahkala",
+          "player2": "Bye",
+          "notes": "Anssi Isopahkala auto-advances"
+        },
+        {
+          "match": 2,
+          "player1": "Timo Surakka",
+          "player2": "Abin Babu"
+        },
+        {
+          "match": 3,
+          "player1": "Markus Heikkinen",
+          "player2": "Bye",
+          "notes": "Markus Heikkinen auto-advances"
+        },
+        {
+          "match": 4,
+          "player1": "Leevi Pyykkönen",
+          "player2": "Ajith Kutty"
+        },
+        {
+          "match": 5,
+          "player1": "Tommi Koskela",
+          "player2": "Bye",
+          "notes": "Tommi Koskela auto-advances"
+        },
+        {
+          "match": 6,
+          "player1": "Mikko Luhtaniemi",
+          "player2": "Matias Laakko"
+        },
+        {
+          "match": 7,
+          "player1": "Bong Kosol",
+          "player2": "Bye",
+          "notes": "Bong Kosol auto-advances"
+        },
+        {
+          "match": 8,
+          "player1": "Tapani Kilpi",
+          "player2": "Teemu Karvonen"
+        },
+        {
+          "match": 9,
+          "player1": "Antti Ropponen",
+          "player2": "Jaakob Vuollet"
+        },
+        {
+          "match": 10,
+          "player1": "Jesse Viitanen",
+          "player2": "Jenni Lahti"
+        },
+        {
+          "match": 11,
+          "player1": "Roope Häyrynen",
+          "player2": "Kare Hämeenaho"
+        },
+        {
+          "match": 12,
+          "player1": "Bye",
+          "player2": "Casimir Aalto",
+          "notes": "Casimir Aalto auto-advances"
+        },
+        {
+          "match": 13,
+          "player1": "Lars Forchini",
+          "player2": "Miika Surakka"
+        },
+        {
+          "match": 14,
+          "player1": "Bye",
+          "player2": "Juhana Paaso",
+          "notes": "Juhana Paaso auto-advances"
+        },
+        {
+          "match": 15,
+          "player1": "Eemeli Tolonen",
+          "player2": "Gyrass Ksatria"
+        },
+        {
+          "match": 16,
+          "player1": "Bye",
+          "player2": "Aleksi Petäjäkangas",
+          "notes": "Aleksi Petäjäkangas auto-advances"
+        }
+      ]
+    },
+    {
+      "name": "Round 2",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Winner R1-M1",
+          "player2": "Winner R1-M2"
+        },
+        {
+          "match": 2,
+          "player1": "Winner R1-M3",
+          "player2": "Winner R1-M4"
+        },
+        {
+          "match": 3,
+          "player1": "Winner R1-M5",
+          "player2": "Winner R1-M6"
+        },
+        {
+          "match": 4,
+          "player1": "Winner R1-M7",
+          "player2": "Winner R1-M8"
+        },
+        {
+          "match": 5,
+          "player1": "Winner R1-M9",
+          "player2": "Winner R1-M10"
+        },
+        {
+          "match": 6,
+          "player1": "Winner R1-M11",
+          "player2": "Winner R1-M12"
+        },
+        {
+          "match": 7,
+          "player1": "Winner R1-M13",
+          "player2": "Winner R1-M14"
+        },
+        {
+          "match": 8,
+          "player1": "Winner R1-M15",
+          "player2": "Winner R1-M16"
+        }
+      ]
+    },
+    {
+      "name": "Quarter-Final",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Winner R2-M1",
+          "player2": "Winner R2-M2"
+        },
+        {
+          "match": 2,
+          "player1": "Winner R2-M3",
+          "player2": "Winner R2-M4"
+        },
+        {
+          "match": 3,
+          "player1": "Winner R2-M5",
+          "player2": "Winner R2-M6"
+        },
+        {
+          "match": 4,
+          "player1": "Winner R2-M7",
+          "player2": "Winner R2-M8"
+        }
+      ]
+    },
+    {
+      "name": "Semi-Final",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Winner QF-M1",
+          "player2": "Winner QF-M2"
+        },
+        {
+          "match": 2,
+          "player1": "Winner QF-M3",
+          "player2": "Winner QF-M4"
+        }
+      ]
+    },
+    {
+      "name": "Final",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Winner SF-M1",
+          "player2": "Winner SF-M2"
+        }
+      ]
+    }
+  ],
+  "clubs": [
+    "HBC",
+    "HPC",
+    "KajSu",
+    "KäKa",
+    "MaSu",
+    "PuPo",
+    "SC Kokkola",
+    "TeSu"
+  ]
+}

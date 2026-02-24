@@ -1,0 +1,189 @@
+{
+  "tournament": "Kumpoo Tervasulan Eliitti 2025",
+  "name": "Boys' Singles U13",
+  "code": "BS U13",
+  "category": "Junior",
+  "sheet": "BS U13-Main Draw",
+  "draw_type": "main_draw",
+  "format": "group_playoff",
+  "groups": [
+    {
+      "name": "Group A",
+      "players": [
+        {
+          "position": 1,
+          "name": "Jonathan Jinu John",
+          "club": "TeSu",
+          "seed": "1",
+          "status": null
+        },
+        {
+          "position": 2,
+          "name": "Marouane Arifi",
+          "club": "TeSu",
+          "seed": "3/4",
+          "status": null
+        },
+        {
+          "position": 3,
+          "name": "Sathvik Sanath",
+          "club": "TeSu",
+          "seed": null,
+          "status": null
+        },
+        {
+          "position": 4,
+          "name": "Senuka Weeraddana",
+          "club": "TeSu",
+          "seed": null,
+          "status": null
+        }
+      ],
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Jonathan Jinu John",
+          "player2": "Marouane Arifi"
+        },
+        {
+          "match": 2,
+          "player1": "Jonathan Jinu John",
+          "player2": "Sathvik Sanath"
+        },
+        {
+          "match": 3,
+          "player1": "Jonathan Jinu John",
+          "player2": "Senuka Weeraddana"
+        },
+        {
+          "match": 4,
+          "player1": "Marouane Arifi",
+          "player2": "Sathvik Sanath"
+        },
+        {
+          "match": 5,
+          "player1": "Marouane Arifi",
+          "player2": "Senuka Weeraddana"
+        },
+        {
+          "match": 6,
+          "player1": "Sathvik Sanath",
+          "player2": "Senuka Weeraddana"
+        }
+      ]
+    },
+    {
+      "name": "Group B",
+      "players": [
+        {
+          "position": 1,
+          "name": "Joose Orpana",
+          "club": "YlTe",
+          "seed": "2",
+          "status": null
+        },
+        {
+          "position": 2,
+          "name": "Ashwath Kutty",
+          "club": "TeSu",
+          "seed": "3/4",
+          "status": null
+        },
+        {
+          "position": 3,
+          "name": "Nandhan Krishnamoorthy Thiyagarajan",
+          "club": "TeSu",
+          "seed": null,
+          "status": null
+        },
+        {
+          "position": 4,
+          "name": "Somnas Dasanayake",
+          "club": "TeSu",
+          "seed": null,
+          "status": null
+        },
+        {
+          "position": 5,
+          "name": "Aarush Navalde",
+          "club": "TeSu",
+          "seed": null,
+          "status": null
+        }
+      ],
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Joose Orpana",
+          "player2": "Ashwath Kutty"
+        },
+        {
+          "match": 2,
+          "player1": "Joose Orpana",
+          "player2": "Nandhan Krishnamoorthy Thiyagarajan"
+        },
+        {
+          "match": 3,
+          "player1": "Joose Orpana",
+          "player2": "Somnas Dasanayake"
+        },
+        {
+          "match": 4,
+          "player1": "Joose Orpana",
+          "player2": "Aarush Navalde"
+        },
+        {
+          "match": 5,
+          "player1": "Ashwath Kutty",
+          "player2": "Nandhan Krishnamoorthy Thiyagarajan"
+        },
+        {
+          "match": 6,
+          "player1": "Ashwath Kutty",
+          "player2": "Somnas Dasanayake"
+        },
+        {
+          "match": 7,
+          "player1": "Ashwath Kutty",
+          "player2": "Aarush Navalde"
+        },
+        {
+          "match": 8,
+          "player1": "Nandhan Krishnamoorthy Thiyagarajan",
+          "player2": "Somnas Dasanayake"
+        },
+        {
+          "match": 9,
+          "player1": "Nandhan Krishnamoorthy Thiyagarajan",
+          "player2": "Aarush Navalde"
+        },
+        {
+          "match": 10,
+          "player1": "Somnas Dasanayake",
+          "player2": "Aarush Navalde"
+        }
+      ]
+    }
+  ],
+  "playoff": {
+    "format": "elimination",
+    "drawSize": 2,
+    "rounds": [
+      {
+        "name": "Final",
+        "matches": [
+          {
+            "match": 1,
+            "player1": "Slot 1",
+            "player2": "Slot 2"
+          }
+        ]
+      }
+    ]
+  },
+  "playoff_file": "BS_U13-Playoff.json",
+  "clubs": [
+    "TeSu",
+    "YlTe"
+  ]
+}

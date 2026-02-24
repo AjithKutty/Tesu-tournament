@@ -1,0 +1,54 @@
+{
+  "tournament": "Kumpoo Tervasulan Eliitti 2025",
+  "name": "Men's Singles 35+",
+  "code": "MS 35",
+  "category": "Veterans",
+  "sheet": "MS 35-Main Draw",
+  "draw_type": "main_draw",
+  "format": "round_robin",
+  "players": [
+    {
+      "position": 1,
+      "name": "Ajith Kutty",
+      "club": "TeSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 2,
+      "name": "Jukka Häivälä",
+      "club": "HPC",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 3,
+      "name": "Miikka Pylväs",
+      "club": "YlTe",
+      "seed": null,
+      "status": null
+    }
+  ],
+  "matches": [
+    {
+      "match": 1,
+      "player1": "Ajith Kutty",
+      "player2": "Jukka Häivälä"
+    },
+    {
+      "match": 2,
+      "player1": "Ajith Kutty",
+      "player2": "Miikka Pylväs"
+    },
+    {
+      "match": 3,
+      "player1": "Jukka Häivälä",
+      "player2": "Miikka Pylväs"
+    }
+  ],
+  "clubs": [
+    "HPC",
+    "TeSu",
+    "YlTe"
+  ]
+}

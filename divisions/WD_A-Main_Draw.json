@@ -1,0 +1,86 @@
+{
+  "tournament": "Kumpoo Tervasulan Eliitti 2025",
+  "name": "Women's Doubles A",
+  "code": "WD A",
+  "category": "Open A",
+  "sheet": "WD A-Main Draw",
+  "draw_type": "main_draw",
+  "format": "round_robin",
+  "players": [
+    {
+      "position": 1,
+      "players": [
+        {
+          "name": "Mira Mustonen",
+          "club": "KajSu",
+          "seed": null
+        },
+        {
+          "name": "Sonja Perälä",
+          "club": "RVS",
+          "seed": null
+        }
+      ],
+      "seed": null,
+      "status": "SUB"
+    },
+    {
+      "position": 2,
+      "players": [
+        {
+          "name": "Raisa Kauppi",
+          "club": "Sisu",
+          "seed": null
+        },
+        {
+          "name": "Emilia Mattila",
+          "club": "TeSu",
+          "seed": null
+        }
+      ],
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 3,
+      "players": [
+        {
+          "name": "Henna Hukari",
+          "club": "TU",
+          "seed": null
+        },
+        {
+          "name": "Eerika Laakso",
+          "club": "TU",
+          "seed": null
+        }
+      ],
+      "seed": null,
+      "status": null
+    }
+  ],
+  "matches": [
+    {
+      "match": 1,
+      "player1": "Mira Mustonen / Sonja Perälä",
+      "player2": "Raisa Kauppi / Emilia Mattila"
+    },
+    {
+      "match": 2,
+      "player1": "Mira Mustonen / Sonja Perälä",
+      "player2": "Henna Hukari / Eerika Laakso"
+    },
+    {
+      "match": 3,
+      "player1": "Raisa Kauppi / Emilia Mattila",
+      "player2": "Henna Hukari / Eerika Laakso"
+    }
+  ],
+  "clubs": [
+    "KajSu",
+    "RVS",
+    "Sisu",
+    "TU",
+    "TeSu"
+  ]
+}

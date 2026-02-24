@@ -1,0 +1,337 @@
+{
+  "tournament": "Kumpoo Tervasulan Eliitti 2025",
+  "name": "Men's Singles B",
+  "code": "MS B",
+  "category": "Open B",
+  "sheet": "MS B-Main Draw",
+  "draw_type": "main_draw",
+  "format": "elimination",
+  "drawSize": 32,
+  "players": [
+    {
+      "position": 1,
+      "name": "Jukka Häivälä",
+      "club": "HPC",
+      "seed": "1",
+      "status": null
+    },
+    {
+      "position": 3,
+      "name": "Joonas Raasakka",
+      "club": "TeSu",
+      "seed": null,
+      "status": "WDN"
+    },
+    {
+      "position": 5,
+      "name": "Axel Lejon Öhrling",
+      "club": "Luleå BMK",
+      "seed": "5/8",
+      "status": null
+    },
+    {
+      "position": 7,
+      "name": "Teemu Rantala",
+      "club": "KajSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 9,
+      "name": "Henri Kangas",
+      "club": "TeSu",
+      "seed": "3/4",
+      "status": null
+    },
+    {
+      "position": 11,
+      "name": "Walter Ekstrand",
+      "club": "JeBa",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 13,
+      "name": "Milo Stridsman",
+      "club": "Luleå BMK",
+      "seed": "5/8",
+      "status": null
+    },
+    {
+      "position": 15,
+      "name": "Aaro Romppainen",
+      "club": "TeSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 17,
+      "name": "Oscar Syk",
+      "club": "Luleå BMK",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 18,
+      "name": "Mika Pasanen",
+      "club": "HPC",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 20,
+      "name": "Pauli Alapukki",
+      "club": "TeSu",
+      "seed": "5/8",
+      "status": null
+    },
+    {
+      "position": 22,
+      "name": "Jaakko Raasakka",
+      "club": "TeSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 24,
+      "name": "Niklas Hukari",
+      "club": "TU",
+      "seed": "3/4",
+      "status": null
+    },
+    {
+      "position": 26,
+      "name": "Matti Peitso",
+      "club": "HPC",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 28,
+      "name": "Hampus Hansson",
+      "club": "Luleå BMK",
+      "seed": "5/8",
+      "status": null
+    },
+    {
+      "position": 30,
+      "name": "David Cristobal Hornillos",
+      "club": "TeSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 32,
+      "name": "Jaakko Hakala",
+      "club": "YlTe",
+      "seed": "2",
+      "status": null
+    }
+  ],
+  "rounds": [
+    {
+      "name": "Round 1",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Jukka Häivälä",
+          "player2": "Bye",
+          "notes": "Jukka Häivälä auto-advances"
+        },
+        {
+          "match": 2,
+          "player1": "Joonas Raasakka",
+          "player2": "Bye",
+          "notes": "Joonas Raasakka auto-advances"
+        },
+        {
+          "match": 3,
+          "player1": "Axel Lejon Öhrling",
+          "player2": "Bye",
+          "notes": "Axel Lejon Öhrling auto-advances"
+        },
+        {
+          "match": 4,
+          "player1": "Teemu Rantala",
+          "player2": "Bye",
+          "notes": "Teemu Rantala auto-advances"
+        },
+        {
+          "match": 5,
+          "player1": "Henri Kangas",
+          "player2": "Bye",
+          "notes": "Henri Kangas auto-advances"
+        },
+        {
+          "match": 6,
+          "player1": "Walter Ekstrand",
+          "player2": "Bye",
+          "notes": "Walter Ekstrand auto-advances"
+        },
+        {
+          "match": 7,
+          "player1": "Milo Stridsman",
+          "player2": "Bye",
+          "notes": "Milo Stridsman auto-advances"
+        },
+        {
+          "match": 8,
+          "player1": "Aaro Romppainen",
+          "player2": "Bye",
+          "notes": "Aaro Romppainen auto-advances"
+        },
+        {
+          "match": 9,
+          "player1": "Oscar Syk",
+          "player2": "Mika Pasanen"
+        },
+        {
+          "match": 10,
+          "player1": "Bye",
+          "player2": "Pauli Alapukki",
+          "notes": "Pauli Alapukki auto-advances"
+        },
+        {
+          "match": 11,
+          "player1": "Bye",
+          "player2": "Jaakko Raasakka",
+          "notes": "Jaakko Raasakka auto-advances"
+        },
+        {
+          "match": 12,
+          "player1": "Bye",
+          "player2": "Niklas Hukari",
+          "notes": "Niklas Hukari auto-advances"
+        },
+        {
+          "match": 13,
+          "player1": "Bye",
+          "player2": "Matti Peitso",
+          "notes": "Matti Peitso auto-advances"
+        },
+        {
+          "match": 14,
+          "player1": "Bye",
+          "player2": "Hampus Hansson",
+          "notes": "Hampus Hansson auto-advances"
+        },
+        {
+          "match": 15,
+          "player1": "Bye",
+          "player2": "David Cristobal Hornillos",
+          "notes": "David Cristobal Hornillos auto-advances"
+        },
+        {
+          "match": 16,
+          "player1": "Bye",
+          "player2": "Jaakko Hakala",
+          "notes": "Jaakko Hakala auto-advances"
+        }
+      ]
+    },
+    {
+      "name": "Round 2",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Winner R1-M1",
+          "player2": "Winner R1-M2"
+        },
+        {
+          "match": 2,
+          "player1": "Winner R1-M3",
+          "player2": "Winner R1-M4"
+        },
+        {
+          "match": 3,
+          "player1": "Winner R1-M5",
+          "player2": "Winner R1-M6"
+        },
+        {
+          "match": 4,
+          "player1": "Winner R1-M7",
+          "player2": "Winner R1-M8"
+        },
+        {
+          "match": 5,
+          "player1": "Winner R1-M9",
+          "player2": "Winner R1-M10"
+        },
+        {
+          "match": 6,
+          "player1": "Winner R1-M11",
+          "player2": "Winner R1-M12"
+        },
+        {
+          "match": 7,
+          "player1": "Winner R1-M13",
+          "player2": "Winner R1-M14"
+        },
+        {
+          "match": 8,
+          "player1": "Winner R1-M15",
+          "player2": "Winner R1-M16"
+        }
+      ]
+    },
+    {
+      "name": "Quarter-Final",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Winner R2-M1",
+          "player2": "Winner R2-M2"
+        },
+        {
+          "match": 2,
+          "player1": "Winner R2-M3",
+          "player2": "Winner R2-M4"
+        },
+        {
+          "match": 3,
+          "player1": "Winner R2-M5",
+          "player2": "Winner R2-M6"
+        },
+        {
+          "match": 4,
+          "player1": "Winner R2-M7",
+          "player2": "Winner R2-M8"
+        }
+      ]
+    },
+    {
+      "name": "Semi-Final",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Winner QF-M1",
+          "player2": "Winner QF-M2"
+        },
+        {
+          "match": 2,
+          "player1": "Winner QF-M3",
+          "player2": "Winner QF-M4"
+        }
+      ]
+    },
+    {
+      "name": "Final",
+      "matches": [
+        {
+          "match": 1,
+          "player1": "Winner SF-M1",
+          "player2": "Winner SF-M2"
+        }
+      ]
+    }
+  ],
+  "clubs": [
+    "HPC",
+    "JeBa",
+    "KajSu",
+    "Luleå BMK",
+    "TU",
+    "TeSu",
+    "YlTe"
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "tournament": "Kumpoo Tervasulan Eliitti 2025",
+  "name": "Women's Singles Elite",
+  "code": "WS V",
+  "category": "Elite",
+  "sheet": "WS V-Main Draw",
+  "draw_type": "main_draw",
+  "format": "round_robin",
+  "players": [
+    {
+      "position": 1,
+      "name": "Nelly Määttä",
+      "club": "TeSu",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 2,
+      "name": "Pihla Mäkelä",
+      "club": "LaSuPa",
+      "seed": null,
+      "status": null
+    },
+    {
+      "position": 3,
+      "name": "Emilia Ojala",
+      "club": "Sulkaset",
+      "seed": null,
+      "status": null
+    }
+  ],
+  "matches": [
+    {
+      "match": 1,
+      "player1": "Nelly Määttä",
+      "player2": "Pihla Mäkelä"
+    },
+    {
+      "match": 2,
+      "player1": "Nelly Määttä",
+      "player2": "Emilia Ojala"
+    },
+    {
+      "match": 3,
+      "player1": "Pihla Mäkelä",
+      "player2": "Emilia Ojala"
+    }
+  ],
+  "clubs": [
+    "LaSuPa",
+    "Sulkaset",
+    "TeSu"
+  ]
+}
