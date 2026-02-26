@@ -1,20 +1,32 @@
 """
-Generate the tournament website (index.html) from JSON division files.
+Generate the tournament website from JSON division and schedule files.
 
 Usage:
     python generate_website.py
 
 Reads:  divisions/tournament_index.json + divisions/*.json
-Writes: index.html
+        schedules/schedule_index.json + schedules/*.json
+Writes: index.html, schedule.html
 """
 
 import json
 import os
 from html import escape
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DIVISIONS_DIR = os.path.join(BASE_DIR, "divisions")
-OUTPUT_FILE = os.path.join(BASE_DIR, "index.html")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DIVISIONS_DIR = os.path.join(BASE_DIR, "output", "divisions")
+SCHEDULES_DIR = os.path.join(BASE_DIR, "output", "schedules")
+OUTPUT_FILE = os.path.join(BASE_DIR, "output", "webpages", "index.html")
+SCHEDULE_OUTPUT = os.path.join(BASE_DIR, "output", "webpages", "schedule.html")
+
+CATEGORY_BADGE = {
+    "Open A": "badge-open",
+    "Open B": "badge-open",
+    "Open C": "badge-open",
+    "Junior": "badge-junior",
+    "Veterans": "badge-veterans",
+    "Elite": "badge-elite",
+}
 
 # ── Category configuration ───────────────────────────────────────
 
@@ -68,6 +80,37 @@ def count_players(data):
     if fmt == "group_playoff":
         return sum(len(g["players"]) for g in data.get("groups", []))
     return len(data.get("players", []))
+
+
+# ── Schedule data loader ──────────────────────────────────────────
+
+def load_schedule_data():
+    """Load schedule files and build a lookup dict for cross-referencing."""
+    idx_path = os.path.join(SCHEDULES_DIR, "schedule_index.json")
+    if not os.path.exists(idx_path):
+        return {}, []
+
+    with open(idx_path, encoding="utf-8") as f:
+        idx = json.load(f)
+
+    lookup = {}
+    all_sessions = []
+    for sess_info in idx["sessions"]:
+        sess_path = os.path.join(SCHEDULES_DIR, sess_info["file"])
+        if not os.path.exists(sess_path):
+            continue
+        with open(sess_path, encoding="utf-8") as f:
+            sess_data = json.load(f)
+        all_sessions.append(sess_data)
+        for m in sess_data["matches"]:
+            key = (m["division"], m["round"], m["match_num"])
+            lookup[key] = {
+                "time": m["time"],
+                "court": m["court"],
+                "date": sess_data["date"],
+            }
+
+    return lookup, all_sessions
 
 
 # ── HTML rendering functions ─────────────────────────────────────
@@ -127,12 +170,11 @@ def render_player_table(players, doubles):
 </table>"""
 
 
-def render_match_card(match, round_abbrev=""):
+def render_match_card(match, div_code="", round_name="", schedule_lookup=None):
     """Render a single match card for bracket view."""
     p1 = h(match.get("player1", ""))
     p2 = h(match.get("player2", ""))
     mnum = match.get("match", "")
-    notes = match.get("notes", "")
 
     p1_class = ' bye-slot' if p1 == "Bye" else ""
     p2_class = ' bye-slot' if p2 == "Bye" else ""
@@ -143,35 +185,74 @@ def render_match_card(match, round_abbrev=""):
         p1_class = " bye-slot"
         p2_class = " bye-slot"
 
+    # Schedule annotation
+    sched_html = ""
+    if schedule_lookup and div_code:
+        info = schedule_lookup.get((div_code, round_name, mnum))
+        if info:
+            day = info["date"][:3]
+            sched_html = f'<span class="match-schedule">{day} {info["time"]} Ct {info["court"]}</span>'
+
     return f"""<div class="bracket-match">
-<div class="match-num">M{mnum}</div>
+<div class="match-num">M{mnum}{sched_html}</div>
 <div class="player-slot{p1_class}">{p1}</div>
 <div class="player-slot{p2_class}">{p2}</div>
 </div>"""
 
 
-def render_bracket(rounds):
-    """Render horizontal scrollable bracket with all rounds."""
+def _render_bracket_inner(rounds, div_code="", schedule_lookup=None):
+    """Build bracket HTML parts (rounds + connector columns)."""
+    parts = []
+    for i, rnd in enumerate(rounds):
+        name = h(rnd["name"])
+        sched_round = rnd.get("_schedule_round", rnd["name"])
+        match_wraps = "".join(
+            f'<div class="match-wrap">{render_match_card(m, div_code, sched_round, schedule_lookup)}</div>'
+            for m in rnd["matches"]
+        )
+        parts.append(
+            f'<div class="bracket-round">'
+            f'<div class="bracket-round-title">{name}</div>'
+            f'<div class="bracket-matches">{match_wraps}</div>'
+            f'</div>'
+        )
+
+        # Add connector lines between this round and the next
+        if i < len(rounds) - 1:
+            n_cur = len(rnd["matches"])
+            n_next = len(rounds[i + 1]["matches"])
+            if n_cur == 2 * n_next and n_next > 0:
+                cells = ""
+                for j in range(n_cur):
+                    cls = "conn-top" if j % 2 == 0 else "conn-bot"
+                    cells += f'<div class="conn-cell {cls}"></div>'
+                parts.append(
+                    f'<div class="bracket-conn-col">'
+                    f'<div class="bracket-round-title">&nbsp;</div>'
+                    f'<div class="bracket-conn">{cells}</div>'
+                    f'</div>'
+                )
+    return f'<div class="bracket">\n{"".join(parts)}\n</div>'
+
+
+def render_bracket(rounds, div_code="", schedule_lookup=None):
+    """Render horizontal scrollable bracket with tree-style alignment."""
     if not rounds:
         return ""
-
-    round_htmls = []
-    for rnd in rounds:
-        name = h(rnd["name"])
-        matches_html = "".join(render_match_card(m) for m in rnd["matches"])
-        round_htmls.append(f"""<div class="bracket-round">
-<div class="bracket-round-title">{name}</div>
-{matches_html}
-</div>""")
-
-    connectors = '<div class="bracket-connector">&rarr;</div>'.join(round_htmls)
-    return f"""<div class="section-title">Game Draws</div>
-<div class="bracket">
-{connectors}
-</div>"""
+    return (
+        f'<div class="section-title">Game Draws</div>\n'
+        + _render_bracket_inner(rounds, div_code, schedule_lookup)
+    )
 
 
-def render_rr_matches(matches):
+def render_bracket_playoff(rounds, div_code="", schedule_lookup=None):
+    """Render playoff bracket (no section title, supports _schedule_round)."""
+    if not rounds:
+        return ""
+    return _render_bracket_inner(rounds, div_code, schedule_lookup)
+
+
+def render_rr_matches(matches, div_code="", round_prefix="Pool", schedule_lookup=None):
     """Render round-robin match cards."""
     if not matches:
         return ""
@@ -180,10 +261,19 @@ def render_rr_matches(matches):
     for m in matches:
         p1 = h(m.get("player1", ""))
         p2 = h(m.get("player2", ""))
+
+        sched_html = ""
+        if schedule_lookup and div_code:
+            info = schedule_lookup.get((div_code, round_prefix, m.get("match")))
+            if info:
+                day = info["date"][:3]
+                sched_html = f'<span class="match-schedule">{day} {info["time"]} Ct {info["court"]}</span>'
+
         cards.append(f"""<div class="rr-match">
 <span class="p1">{p1}</span>
 <span class="vs">VS</span>
 <span class="p2">{p2}</span>
+{sched_html}
 </div>""")
 
     return f"""<div class="section-title">Matches</div>
@@ -192,54 +282,57 @@ def render_rr_matches(matches):
 </div>"""
 
 
-def render_elimination_division(data):
+def render_elimination_division(data, schedule_lookup=None):
     """Render an elimination bracket division body."""
     doubles = is_doubles(data)
+    div_code = data.get("code", "")
     parts = []
     parts.append(render_player_table(data.get("players", []), doubles))
-    parts.append(render_bracket(data.get("rounds", [])))
+    parts.append(render_bracket(data.get("rounds", []), div_code, schedule_lookup))
     return "\n".join(parts)
 
 
-def render_roundrobin_division(data):
+def render_roundrobin_division(data, schedule_lookup=None):
     """Render a round-robin division body."""
     doubles = is_doubles(data)
+    div_code = data.get("code", "")
     parts = []
     parts.append(render_player_table(data.get("players", []), doubles))
-    parts.append(render_rr_matches(data.get("matches", [])))
+    parts.append(render_rr_matches(data.get("matches", []), div_code, "Pool", schedule_lookup))
     return "\n".join(parts)
 
 
-def render_group_playoff_division(data):
+def render_group_playoff_division(data, schedule_lookup=None):
     """Render a group+playoff division body."""
     doubles = is_doubles(data)
+    div_code = data.get("code", "")
     parts = []
 
     for group in data.get("groups", []):
-        parts.append(f'<div class="group-title">{h(group["name"])}</div>')
+        group_name = group["name"]
+        parts.append(f'<div class="group-title">{h(group_name)}</div>')
         parts.append(render_player_table(group.get("players", []), doubles))
-        parts.append(render_rr_matches(group.get("matches", [])))
+        round_prefix = f"{group_name} Pool"
+        parts.append(render_rr_matches(group.get("matches", []), div_code, round_prefix, schedule_lookup))
 
     # Playoff bracket
     playoff = data.get("playoff")
     if playoff and playoff.get("rounds"):
         parts.append(f'<div class="section-title" style="margin-top:1.5rem;">Playoff Bracket (Top from each group)</div>')
-        rounds = playoff["rounds"]
-        round_htmls = []
-        for rnd in rounds:
-            name = h(rnd["name"])
-            matches_html = "".join(render_match_card(m) for m in rnd["matches"])
-            round_htmls.append(f"""<div class="bracket-round">
-<div class="bracket-round-title">{name}</div>
-{matches_html}
-</div>""")
-        connectors = '<div class="bracket-connector">&rarr;</div>'.join(round_htmls)
-        parts.append(f'<div class="bracket">\n{connectors}\n</div>')
+        # Remap round names for schedule lookup (prefix with "Playoff ")
+        playoff_rounds = []
+        for rnd in playoff["rounds"]:
+            playoff_rounds.append({
+                "name": rnd["name"],
+                "matches": rnd["matches"],
+                "_schedule_round": f"Playoff {rnd['name']}"
+            })
+        parts.append(render_bracket_playoff(playoff_rounds, div_code, schedule_lookup))
 
     return "\n".join(parts)
 
 
-def render_division_card(data, badge_class):
+def render_division_card(data, badge_class, schedule_lookup=None):
     """Render a full division card (header + body)."""
     name = h(data.get("name", ""))
     fmt = data.get("format", "")
@@ -249,11 +342,11 @@ def render_division_card(data, badge_class):
 
     # Body content
     if fmt == "elimination":
-        body = render_elimination_division(data)
+        body = render_elimination_division(data, schedule_lookup)
     elif fmt == "round_robin":
-        body = render_roundrobin_division(data)
+        body = render_roundrobin_division(data, schedule_lookup)
     elif fmt == "group_playoff":
-        body = render_group_playoff_division(data)
+        body = render_group_playoff_division(data, schedule_lookup)
     else:
         body = "<p>Unknown format</p>"
 
@@ -354,15 +447,23 @@ CSS = """:root {
   .group-title { font-size: 0.95rem; font-weight: 700; margin: 1rem 0 0.3rem; padding: 0.4rem 0.7rem; background: var(--primary); color: white; border-radius: 6px; display: inline-block; }
   .group-title:first-child { margin-top: 0; }
   .section-title { font-size: 0.95rem; font-weight: 700; margin: 1.2rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 2px solid var(--accent); color: var(--primary); }
-  .bracket { display: flex; gap: 0; overflow-x: auto; padding: 0.5rem 0; }
-  .bracket-round { min-width: 220px; flex-shrink: 0; }
-  .bracket-round-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-light); padding: 0.3rem 0.5rem; background: var(--bg); border-radius: 4px; margin-bottom: 0.4rem; text-align: center; letter-spacing: 0.05em; }
-  .bracket-match { background: var(--bg); border-radius: 6px; margin-bottom: 0.5rem; border: 1px solid var(--border); overflow: hidden; font-size: 0.8rem; }
+  .bracket { display: flex; align-items: stretch; overflow-x: auto; padding: 0.5rem 0; gap: 0; }
+  .bracket-round { min-width: 220px; flex-shrink: 0; display: flex; flex-direction: column; }
+  .bracket-round-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-light); padding: 0.3rem 0.5rem; background: var(--bg); border-radius: 4px; text-align: center; letter-spacing: 0.05em; }
+  .bracket-matches { display: flex; flex-direction: column; flex: 1; }
+  .match-wrap { flex: 1; display: flex; align-items: center; padding: 2px 0; }
+  .bracket-match { background: var(--bg); border-radius: 6px; border: 1px solid var(--border); overflow: hidden; font-size: 0.8rem; width: 100%; }
   .bracket-match .match-num { font-size: 0.65rem; color: var(--text-light); padding: 0.15rem 0.4rem; background: var(--border); }
   .bracket-match .player-slot { padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
   .bracket-match .player-slot:last-child { border-bottom: none; }
   .bracket-match .player-slot.bye-slot { color: var(--text-light); font-style: italic; }
-  .bracket-connector { display: flex; align-items: center; justify-content: center; min-width: 20px; color: var(--text-light); font-size: 1.2rem; flex-shrink: 0; }
+  .bracket-conn-col { display: flex; flex-direction: column; flex-shrink: 0; }
+  .bracket-conn-col > .bracket-round-title { visibility: hidden; }
+  .bracket-conn { display: flex; flex-direction: column; flex: 1; min-width: 24px; }
+  .conn-cell { flex: 1; position: relative; }
+  .conn-cell.conn-top::after { content: ''; position: absolute; top: 50%; left: 0; right: 0; bottom: 0; border-top: 2px solid var(--border); border-right: 2px solid var(--border); border-top-right-radius: 4px; }
+  .conn-cell.conn-bot::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 50%; border-bottom: 2px solid var(--border); border-right: 2px solid var(--border); border-bottom-right-radius: 4px; }
+  .conn-cell.conn-bot::before { content: ''; position: absolute; top: 0; right: -12px; width: 12px; border-top: 2px solid var(--border); }
   .rr-matches { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.4rem; margin-top: 0.5rem; }
   .rr-match { display: flex; align-items: center; gap: 0.5rem; background: var(--bg); border-radius: 6px; padding: 0.4rem 0.7rem; font-size: 0.82rem; border: 1px solid var(--border); }
   .rr-match .vs { font-weight: 700; color: var(--accent-dark); font-size: 0.7rem; flex-shrink: 0; }
@@ -372,6 +473,10 @@ CSS = """:root {
   .club-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 1rem; box-shadow: var(--shadow); font-size: 0.9rem; }
   .club-card strong { color: var(--primary); }
   .footer { text-align: center; padding: 2rem 1rem; color: var(--text-light); font-size: 0.8rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+  .match-schedule { font-size: 0.6rem; color: var(--accent-dark); font-weight: 600; float: right; letter-spacing: 0.02em; }
+  .rr-match .match-schedule { float: none; display: block; text-align: center; font-size: 0.7rem; margin-top: 0.15rem; }
+  .nav-link { display: inline-block; margin-top: 0.5rem; color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.3); padding: 0.3rem 1rem; border-radius: 20px; transition: all 0.2s; }
+  .nav-link:hover { background: rgba(255,255,255,0.15); color: white; }
   @media (max-width: 600px) {
     .hero h1 { font-size: 1.5rem; }
     .stats-bar { gap: 1rem; }
@@ -395,7 +500,190 @@ function toggleCard(header) {
 }"""
 
 
-def generate_html():
+# ── Schedule page generation ──────────────────────────────────────
+
+SCHEDULE_CSS = """
+  .schedule-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 0.5rem; }
+  .schedule-grid { border-collapse: collapse; font-size: 0.75rem; min-width: 100%; }
+  .schedule-grid th { position: sticky; top: 0; background: var(--primary); color: white; padding: 0.4rem 0.3rem; text-align: center; font-size: 0.75rem; z-index: 10; white-space: nowrap; min-width: 130px; }
+  .schedule-grid th:first-child { min-width: 55px; left: 0; z-index: 15; }
+  .schedule-grid .time-cell { font-weight: 700; background: var(--primary-light); color: white; text-align: center; padding: 0.4rem 0.3rem; position: sticky; left: 0; z-index: 5; white-space: nowrap; }
+  .sched-cell { border: 1px solid var(--border); padding: 0.3rem; vertical-align: top; background: var(--card-bg); }
+  .sched-cell:hover { background: #f0f7ff; }
+  .sched-div { margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+  .sched-div .badge { font-size: 0.6rem; padding: 0.1rem 0.4rem; }
+  .sched-round { font-size: 0.6rem; color: var(--text-light); }
+  .sched-p { font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+  .sched-vs { font-size: 0.55rem; color: var(--accent-dark); font-weight: 700; }
+  .sched-empty { border: 1px solid #edf2f7; background: var(--bg); }
+  .sched-blocked { border: 1px solid #edf2f7; background: repeating-linear-gradient(45deg, var(--bg), var(--bg) 4px, #e8edf3 4px, #e8edf3 5px); }
+"""
+
+SCHEDULE_JS = """document.querySelectorAll('.sched-tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sched-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.sched-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('sched-' + btn.dataset.session).classList.add('active');
+  });
+});"""
+
+
+def add_30min(time_str):
+    """Add 30 minutes to a HH:MM time string."""
+    hh, mm = map(int, time_str.split(":"))
+    mm += 30
+    if mm >= 60:
+        hh += 1
+        mm -= 60
+    return f"{hh:02d}:{mm:02d}"
+
+
+def time_slots_range(start_str, end_str):
+    """Generate 30-min time slots from start to end (exclusive)."""
+    slots = []
+    current = start_str
+    while current < end_str:
+        slots.append(current)
+        current = add_30min(current)
+    return slots
+
+
+def render_schedule_grid(session_data):
+    """Render a time × court grid table for one session."""
+    matches = session_data.get("matches", [])
+    if not matches:
+        return '<p style="color: var(--text-light); padding: 1rem;">No matches in this session.</p>'
+
+    # Determine courts and time slots
+    courts = sorted(set(m["court"] for m in matches))
+    time_slots = time_slots_range(session_data["start"], session_data["end"])
+
+    # Build grid and blocked set
+    grid = {}
+    blocked = set()
+    for m in matches:
+        grid[(m["time"], m["court"])] = m
+        if m["duration_min"] > 30:
+            next_time = add_30min(m["time"])
+            blocked.add((next_time, m["court"]))
+
+    # Header row
+    header_cells = '<th>Time</th>'
+    for c in courts:
+        header_cells += f'<th>Court {c}</th>'
+
+    # Body rows
+    rows = []
+    for t in time_slots:
+        cells = f'<td class="time-cell">{t}</td>'
+        for c in courts:
+            if (t, c) in blocked:
+                continue  # rowspan from previous row already covers this cell
+            elif (t, c) in grid:
+                m = grid[(t, c)]
+                badge = CATEGORY_BADGE.get(m.get("category", ""), "badge-open")
+                div_code = h(m["division"])
+                rnd = h(m.get("round", ""))
+                mnum = m.get("match_num", "")
+                p1 = h(m["player1"])
+                p2 = h(m["player2"])
+                rowspan = ' rowspan="2"' if m["duration_min"] > 30 else ""
+                cells += f'''<td class="sched-cell"{rowspan}>
+<div class="sched-div"><span class="badge {badge}">{div_code}</span><span class="sched-round">{rnd} M{mnum}</span></div>
+<div class="sched-p" title="{p1}">{p1}</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="{p2}">{p2}</div>
+</td>'''
+            else:
+                cells += '<td class="sched-empty"></td>'
+        rows.append(f'<tr>{cells}</tr>')
+
+    return f"""<div class="schedule-wrap">
+<table class="schedule-grid">
+<thead><tr>{header_cells}</tr></thead>
+<tbody>
+{"".join(rows)}
+</tbody>
+</table>
+</div>"""
+
+
+def generate_schedule_html(all_sessions):
+    """Generate the complete schedule.html page."""
+    # Session tabs
+    tab_ids = []
+    tab_buttons = []
+    tab_panels = []
+
+    for i, sess in enumerate(all_sessions):
+        if not sess.get("matches"):
+            continue
+        sess_id = sess["session"].lower().replace(" ", "_")
+        tab_ids.append(sess_id)
+        active = " active" if len(tab_ids) == 1 else ""
+        label = sess["session"]
+        count = len(sess["matches"])
+        tab_buttons.append(
+            f'<button class="tab-btn sched-tab-btn{active}" data-session="{sess_id}">{label} ({count})</button>'
+        )
+        grid = render_schedule_grid(sess)
+        tab_panels.append(f'<div class="sched-panel{active}" id="sched-{sess_id}">{grid}</div>')
+
+    total = sum(len(s.get("matches", [])) for s in all_sessions)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Match Schedule — Kumpoo Tervasulan Eliitti 2025</title>
+<style>
+{CSS}
+{SCHEDULE_CSS}
+  .sched-panel {{ display: none; }}
+  .sched-panel.active {{ display: block; }}
+  .content {{ max-width: none; padding: 1rem; }}
+</style>
+</head>
+<body>
+
+<div class="hero">
+<span class="shuttlecock">&#127992;</span>
+<h1>Kumpoo Tervasulan Eliitti 2025</h1>
+<p class="subtitle">Match Schedule</p>
+<a href="index.html" class="nav-link">View Game Draws</a>
+</div>
+
+<div class="stats-bar">
+<div class="stat"><div class="num">{total}</div><div class="label">Matches</div></div>
+<div class="stat"><div class="num">12</div><div class="label">Courts (Sat)</div></div>
+<div class="stat"><div class="num">8</div><div class="label">Courts (Sun)</div></div>
+<div class="stat"><div class="num">2</div><div class="label">Days</div></div>
+</div>
+
+<div class="tabs-wrapper">
+<div class="tabs">
+{"".join(tab_buttons)}
+</div>
+</div>
+
+<div class="content">
+{"".join(tab_panels)}
+</div>
+
+<div class="footer">
+Kumpoo Tervasulan Eliitti 2025 &middot; Match Schedule
+</div>
+
+<script>
+{SCHEDULE_JS}
+</script>
+</body>
+</html>"""
+
+
+def generate_html(schedule_lookup=None):
     # Load index
     with open(os.path.join(DIVISIONS_DIR, "tournament_index.json"), encoding="utf-8") as f:
         index = json.load(f)
@@ -443,7 +731,7 @@ def generate_html():
             filepath = os.path.join(DIVISIONS_DIR, entry["file"])
             with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
-            cards.append(render_division_card(data, cat_cfg["badge"]))
+            cards.append(render_division_card(data, cat_cfg["badge"], schedule_lookup))
 
         panel = f"""<div class="tab-panel{active}" id="tab-{cat_cfg['tab_id']}">
 <div class="cat-header">
@@ -476,6 +764,7 @@ def generate_html():
 <span class="shuttlecock">&#127992;</span>
 <h1>Kumpoo Tervasulan Eliitti 2025</h1>
 <p class="subtitle">Badminton Tournament Draws</p>
+<a href="schedule.html" class="nav-link">View Match Schedule</a>
 <div class="meta">
 <span>Hosted by TeSu (Tervasulka)</span>
 <span>badmintonfinland.tournamentsoftware.com</span>
@@ -516,13 +805,24 @@ Kumpoo Tervasulan Eliitti 2025 &middot; Data from Badminton Finland Tournament P
 
 def main():
     print(f"Reading JSON files from: {DIVISIONS_DIR}/")
-    html = generate_html()
 
+    # Load schedule data for cross-referencing
+    schedule_lookup, all_sessions = load_schedule_data()
+    if schedule_lookup:
+        print(f"Loaded schedule: {len(schedule_lookup)} matches from {len(all_sessions)} sessions")
+
+    # Generate index.html
+    html = generate_html(schedule_lookup)
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write(html)
+    print(f"Generated: {OUTPUT_FILE} ({len(html):,} bytes)")
 
-    print(f"Generated: {OUTPUT_FILE}")
-    print(f"File size: {len(html):,} bytes")
+    # Generate schedule.html
+    if all_sessions:
+        sched_html = generate_schedule_html(all_sessions)
+        with open(SCHEDULE_OUTPUT, "w", encoding="utf-8") as f:
+            f.write(sched_html)
+        print(f"Generated: {SCHEDULE_OUTPUT} ({len(sched_html):,} bytes)")
 
 
 if __name__ == "__main__":

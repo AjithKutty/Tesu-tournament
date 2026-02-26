@@ -70,15 +70,23 @@
   .group-title { font-size: 0.95rem; font-weight: 700; margin: 1rem 0 0.3rem; padding: 0.4rem 0.7rem; background: var(--primary); color: white; border-radius: 6px; display: inline-block; }
   .group-title:first-child { margin-top: 0; }
   .section-title { font-size: 0.95rem; font-weight: 700; margin: 1.2rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 2px solid var(--accent); color: var(--primary); }
-  .bracket { display: flex; gap: 0; overflow-x: auto; padding: 0.5rem 0; }
-  .bracket-round { min-width: 220px; flex-shrink: 0; }
-  .bracket-round-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-light); padding: 0.3rem 0.5rem; background: var(--bg); border-radius: 4px; margin-bottom: 0.4rem; text-align: center; letter-spacing: 0.05em; }
-  .bracket-match { background: var(--bg); border-radius: 6px; margin-bottom: 0.5rem; border: 1px solid var(--border); overflow: hidden; font-size: 0.8rem; }
+  .bracket { display: flex; align-items: stretch; overflow-x: auto; padding: 0.5rem 0; gap: 0; }
+  .bracket-round { min-width: 220px; flex-shrink: 0; display: flex; flex-direction: column; }
+  .bracket-round-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-light); padding: 0.3rem 0.5rem; background: var(--bg); border-radius: 4px; text-align: center; letter-spacing: 0.05em; }
+  .bracket-matches { display: flex; flex-direction: column; flex: 1; }
+  .match-wrap { flex: 1; display: flex; align-items: center; padding: 2px 0; }
+  .bracket-match { background: var(--bg); border-radius: 6px; border: 1px solid var(--border); overflow: hidden; font-size: 0.8rem; width: 100%; }
   .bracket-match .match-num { font-size: 0.65rem; color: var(--text-light); padding: 0.15rem 0.4rem; background: var(--border); }
   .bracket-match .player-slot { padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
   .bracket-match .player-slot:last-child { border-bottom: none; }
   .bracket-match .player-slot.bye-slot { color: var(--text-light); font-style: italic; }
-  .bracket-connector { display: flex; align-items: center; justify-content: center; min-width: 20px; color: var(--text-light); font-size: 1.2rem; flex-shrink: 0; }
+  .bracket-conn-col { display: flex; flex-direction: column; flex-shrink: 0; }
+  .bracket-conn-col > .bracket-round-title { visibility: hidden; }
+  .bracket-conn { display: flex; flex-direction: column; flex: 1; min-width: 24px; }
+  .conn-cell { flex: 1; position: relative; }
+  .conn-cell.conn-top::after { content: ''; position: absolute; top: 50%; left: 0; right: 0; bottom: 0; border-top: 2px solid var(--border); border-right: 2px solid var(--border); border-top-right-radius: 4px; }
+  .conn-cell.conn-bot::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 50%; border-bottom: 2px solid var(--border); border-right: 2px solid var(--border); border-bottom-right-radius: 4px; }
+  .conn-cell.conn-bot::before { content: ''; position: absolute; top: 0; right: -12px; width: 12px; border-top: 2px solid var(--border); }
   .rr-matches { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.4rem; margin-top: 0.5rem; }
   .rr-match { display: flex; align-items: center; gap: 0.5rem; background: var(--bg); border-radius: 6px; padding: 0.4rem 0.7rem; font-size: 0.82rem; border: 1px solid var(--border); }
   .rr-match .vs { font-weight: 700; color: var(--accent-dark); font-size: 0.7rem; flex-shrink: 0; }
@@ -88,6 +96,10 @@
   .club-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 1rem; box-shadow: var(--shadow); font-size: 0.9rem; }
   .club-card strong { color: var(--primary); }
   .footer { text-align: center; padding: 2rem 1rem; color: var(--text-light); font-size: 0.8rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+  .match-schedule { font-size: 0.6rem; color: var(--accent-dark); font-weight: 600; float: right; letter-spacing: 0.02em; }
+  .rr-match .match-schedule { float: none; display: block; text-align: center; font-size: 0.7rem; margin-top: 0.15rem; }
+  .nav-link { display: inline-block; margin-top: 0.5rem; color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.3); padding: 0.3rem 1rem; border-radius: 20px; transition: all 0.2s; }
+  .nav-link:hover { background: rgba(255,255,255,0.15); color: white; }
   @media (max-width: 600px) {
     .hero h1 { font-size: 1.5rem; }
     .stats-bar { gap: 1rem; }
@@ -105,6 +117,7 @@
 <span class="shuttlecock">&#127992;</span>
 <h1>Kumpoo Tervasulan Eliitti 2025</h1>
 <p class="subtitle">Badminton Tournament Draws</p>
+<a href="schedule.html" class="nav-link">View Match Schedule</a>
 <div class="meta">
 <span>Hosted by TeSu (Tervasulka)</span>
 <span>badmintonfinland.tournamentsoftware.com</span>
@@ -150,79 +163,67 @@
 </table>
 <div class="section-title">Game Draws</div>
 <div class="bracket">
-<div class="bracket-round">
-<div class="bracket-round-title">Round 1</div>
-<div class="bracket-match">
+<div class="bracket-round"><div class="bracket-round-title">Round 1</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M1</div>
 <div class="player-slot">Jukka Häivälä / Heikki Roivainen</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sat 14:00 Ct 5</span></div>
 <div class="player-slot">Juha Heikkinen / Henri Kangas</div>
 <div class="player-slot">Mikko Luhtaniemi / Jenny Nyström</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 09:30 Ct 7</span></div>
 <div class="player-slot">Joel Pennanen / Luka Penttinen</div>
 <div class="player-slot">Aaro Romppainen / Elias Vuollet</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 15:00 Ct 8</span></div>
 <div class="player-slot">Sami Gröhn / Jani Pernu</div>
 <div class="player-slot">Janne Julkunen / Antti Laitala</div>
-</div><div class="bracket-match">
-<div class="match-num">M5</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M5<span class="match-schedule">Sat 09:30 Ct 8</span></div>
 <div class="player-slot">Teppo Aho / Jesse Viitanen</div>
 <div class="player-slot">Hoang Nguyen / Aki-Petteri Pokka</div>
-</div><div class="bracket-match">
-<div class="match-num">M6</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M6<span class="match-schedule">Sat 09:30 Ct 4</span></div>
 <div class="player-slot">Jukka-Pekka Kivistö / Tommi Salonpää</div>
 <div class="player-slot">Janne Haurinen / Marko Koivusaari</div>
-</div><div class="bracket-match">
-<div class="match-num">M7</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M7<span class="match-schedule">Sat 21:00 Ct 5</span></div>
 <div class="player-slot">Tapio Kukkonen / Jaakko Raasakka</div>
 <div class="player-slot">Sami Pajunen / Tommi Ruoho</div>
-</div><div class="bracket-match">
-<div class="match-num">M8</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M8<span class="match-schedule">Sat 10:00 Ct 7</span></div>
 <div class="player-slot">Mika Pasanen / Teemu Rantala</div>
 <div class="player-slot">Anton Ketola / Iiro Romppainen</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Quarter-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Quarter-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sat 15:30 Ct 8</span></div>
 <div class="player-slot bye-slot">Winner R1-M1</div>
 <div class="player-slot bye-slot">Winner R1-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sat 16:00 Ct 8</span></div>
 <div class="player-slot bye-slot">Winner R1-M3</div>
 <div class="player-slot bye-slot">Winner R1-M4</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 14:00 Ct 8</span></div>
 <div class="player-slot bye-slot">Winner R1-M5</div>
 <div class="player-slot bye-slot">Winner R1-M6</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sun 09:00 Ct 5</span></div>
 <div class="player-slot bye-slot">Winner R1-M7</div>
 <div class="player-slot bye-slot">Winner R1-M8</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Semi-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Semi-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 09:00 Ct 7</span></div>
 <div class="player-slot bye-slot">Winner QF-M1</div>
 <div class="player-slot bye-slot">Winner QF-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sun 10:00 Ct 5</span></div>
 <div class="player-slot bye-slot">Winner QF-M3</div>
 <div class="player-slot bye-slot">Winner QF-M4</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 11:00 Ct 5</span></div>
 <div class="player-slot bye-slot">Winner SF-M1</div>
 <div class="player-slot bye-slot">Winner SF-M2</div>
-</div>
-</div>
+</div></div></div></div>
 </div>
 </div>
 </div><div class="division-card">
@@ -244,79 +245,67 @@
 </table>
 <div class="section-title">Game Draws</div>
 <div class="bracket">
-<div class="bracket-round">
-<div class="bracket-round-title">Round 1</div>
-<div class="bracket-match">
+<div class="bracket-round"><div class="bracket-round-title">Round 1</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M1</div>
 <div class="player-slot">Luka Penttinen</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sat 10:30 Ct 5</span></div>
 <div class="player-slot">Janne Haurinen</div>
 <div class="player-slot">Eetu Hanhineva</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M3</div>
 <div class="player-slot">Elias Vuollet</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 12:30 Ct 5</span></div>
 <div class="player-slot">Tommi Salonpää</div>
 <div class="player-slot">Iiro Romppainen</div>
-</div><div class="bracket-match">
-<div class="match-num">M5</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M5<span class="match-schedule">Sat 12:30 Ct 6</span></div>
 <div class="player-slot">Miikka Pylväs</div>
 <div class="player-slot">Ilari Leskelä</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M6</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Marko Koivusaari</div>
-</div><div class="bracket-match">
-<div class="match-num">M7</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M7<span class="match-schedule">Sat 10:30 Ct 6</span></div>
 <div class="player-slot">Heikki Roivainen</div>
 <div class="player-slot">Joel Pennanen</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M8</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Anton Ketola</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Quarter-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Quarter-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sat 14:30 Ct 6</span></div>
 <div class="player-slot bye-slot">Winner R1-M1</div>
 <div class="player-slot bye-slot">Winner R1-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sat 14:30 Ct 7</span></div>
 <div class="player-slot bye-slot">Winner R1-M3</div>
 <div class="player-slot bye-slot">Winner R1-M4</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 14:30 Ct 8</span></div>
 <div class="player-slot bye-slot">Winner R1-M5</div>
 <div class="player-slot bye-slot">Winner R1-M6</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 14:30 Ct 12</span></div>
 <div class="player-slot bye-slot">Winner R1-M7</div>
 <div class="player-slot bye-slot">Winner R1-M8</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Semi-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Semi-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 09:30 Ct 6</span></div>
 <div class="player-slot bye-slot">Winner QF-M1</div>
 <div class="player-slot bye-slot">Winner QF-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sun 09:30 Ct 7</span></div>
 <div class="player-slot bye-slot">Winner QF-M3</div>
 <div class="player-slot bye-slot">Winner QF-M4</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 10:30 Ct 5</span></div>
 <div class="player-slot bye-slot">Winner SF-M1</div>
 <div class="player-slot bye-slot">Winner SF-M2</div>
-</div>
-</div>
+</div></div></div></div>
 </div>
 </div>
 </div><div class="division-card">
@@ -342,14 +331,17 @@
 <span class="p1">Mira Mustonen / Sonja Perälä</span>
 <span class="vs">VS</span>
 <span class="p2">Raisa Kauppi / Emilia Mattila</span>
+<span class="match-schedule">Sat 09:00 Ct 7</span>
 </div><div class="rr-match">
 <span class="p1">Mira Mustonen / Sonja Perälä</span>
 <span class="vs">VS</span>
 <span class="p2">Henna Hukari / Eerika Laakso</span>
+<span class="match-schedule">Sat 11:30 Ct 8</span>
 </div><div class="rr-match">
 <span class="p1">Raisa Kauppi / Emilia Mattila</span>
 <span class="vs">VS</span>
 <span class="p2">Henna Hukari / Eerika Laakso</span>
+<span class="match-schedule">Sat 13:00 Ct 7</span>
 </div>
 </div>
 </div>
@@ -372,44 +364,35 @@
 </table>
 <div class="section-title">Game Draws</div>
 <div class="bracket">
-<div class="bracket-round">
-<div class="bracket-round-title">Quarter-Final</div>
-<div class="bracket-match">
+<div class="bracket-round"><div class="bracket-round-title">Quarter-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M1</div>
 <div class="player-slot">Iiro Romppainen / Emilia Mattila</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sun 09:00 Ct 6</span></div>
 <div class="player-slot">Tapio Kukkonen / Jutta Risikko</div>
 <div class="player-slot">Heikki Roivainen / Mira Kangasniemi</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 15:30 Ct 3</span></div>
 <div class="player-slot">Anton Ketola / Raisa Kauppi</div>
 <div class="player-slot">Juha Heikkinen / Mira Mustonen</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 14:30 Ct 5</span></div>
 <div class="player-slot">Janne Haurinen / Teija Härkönen</div>
 <div class="player-slot">Elias Vuollet / Eerika Laakso</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Semi-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Semi-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 10:00 Ct 6</span></div>
 <div class="player-slot bye-slot">Winner QF-M1</div>
 <div class="player-slot bye-slot">Winner QF-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sun 09:30 Ct 5</span></div>
 <div class="player-slot bye-slot">Winner QF-M3</div>
 <div class="player-slot bye-slot">Winner QF-M4</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 11:00 Ct 6</span></div>
 <div class="player-slot bye-slot">Winner SF-M1</div>
 <div class="player-slot bye-slot">Winner SF-M2</div>
-</div>
-</div>
+</div></div></div></div>
 </div>
 </div>
 </div>
@@ -437,146 +420,131 @@
 </table>
 <div class="section-title">Game Draws</div>
 <div class="bracket">
-<div class="bracket-round">
-<div class="bracket-round-title">Round 1</div>
-<div class="bracket-match">
+<div class="bracket-round"><div class="bracket-round-title">Round 1</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M1</div>
 <div class="player-slot">Jaakko Hakala / Miikka Pylväs</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M2</div>
 <div class="player-slot">Teemu Karvonen / Timo Surakka</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M3</div>
 <div class="player-slot">Hoang Nguyen / Harri Suhonen</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M4</div>
 <div class="player-slot">Tapani Kilpi / Marko Mäkelä</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M5</div>
 <div class="player-slot">Mika Pasanen / Aleksi Petäjäkangas</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M6</div>
 <div class="player-slot">Heikki Huotari / Matias Laakko</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M7</div>
 <div class="player-slot">Axel Lejon Öhrling / Oscar Syk</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
-<div class="match-num">M8</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M8<span class="match-schedule">Sat 16:00 Ct 2</span></div>
 <div class="player-slot">Harri Huttula / Kalle Kouri</div>
 <div class="player-slot">Olli Komulainen / Janne Raasakka</div>
-</div><div class="bracket-match">
-<div class="match-num">M9</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M9<span class="match-schedule">Sat 12:30 Ct 4</span></div>
 <div class="player-slot">Walter Ekstrand / Niklas Hukari</div>
 <div class="player-slot">Hampus Hansson / Milo Stridsman</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M10</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Jenni Lahti / Nelly Määttä</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M11</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Bong Kosol / Teemu Rantala</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M12</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Teppo Aho / Jesse Viitanen</div>
-</div><div class="bracket-match">
-<div class="match-num">M13</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M13<span class="match-schedule">Sat 10:30 Ct 3</span></div>
 <div class="player-slot">Jukka-Pekka Kivistö / Matti Peitso</div>
 <div class="player-slot">Janne Heikkilä / Pragnesh Prajapati</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M14</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Sami Gröhn / Jarkko Seppä</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M15</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Tommi Koskela / Narasimhulu Thoti</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M16</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Pihla Mäkelä / Emilia Ojala</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Round 2</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Round 2</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sat 10:00 Ct 8</span></div>
 <div class="player-slot bye-slot">Winner R1-M1</div>
 <div class="player-slot bye-slot">Winner R1-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sat 10:30 Ct 12</span></div>
 <div class="player-slot bye-slot">Winner R1-M3</div>
 <div class="player-slot bye-slot">Winner R1-M4</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 10:30 Ct 8</span></div>
 <div class="player-slot bye-slot">Winner R1-M5</div>
 <div class="player-slot bye-slot">Winner R1-M6</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 17:00 Ct 3</span></div>
 <div class="player-slot bye-slot">Winner R1-M7</div>
 <div class="player-slot bye-slot">Winner R1-M8</div>
-</div><div class="bracket-match">
-<div class="match-num">M5</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M5<span class="match-schedule">Sat 13:30 Ct 11</span></div>
 <div class="player-slot bye-slot">Winner R1-M9</div>
 <div class="player-slot bye-slot">Winner R1-M10</div>
-</div><div class="bracket-match">
-<div class="match-num">M6</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M6<span class="match-schedule">Sat 13:00 Ct 8</span></div>
 <div class="player-slot bye-slot">Winner R1-M11</div>
 <div class="player-slot bye-slot">Winner R1-M12</div>
-</div><div class="bracket-match">
-<div class="match-num">M7</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M7<span class="match-schedule">Sat 12:30 Ct 12</span></div>
 <div class="player-slot bye-slot">Winner R1-M13</div>
 <div class="player-slot bye-slot">Winner R1-M14</div>
-</div><div class="bracket-match">
-<div class="match-num">M8</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M8<span class="match-schedule">Sat 14:00 Ct 6</span></div>
 <div class="player-slot bye-slot">Winner R1-M15</div>
 <div class="player-slot bye-slot">Winner R1-M16</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Quarter-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Quarter-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sat 15:30 Ct 11</span></div>
 <div class="player-slot bye-slot">Winner R2-M1</div>
 <div class="player-slot bye-slot">Winner R2-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sat 18:00 Ct 3</span></div>
 <div class="player-slot bye-slot">Winner R2-M3</div>
 <div class="player-slot bye-slot">Winner R2-M4</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 14:30 Ct 4</span></div>
 <div class="player-slot bye-slot">Winner R2-M5</div>
 <div class="player-slot bye-slot">Winner R2-M6</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 15:30 Ct 4</span></div>
 <div class="player-slot bye-slot">Winner R2-M7</div>
 <div class="player-slot bye-slot">Winner R2-M8</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Semi-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Semi-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 09:30 Ct 4</span></div>
 <div class="player-slot bye-slot">Winner QF-M1</div>
 <div class="player-slot bye-slot">Winner QF-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sun 09:30 Ct 2</span></div>
 <div class="player-slot bye-slot">Winner QF-M3</div>
 <div class="player-slot bye-slot">Winner QF-M4</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 10:30 Ct 2</span></div>
 <div class="player-slot bye-slot">Winner SF-M1</div>
 <div class="player-slot bye-slot">Winner SF-M2</div>
-</div>
-</div>
+</div></div></div></div>
 </div>
 </div>
 </div><div class="division-card">
@@ -598,146 +566,131 @@
 </table>
 <div class="section-title">Game Draws</div>
 <div class="bracket">
-<div class="bracket-round">
-<div class="bracket-round-title">Round 1</div>
-<div class="bracket-match">
+<div class="bracket-round"><div class="bracket-round-title">Round 1</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M1</div>
 <div class="player-slot">Jukka Häivälä</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M2</div>
 <div class="player-slot">Joonas Raasakka</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M3</div>
 <div class="player-slot">Axel Lejon Öhrling</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M4</div>
 <div class="player-slot">Teemu Rantala</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M5</div>
 <div class="player-slot">Henri Kangas</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M6</div>
 <div class="player-slot">Walter Ekstrand</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M7</div>
 <div class="player-slot">Milo Stridsman</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M8</div>
 <div class="player-slot">Aaro Romppainen</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
-<div class="match-num">M9</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M9<span class="match-schedule">Sat 12:30 Ct 10</span></div>
 <div class="player-slot">Oscar Syk</div>
 <div class="player-slot">Mika Pasanen</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M10</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Pauli Alapukki</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M11</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Jaakko Raasakka</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M12</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Niklas Hukari</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M13</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Matti Peitso</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M14</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Hampus Hansson</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M15</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">David Cristobal Hornillos</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M16</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Jaakko Hakala</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Round 2</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Round 2</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sat 10:30 Ct 4</span></div>
 <div class="player-slot bye-slot">Winner R1-M1</div>
 <div class="player-slot bye-slot">Winner R1-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sat 10:30 Ct 7</span></div>
 <div class="player-slot bye-slot">Winner R1-M3</div>
 <div class="player-slot bye-slot">Winner R1-M4</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 12:30 Ct 7</span></div>
 <div class="player-slot bye-slot">Winner R1-M5</div>
 <div class="player-slot bye-slot">Winner R1-M6</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 12:30 Ct 8</span></div>
 <div class="player-slot bye-slot">Winner R1-M7</div>
 <div class="player-slot bye-slot">Winner R1-M8</div>
-</div><div class="bracket-match">
-<div class="match-num">M5</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M5<span class="match-schedule">Sat 13:30 Ct 12</span></div>
 <div class="player-slot bye-slot">Winner R1-M9</div>
 <div class="player-slot bye-slot">Winner R1-M10</div>
-</div><div class="bracket-match">
-<div class="match-num">M6</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M6<span class="match-schedule">Sat 13:30 Ct 7</span></div>
 <div class="player-slot bye-slot">Winner R1-M11</div>
 <div class="player-slot bye-slot">Winner R1-M12</div>
-</div><div class="bracket-match">
-<div class="match-num">M7</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M7<span class="match-schedule">Sat 13:30 Ct 8</span></div>
 <div class="player-slot bye-slot">Winner R1-M13</div>
 <div class="player-slot bye-slot">Winner R1-M14</div>
-</div><div class="bracket-match">
-<div class="match-num">M8</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M8<span class="match-schedule">Sat 14:00 Ct 7</span></div>
 <div class="player-slot bye-slot">Winner R1-M15</div>
 <div class="player-slot bye-slot">Winner R1-M16</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Quarter-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Quarter-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sat 15:30 Ct 12</span></div>
 <div class="player-slot bye-slot">Winner R2-M1</div>
 <div class="player-slot bye-slot">Winner R2-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sat 16:30 Ct 3</span></div>
 <div class="player-slot bye-slot">Winner R2-M3</div>
 <div class="player-slot bye-slot">Winner R2-M4</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 14:30 Ct 11</span></div>
 <div class="player-slot bye-slot">Winner R2-M5</div>
 <div class="player-slot bye-slot">Winner R2-M6</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 16:30 Ct 4</span></div>
 <div class="player-slot bye-slot">Winner R2-M7</div>
 <div class="player-slot bye-slot">Winner R2-M8</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Semi-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Semi-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 10:00 Ct 3</span></div>
 <div class="player-slot bye-slot">Winner QF-M1</div>
 <div class="player-slot bye-slot">Winner QF-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sun 10:00 Ct 2</span></div>
 <div class="player-slot bye-slot">Winner QF-M3</div>
 <div class="player-slot bye-slot">Winner QF-M4</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 11:00 Ct 3</span></div>
 <div class="player-slot bye-slot">Winner SF-M1</div>
 <div class="player-slot bye-slot">Winner SF-M2</div>
-</div>
-</div>
+</div></div></div></div>
 </div>
 </div>
 </div><div class="division-card">
@@ -763,14 +716,17 @@
 <span class="p1">Emilia Mattila</span>
 <span class="vs">VS</span>
 <span class="p2">Teija Härkönen</span>
+<span class="match-schedule">Sat 11:00 Ct 2</span>
 </div><div class="rr-match">
 <span class="p1">Emilia Mattila</span>
 <span class="vs">VS</span>
 <span class="p2">Jaana Kopsala</span>
+<span class="match-schedule">Sat 12:00 Ct 7</span>
 </div><div class="rr-match">
 <span class="p1">Teija Härkönen</span>
 <span class="vs">VS</span>
 <span class="p2">Jaana Kopsala</span>
+<span class="match-schedule">Sat 13:30 Ct 2</span>
 </div>
 </div>
 </div>
@@ -793,44 +749,35 @@
 </table>
 <div class="section-title">Game Draws</div>
 <div class="bracket">
-<div class="bracket-round">
-<div class="bracket-round-title">Quarter-Final</div>
-<div class="bracket-match">
+<div class="bracket-round"><div class="bracket-round-title">Quarter-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M1</div>
 <div class="player-slot">Aaro Romppainen / Henna Hukari</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sun 10:00 Ct 1</span></div>
 <div class="player-slot">Harri Lukkarila / Sonja Perälä</div>
 <div class="player-slot">Henri Kangas / Jutta Risikko</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 16:30 Ct 2</span></div>
 <div class="player-slot">Jaakko Hakala / Minja Hakala</div>
 <div class="player-slot">Jukka-Pekka Kivistö / Raisa Kauppi</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 15:30 Ct 10</span></div>
 <div class="player-slot">Niklas Hukari / Jaana Kopsala</div>
 <div class="player-slot">Marko Mäkelä / Tuulikki Mäkelä</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Semi-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Semi-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 11:00 Ct 1</span></div>
 <div class="player-slot bye-slot">Winner QF-M1</div>
 <div class="player-slot bye-slot">Winner QF-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sun 09:30 Ct 3</span></div>
 <div class="player-slot bye-slot">Winner QF-M3</div>
 <div class="player-slot bye-slot">Winner QF-M4</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 12:00 Ct 1</span></div>
 <div class="player-slot bye-slot">Winner SF-M1</div>
 <div class="player-slot bye-slot">Winner SF-M2</div>
-</div>
-</div>
+</div></div></div></div>
 </div>
 </div>
 </div>
@@ -858,79 +805,67 @@
 </table>
 <div class="section-title">Game Draws</div>
 <div class="bracket">
-<div class="bracket-round">
-<div class="bracket-round-title">Round 1</div>
-<div class="bracket-match">
+<div class="bracket-round"><div class="bracket-round-title">Round 1</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M1</div>
 <div class="player-slot">Henna Hukari / Eerika Laakso</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sat 16:00 Ct 1</span></div>
 <div class="player-slot">Ari Fingerroos / Pete Pietilä</div>
 <div class="player-slot">Md Mozammel Hossain / Le Nguyen</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 14:30 Ct 1</span></div>
 <div class="player-slot">Joonas Koskinen / Harri Lukkarila</div>
 <div class="player-slot">Harri Huttula / Kalle Kouri</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 14:30 Ct 2</span></div>
 <div class="player-slot">David Cristobal Hornillos / Ajith Kutty</div>
 <div class="player-slot">Jaana Kopsala / Eemeli Tolonen</div>
-</div><div class="bracket-match">
-<div class="match-num">M5</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M5<span class="match-schedule">Sat 13:00 Ct 4</span></div>
 <div class="player-slot">Teemu Karvonen / Timo Surakka</div>
 <div class="player-slot">Pauli Alapukki / Anssi Isopahkala</div>
-</div><div class="bracket-match">
-<div class="match-num">M6</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M6<span class="match-schedule">Sat 09:30 Ct 11</span></div>
 <div class="player-slot">Pragnesh Prajapati / Narasimhulu Thoti</div>
 <div class="player-slot">Janne Heikkilä / Olli Komulainen</div>
-</div><div class="bracket-match">
-<div class="match-num">M7</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M7<span class="match-schedule">Sat 09:30 Ct 12</span></div>
 <div class="player-slot">Heikki Huotari / Matias Laakko</div>
 <div class="player-slot">Sanath K S / Bijith Kokkanchalil</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M8</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Bong Kosol / Miika Surakka</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Quarter-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Quarter-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sat 17:00 Ct 10</span></div>
 <div class="player-slot bye-slot">Winner R1-M1</div>
 <div class="player-slot bye-slot">Winner R1-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sat 15:30 Ct 2</span></div>
 <div class="player-slot bye-slot">Winner R1-M3</div>
 <div class="player-slot bye-slot">Winner R1-M4</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 14:30 Ct 3</span></div>
 <div class="player-slot bye-slot">Winner R1-M5</div>
 <div class="player-slot bye-slot">Winner R1-M6</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 14:30 Ct 10</span></div>
 <div class="player-slot bye-slot">Winner R1-M7</div>
 <div class="player-slot bye-slot">Winner R1-M8</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Semi-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Semi-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 09:00 Ct 3</span></div>
 <div class="player-slot bye-slot">Winner QF-M1</div>
 <div class="player-slot bye-slot">Winner QF-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sun 09:00 Ct 4</span></div>
 <div class="player-slot bye-slot">Winner QF-M3</div>
 <div class="player-slot bye-slot">Winner QF-M4</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 10:00 Ct 7</span></div>
 <div class="player-slot bye-slot">Winner SF-M1</div>
 <div class="player-slot bye-slot">Winner SF-M2</div>
-</div>
-</div>
+</div></div></div></div>
 </div>
 </div>
 </div><div class="division-card">
@@ -952,146 +887,131 @@
 </table>
 <div class="section-title">Game Draws</div>
 <div class="bracket">
-<div class="bracket-round">
-<div class="bracket-round-title">Round 1</div>
-<div class="bracket-match">
+<div class="bracket-round"><div class="bracket-round-title">Round 1</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M1</div>
 <div class="player-slot">Anssi Isopahkala</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sat 14:00 Ct 4</span></div>
 <div class="player-slot">Timo Surakka</div>
 <div class="player-slot">Abin Babu</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M3</div>
 <div class="player-slot">Markus Heikkinen</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 17:00 Ct 1</span></div>
 <div class="player-slot">Leevi Pyykkönen</div>
 <div class="player-slot">Ajith Kutty</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M5</div>
 <div class="player-slot">Tommi Koskela</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
-<div class="match-num">M6</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M6<span class="match-schedule">Sat 15:00 Ct 3</span></div>
 <div class="player-slot">Mikko Luhtaniemi</div>
 <div class="player-slot">Matias Laakko</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M7</div>
 <div class="player-slot">Bong Kosol</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
-<div class="match-num">M8</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M8<span class="match-schedule">Sat 16:00 Ct 3</span></div>
 <div class="player-slot">Tapani Kilpi</div>
 <div class="player-slot">Teemu Karvonen</div>
-</div><div class="bracket-match">
-<div class="match-num">M9</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M9<span class="match-schedule">Sat 12:30 Ct 11</span></div>
 <div class="player-slot">Antti Ropponen</div>
 <div class="player-slot">Jaakob Vuollet</div>
-</div><div class="bracket-match">
-<div class="match-num">M10</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M10<span class="match-schedule">Sat 19:00 Ct 1</span></div>
 <div class="player-slot">Jesse Viitanen</div>
 <div class="player-slot">Jenni Lahti</div>
-</div><div class="bracket-match">
-<div class="match-num">M11</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M11<span class="match-schedule">Sat 17:00 Ct 2</span></div>
 <div class="player-slot">Roope Häyrynen</div>
 <div class="player-slot">Kare Hämeenaho</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M12</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Casimir Aalto</div>
-</div><div class="bracket-match">
-<div class="match-num">M13</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M13<span class="match-schedule">Sat 16:00 Ct 4</span></div>
 <div class="player-slot">Lars Forchini</div>
 <div class="player-slot">Miika Surakka</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M14</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Juhana Paaso</div>
-</div><div class="bracket-match">
-<div class="match-num">M15</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M15<span class="match-schedule">Sat 15:30 Ct 1</span></div>
 <div class="player-slot">Eemeli Tolonen</div>
 <div class="player-slot">Gyrass Ksatria</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M16</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Aleksi Petäjäkangas</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Round 2</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Round 2</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sat 15:00 Ct 4</span></div>
 <div class="player-slot bye-slot">Winner R1-M1</div>
 <div class="player-slot bye-slot">Winner R1-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sat 18:00 Ct 1</span></div>
 <div class="player-slot bye-slot">Winner R1-M3</div>
 <div class="player-slot bye-slot">Winner R1-M4</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 16:00 Ct 11</span></div>
 <div class="player-slot bye-slot">Winner R1-M5</div>
 <div class="player-slot bye-slot">Winner R1-M6</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 17:00 Ct 4</span></div>
 <div class="player-slot bye-slot">Winner R1-M7</div>
 <div class="player-slot bye-slot">Winner R1-M8</div>
-</div><div class="bracket-match">
-<div class="match-num">M5</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M5<span class="match-schedule">Sat 20:00 Ct 1</span></div>
 <div class="player-slot bye-slot">Winner R1-M9</div>
 <div class="player-slot bye-slot">Winner R1-M10</div>
-</div><div class="bracket-match">
-<div class="match-num">M6</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M6<span class="match-schedule">Sat 18:00 Ct 2</span></div>
 <div class="player-slot bye-slot">Winner R1-M11</div>
 <div class="player-slot bye-slot">Winner R1-M12</div>
-</div><div class="bracket-match">
-<div class="match-num">M7</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M7<span class="match-schedule">Sat 17:00 Ct 9</span></div>
 <div class="player-slot bye-slot">Winner R1-M13</div>
 <div class="player-slot bye-slot">Winner R1-M14</div>
-</div><div class="bracket-match">
-<div class="match-num">M8</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M8<span class="match-schedule">Sat 16:30 Ct 1</span></div>
 <div class="player-slot bye-slot">Winner R1-M15</div>
 <div class="player-slot bye-slot">Winner R1-M16</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Quarter-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Quarter-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sat 19:00 Ct 2</span></div>
 <div class="player-slot bye-slot">Winner R2-M1</div>
 <div class="player-slot bye-slot">Winner R2-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sat 18:00 Ct 4</span></div>
 <div class="player-slot bye-slot">Winner R2-M3</div>
 <div class="player-slot bye-slot">Winner R2-M4</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 21:00 Ct 1</span></div>
 <div class="player-slot bye-slot">Winner R2-M5</div>
 <div class="player-slot bye-slot">Winner R2-M6</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 18:00 Ct 10</span></div>
 <div class="player-slot bye-slot">Winner R2-M7</div>
 <div class="player-slot bye-slot">Winner R2-M8</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Semi-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Semi-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 09:30 Ct 1</span></div>
 <div class="player-slot bye-slot">Winner QF-M1</div>
 <div class="player-slot bye-slot">Winner QF-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sun 09:00 Ct 8</span></div>
 <div class="player-slot bye-slot">Winner QF-M3</div>
 <div class="player-slot bye-slot">Winner QF-M4</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 10:30 Ct 1</span></div>
 <div class="player-slot bye-slot">Winner SF-M1</div>
 <div class="player-slot bye-slot">Winner SF-M2</div>
-</div>
-</div>
+</div></div></div></div>
 </div>
 </div>
 </div><div class="division-card">
@@ -1117,14 +1037,17 @@
 <span class="p1">Eeva-Liisa Kaikkonen / Parisa Rezaeei</span>
 <span class="vs">VS</span>
 <span class="p2">Mira Kangasniemi / Jutta Risikko</span>
+<span class="match-schedule">Sat 09:00 Ct 2</span>
 </div><div class="rr-match">
 <span class="p1">Eeva-Liisa Kaikkonen / Parisa Rezaeei</span>
 <span class="vs">VS</span>
 <span class="p2">Henna Salonpää / Raija Tuomela</span>
+<span class="match-schedule">Sat 11:30 Ct 2</span>
 </div><div class="rr-match">
 <span class="p1">Mira Kangasniemi / Jutta Risikko</span>
 <span class="vs">VS</span>
 <span class="p2">Henna Salonpää / Raija Tuomela</span>
+<span class="match-schedule">Sat 12:30 Ct 3</span>
 </div>
 </div>
 </div>
@@ -1151,26 +1074,32 @@
 <span class="p1">Minja Hakala</span>
 <span class="vs">VS</span>
 <span class="p2">Tiia Laurila</span>
+<span class="match-schedule">Sat 09:30 Ct 3</span>
 </div><div class="rr-match">
 <span class="p1">Minja Hakala</span>
 <span class="vs">VS</span>
 <span class="p2">Mira Kangasniemi</span>
+<span class="match-schedule">Sat 11:30 Ct 4</span>
 </div><div class="rr-match">
 <span class="p1">Minja Hakala</span>
 <span class="vs">VS</span>
 <span class="p2">Eeva-Liisa Kaikkonen</span>
+<span class="match-schedule">Sat 13:30 Ct 3</span>
 </div><div class="rr-match">
 <span class="p1">Tiia Laurila</span>
 <span class="vs">VS</span>
 <span class="p2">Mira Kangasniemi</span>
+<span class="match-schedule">Sat 13:30 Ct 4</span>
 </div><div class="rr-match">
 <span class="p1">Tiia Laurila</span>
 <span class="vs">VS</span>
 <span class="p2">Eeva-Liisa Kaikkonen</span>
+<span class="match-schedule">Sat 12:30 Ct 2</span>
 </div><div class="rr-match">
 <span class="p1">Mira Kangasniemi</span>
 <span class="vs">VS</span>
 <span class="p2">Eeva-Liisa Kaikkonen</span>
+<span class="match-schedule">Sat 10:00 Ct 6</span>
 </div>
 </div>
 </div>
@@ -1193,44 +1122,35 @@
 </table>
 <div class="section-title">Game Draws</div>
 <div class="bracket">
-<div class="bracket-round">
-<div class="bracket-round-title">Quarter-Final</div>
-<div class="bracket-match">
+<div class="bracket-round"><div class="bracket-round-title">Quarter-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M1</div>
 <div class="player-slot">Jukka Penttinen / Raija Tuomela</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M2</div>
 <div class="player-slot">Le Nguyen / Parisa Rezaeei</div>
 <div class="player-slot bye-slot">Bye</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 18:00 Ct 9</span></div>
 <div class="player-slot">Kare Hämeenaho / Eeva-Liisa Kaikkonen</div>
 <div class="player-slot">Kari Laurila / Tiia Laurila</div>
-</div><div class="bracket-match">
+</div></div><div class="match-wrap"><div class="bracket-match">
 <div class="match-num">M4</div>
 <div class="player-slot bye-slot">Bye</div>
 <div class="player-slot">Sami Hätälä / Xiaoyan Zhou</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Semi-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Semi-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 10:00 Ct 4</span></div>
 <div class="player-slot bye-slot">Winner QF-M1</div>
 <div class="player-slot bye-slot">Winner QF-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sun 09:30 Ct 8</span></div>
 <div class="player-slot bye-slot">Winner QF-M3</div>
 <div class="player-slot bye-slot">Winner QF-M4</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 11:00 Ct 2</span></div>
 <div class="player-slot bye-slot">Winner SF-M1</div>
 <div class="player-slot bye-slot">Winner SF-M2</div>
-</div>
-</div>
+</div></div></div></div>
 </div>
 </div>
 </div>
@@ -1262,14 +1182,17 @@
 <span class="p1">Marouane Arifi / Swaraj Sabat</span>
 <span class="vs">VS</span>
 <span class="p2">Somnas Dasanayake / Senuka Weeraddana</span>
+<span class="match-schedule">Sat 09:00 Ct 9</span>
 </div><div class="rr-match">
 <span class="p1">Marouane Arifi / Swaraj Sabat</span>
 <span class="vs">VS</span>
 <span class="p2">Jonathan Jinu John / Joose Orpana</span>
+<span class="match-schedule">Sat 14:00 Ct 1</span>
 </div><div class="rr-match">
 <span class="p1">Somnas Dasanayake / Senuka Weeraddana</span>
 <span class="vs">VS</span>
 <span class="p2">Jonathan Jinu John / Joose Orpana</span>
+<span class="match-schedule">Sat 16:30 Ct 9</span>
 </div>
 </div>
 </div>
@@ -1296,14 +1219,17 @@
 <span class="p1">Niilo Niskanen / Arttu Pirneskoski</span>
 <span class="vs">VS</span>
 <span class="p2">Naitik Diwate / Juhana Paaso</span>
+<span class="match-schedule">Sat 09:00 Ct 10</span>
 </div><div class="rr-match">
 <span class="p1">Niilo Niskanen / Arttu Pirneskoski</span>
 <span class="vs">VS</span>
 <span class="p2">Jonathan Jinu John / Joose Orpana</span>
+<span class="match-schedule">Sat 15:00 Ct 11</span>
 </div><div class="rr-match">
 <span class="p1">Naitik Diwate / Juhana Paaso</span>
 <span class="vs">VS</span>
 <span class="p2">Jonathan Jinu John / Joose Orpana</span>
+<span class="match-schedule">Sat 17:30 Ct 9</span>
 </div>
 </div>
 </div>
@@ -1330,14 +1256,17 @@
 <span class="p1">Viktor Cristobal / Arttu Mäkelä</span>
 <span class="vs">VS</span>
 <span class="p2">Roope Häyrynen / Leevi Pyykkönen</span>
+<span class="match-schedule">Sat 09:00 Ct 11</span>
 </div><div class="rr-match">
 <span class="p1">Viktor Cristobal / Arttu Mäkelä</span>
 <span class="vs">VS</span>
 <span class="p2">Aatu Mustaparta / Roope Vähäkuopus</span>
+<span class="match-schedule">Sat 15:00 Ct 12</span>
 </div><div class="rr-match">
 <span class="p1">Roope Häyrynen / Leevi Pyykkönen</span>
 <span class="vs">VS</span>
 <span class="p2">Aatu Mustaparta / Roope Vähäkuopus</span>
+<span class="match-schedule">Sat 16:00 Ct 10</span>
 </div>
 </div>
 </div>
@@ -1364,26 +1293,32 @@
 <span class="p1">Luka Heikkilä</span>
 <span class="vs">VS</span>
 <span class="p2">Siwei Lucas Qiu</span>
+<span class="match-schedule">Sat 09:00 Ct 12</span>
 </div><div class="rr-match">
 <span class="p1">Luka Heikkilä</span>
 <span class="vs">VS</span>
 <span class="p2">Ann Nelson</span>
+<span class="match-schedule">Sat 10:30 Ct 10</span>
 </div><div class="rr-match">
 <span class="p1">Luka Heikkilä</span>
 <span class="vs">VS</span>
 <span class="p2">Ashlyn Jinu</span>
+<span class="match-schedule">Sat 11:30 Ct 11</span>
 </div><div class="rr-match">
 <span class="p1">Siwei Lucas Qiu</span>
 <span class="vs">VS</span>
 <span class="p2">Ann Nelson</span>
+<span class="match-schedule">Sat 12:00 Ct 8</span>
 </div><div class="rr-match">
 <span class="p1">Siwei Lucas Qiu</span>
 <span class="vs">VS</span>
 <span class="p2">Ashlyn Jinu</span>
+<span class="match-schedule">Sat 10:30 Ct 11</span>
 </div><div class="rr-match">
 <span class="p1">Ann Nelson</span>
 <span class="vs">VS</span>
 <span class="p2">Ashlyn Jinu</span>
+<span class="match-schedule">Sat 09:30 Ct 10</span>
 </div>
 </div>
 </div>
@@ -1411,26 +1346,32 @@
 <span class="p1">Jonathan Jinu John</span>
 <span class="vs">VS</span>
 <span class="p2">Marouane Arifi</span>
+<span class="match-schedule">Sat 10:00 Ct 9</span>
 </div><div class="rr-match">
 <span class="p1">Jonathan Jinu John</span>
 <span class="vs">VS</span>
 <span class="p2">Sathvik Sanath</span>
+<span class="match-schedule">Sat 11:00 Ct 9</span>
 </div><div class="rr-match">
 <span class="p1">Jonathan Jinu John</span>
 <span class="vs">VS</span>
 <span class="p2">Senuka Weeraddana</span>
+<span class="match-schedule">Sat 12:00 Ct 10</span>
 </div><div class="rr-match">
 <span class="p1">Marouane Arifi</span>
 <span class="vs">VS</span>
 <span class="p2">Sathvik Sanath</span>
+<span class="match-schedule">Sat 12:00 Ct 3</span>
 </div><div class="rr-match">
 <span class="p1">Marouane Arifi</span>
 <span class="vs">VS</span>
 <span class="p2">Senuka Weeraddana</span>
+<span class="match-schedule">Sat 13:00 Ct 12</span>
 </div><div class="rr-match">
 <span class="p1">Sathvik Sanath</span>
 <span class="vs">VS</span>
 <span class="p2">Senuka Weeraddana</span>
+<span class="match-schedule">Sat 14:00 Ct 11</span>
 </div>
 </div>
 <div class="group-title">Group B</div>
@@ -1447,54 +1388,61 @@
 <span class="p1">Joose Orpana</span>
 <span class="vs">VS</span>
 <span class="p2">Ashwath Kutty</span>
+<span class="match-schedule">Sat 09:00 Ct 4</span>
 </div><div class="rr-match">
 <span class="p1">Joose Orpana</span>
 <span class="vs">VS</span>
 <span class="p2">Nandhan Krishnamoorthy Thiyagarajan</span>
+<span class="match-schedule">Sat 10:00 Ct 5</span>
 </div><div class="rr-match">
 <span class="p1">Joose Orpana</span>
 <span class="vs">VS</span>
 <span class="p2">Somnas Dasanayake</span>
+<span class="match-schedule">Sat 11:00 Ct 8</span>
 </div><div class="rr-match">
 <span class="p1">Joose Orpana</span>
 <span class="vs">VS</span>
 <span class="p2">Aarush Navalde</span>
+<span class="match-schedule">Sat 12:00 Ct 4</span>
 </div><div class="rr-match">
 <span class="p1">Ashwath Kutty</span>
 <span class="vs">VS</span>
 <span class="p2">Nandhan Krishnamoorthy Thiyagarajan</span>
+<span class="match-schedule">Sat 11:30 Ct 10</span>
 </div><div class="rr-match">
 <span class="p1">Ashwath Kutty</span>
 <span class="vs">VS</span>
 <span class="p2">Somnas Dasanayake</span>
+<span class="match-schedule">Sat 12:30 Ct 9</span>
 </div><div class="rr-match">
 <span class="p1">Ashwath Kutty</span>
 <span class="vs">VS</span>
 <span class="p2">Aarush Navalde</span>
+<span class="match-schedule">Sat 13:30 Ct 9</span>
 </div><div class="rr-match">
 <span class="p1">Nandhan Krishnamoorthy Thiyagarajan</span>
 <span class="vs">VS</span>
 <span class="p2">Somnas Dasanayake</span>
+<span class="match-schedule">Sat 13:30 Ct 10</span>
 </div><div class="rr-match">
 <span class="p1">Nandhan Krishnamoorthy Thiyagarajan</span>
 <span class="vs">VS</span>
 <span class="p2">Aarush Navalde</span>
+<span class="match-schedule">Sat 14:30 Ct 9</span>
 </div><div class="rr-match">
 <span class="p1">Somnas Dasanayake</span>
 <span class="vs">VS</span>
 <span class="p2">Aarush Navalde</span>
+<span class="match-schedule">Sat 15:30 Ct 9</span>
 </div>
 </div>
 <div class="section-title" style="margin-top:1.5rem;">Playoff Bracket (Top from each group)</div>
 <div class="bracket">
-<div class="bracket-round">
-<div class="bracket-round-title">Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+<div class="bracket-round"><div class="bracket-round-title">Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 10:30 Ct 3</span></div>
 <div class="player-slot bye-slot">Slot 1</div>
 <div class="player-slot bye-slot">Slot 2</div>
-</div>
-</div>
+</div></div></div></div>
 </div>
 </div>
 </div><div class="division-card">
@@ -1521,14 +1469,17 @@
 <span class="p1">Arttu Pirneskoski</span>
 <span class="vs">VS</span>
 <span class="p2">Veikka Mustaparta</span>
+<span class="match-schedule">Sat 10:00 Ct 10</span>
 </div><div class="rr-match">
 <span class="p1">Arttu Pirneskoski</span>
 <span class="vs">VS</span>
 <span class="p2">Juhana Paaso</span>
+<span class="match-schedule">Sat 11:00 Ct 10</span>
 </div><div class="rr-match">
 <span class="p1">Veikka Mustaparta</span>
 <span class="vs">VS</span>
 <span class="p2">Juhana Paaso</span>
+<span class="match-schedule">Sat 12:00 Ct 11</span>
 </div>
 </div>
 <div class="group-title">Group B</div>
@@ -1545,38 +1496,41 @@
 <span class="p1">Matti Isomaa</span>
 <span class="vs">VS</span>
 <span class="p2">Jimi Manninen</span>
+<span class="match-schedule">Sat 09:00 Ct 8</span>
 </div><div class="rr-match">
 <span class="p1">Matti Isomaa</span>
 <span class="vs">VS</span>
 <span class="p2">Naitik Diwate</span>
+<span class="match-schedule">Sat 11:00 Ct 11</span>
 </div><div class="rr-match">
 <span class="p1">Matti Isomaa</span>
 <span class="vs">VS</span>
 <span class="p2">Leo Takalo</span>
+<span class="match-schedule">Sat 12:00 Ct 12</span>
 </div><div class="rr-match">
 <span class="p1">Jimi Manninen</span>
 <span class="vs">VS</span>
 <span class="p2">Naitik Diwate</span>
+<span class="match-schedule">Sat 14:00 Ct 9</span>
 </div><div class="rr-match">
 <span class="p1">Jimi Manninen</span>
 <span class="vs">VS</span>
 <span class="p2">Leo Takalo</span>
+<span class="match-schedule">Sat 15:00 Ct 9</span>
 </div><div class="rr-match">
 <span class="p1">Naitik Diwate</span>
 <span class="vs">VS</span>
 <span class="p2">Leo Takalo</span>
+<span class="match-schedule">Sat 16:00 Ct 9</span>
 </div>
 </div>
 <div class="section-title" style="margin-top:1.5rem;">Playoff Bracket (Top from each group)</div>
 <div class="bracket">
-<div class="bracket-round">
-<div class="bracket-round-title">Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+<div class="bracket-round"><div class="bracket-round-title">Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 10:30 Ct 4</span></div>
 <div class="player-slot bye-slot">Slot 1</div>
 <div class="player-slot bye-slot">Slot 2</div>
-</div>
-</div>
+</div></div></div></div>
 </div>
 </div>
 </div><div class="division-card">
@@ -1603,14 +1557,17 @@
 <span class="p1">Aleksi Petäjäkangas</span>
 <span class="vs">VS</span>
 <span class="p2">Matti Isomaa</span>
+<span class="match-schedule">Sat 10:00 Ct 11</span>
 </div><div class="rr-match">
 <span class="p1">Aleksi Petäjäkangas</span>
 <span class="vs">VS</span>
 <span class="p2">Eemeli Tolonen</span>
+<span class="match-schedule">Sat 11:00 Ct 12</span>
 </div><div class="rr-match">
 <span class="p1">Matti Isomaa</span>
 <span class="vs">VS</span>
 <span class="p2">Eemeli Tolonen</span>
+<span class="match-schedule">Sat 13:00 Ct 9</span>
 </div>
 </div>
 <div class="group-title">Group B</div>
@@ -1627,26 +1584,32 @@
 <span class="p1">Niilo Niskanen</span>
 <span class="vs">VS</span>
 <span class="p2">Aatu Mustaparta</span>
+<span class="match-schedule">Sat 10:00 Ct 12</span>
 </div><div class="rr-match">
 <span class="p1">Niilo Niskanen</span>
 <span class="vs">VS</span>
 <span class="p2">Miika Surakka</span>
+<span class="match-schedule">Sat 11:00 Ct 3</span>
 </div><div class="rr-match">
 <span class="p1">Niilo Niskanen</span>
 <span class="vs">VS</span>
 <span class="p2">Veikka Mustaparta</span>
+<span class="match-schedule">Sat 13:00 Ct 10</span>
 </div><div class="rr-match">
 <span class="p1">Aatu Mustaparta</span>
 <span class="vs">VS</span>
 <span class="p2">Miika Surakka</span>
+<span class="match-schedule">Sat 12:00 Ct 5</span>
 </div><div class="rr-match">
 <span class="p1">Aatu Mustaparta</span>
 <span class="vs">VS</span>
 <span class="p2">Veikka Mustaparta</span>
+<span class="match-schedule">Sat 14:00 Ct 10</span>
 </div><div class="rr-match">
 <span class="p1">Miika Surakka</span>
 <span class="vs">VS</span>
 <span class="p2">Veikka Mustaparta</span>
+<span class="match-schedule">Sat 15:00 Ct 10</span>
 </div>
 </div>
 <div class="group-title">Group C</div>
@@ -1663,14 +1626,17 @@
 <span class="p1">Pauli Alapukki</span>
 <span class="vs">VS</span>
 <span class="p2">Roope Häyrynen</span>
+<span class="match-schedule">Sat 10:00 Ct 3</span>
 </div><div class="rr-match">
 <span class="p1">Pauli Alapukki</span>
 <span class="vs">VS</span>
 <span class="p2">Naitik Diwate</span>
+<span class="match-schedule">Sat 12:00 Ct 9</span>
 </div><div class="rr-match">
 <span class="p1">Roope Häyrynen</span>
 <span class="vs">VS</span>
 <span class="p2">Naitik Diwate</span>
+<span class="match-schedule">Sat 13:00 Ct 11</span>
 </div>
 </div>
 <div class="group-title">Group D</div>
@@ -1687,26 +1653,32 @@
 <span class="p1">Casimir Aalto</span>
 <span class="vs">VS</span>
 <span class="p2">Leevi Pyykkönen</span>
+<span class="match-schedule">Sat 10:00 Ct 4</span>
 </div><div class="rr-match">
 <span class="p1">Casimir Aalto</span>
 <span class="vs">VS</span>
 <span class="p2">Arttu Mäkelä</span>
+<span class="match-schedule">Sat 11:00 Ct 4</span>
 </div><div class="rr-match">
 <span class="p1">Casimir Aalto</span>
 <span class="vs">VS</span>
 <span class="p2">Roope Vähäkuopus</span>
+<span class="match-schedule">Sat 12:00 Ct 2</span>
 </div><div class="rr-match">
 <span class="p1">Leevi Pyykkönen</span>
 <span class="vs">VS</span>
 <span class="p2">Arttu Mäkelä</span>
+<span class="match-schedule">Sat 12:00 Ct 6</span>
 </div><div class="rr-match">
 <span class="p1">Leevi Pyykkönen</span>
 <span class="vs">VS</span>
 <span class="p2">Roope Vähäkuopus</span>
+<span class="match-schedule">Sat 13:00 Ct 2</span>
 </div><div class="rr-match">
 <span class="p1">Arttu Mäkelä</span>
 <span class="vs">VS</span>
 <span class="p2">Roope Vähäkuopus</span>
+<span class="match-schedule">Sat 14:00 Ct 12</span>
 </div>
 </div>
 <div class="group-title">Group E</div>
@@ -1723,56 +1695,50 @@
 <span class="p1">Jaakob Vuollet</span>
 <span class="vs">VS</span>
 <span class="p2">Walter Ekstrand</span>
+<span class="match-schedule">Sat 09:30 Ct 9</span>
 </div><div class="rr-match">
 <span class="p1">Jaakob Vuollet</span>
 <span class="vs">VS</span>
 <span class="p2">Viktor Cristobal</span>
+<span class="match-schedule">Sat 10:30 Ct 9</span>
 </div><div class="rr-match">
 <span class="p1">Walter Ekstrand</span>
 <span class="vs">VS</span>
 <span class="p2">Viktor Cristobal</span>
+<span class="match-schedule">Sat 11:30 Ct 9</span>
 </div>
 </div>
 <div class="section-title" style="margin-top:1.5rem;">Playoff Bracket (Top from each group)</div>
 <div class="bracket">
-<div class="bracket-round">
-<div class="bracket-round-title">Quarter-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+<div class="bracket-round"><div class="bracket-round-title">Quarter-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sat 16:00 Ct 12</span></div>
 <div class="player-slot bye-slot">Slot 1</div>
 <div class="player-slot bye-slot">Slot 2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sat 16:00 Ct 5</span></div>
 <div class="player-slot bye-slot">Slot 3</div>
 <div class="player-slot bye-slot">Slot 4</div>
-</div><div class="bracket-match">
-<div class="match-num">M3</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M3<span class="match-schedule">Sat 16:00 Ct 6</span></div>
 <div class="player-slot bye-slot">Slot 5</div>
 <div class="player-slot bye-slot">Slot 6</div>
-</div><div class="bracket-match">
-<div class="match-num">M4</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M4<span class="match-schedule">Sat 16:00 Ct 7</span></div>
 <div class="player-slot bye-slot">Slot 7</div>
 <div class="player-slot bye-slot">Slot 8</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Semi-Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Semi-Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 09:00 Ct 1</span></div>
 <div class="player-slot bye-slot">Winner QF-M1</div>
 <div class="player-slot bye-slot">Winner QF-M2</div>
-</div><div class="bracket-match">
-<div class="match-num">M2</div>
+</div></div><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M2<span class="match-schedule">Sun 09:00 Ct 2</span></div>
 <div class="player-slot bye-slot">Winner QF-M3</div>
 <div class="player-slot bye-slot">Winner QF-M4</div>
-</div>
-</div><div class="bracket-connector">&rarr;</div><div class="bracket-round">
-<div class="bracket-round-title">Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+</div></div></div></div><div class="bracket-conn-col"><div class="bracket-round-title">&nbsp;</div><div class="bracket-conn"><div class="conn-cell conn-top"></div><div class="conn-cell conn-bot"></div></div></div><div class="bracket-round"><div class="bracket-round-title">Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 10:00 Ct 8</span></div>
 <div class="player-slot bye-slot">Winner SF-M1</div>
 <div class="player-slot bye-slot">Winner SF-M2</div>
-</div>
-</div>
+</div></div></div></div>
 </div>
 </div>
 </div>
@@ -1804,14 +1770,17 @@
 <span class="p1">Juha Heikkinen / Juha Vuollet</span>
 <span class="vs">VS</span>
 <span class="p2">Janne Julkunen / Antti Laitala</span>
+<span class="match-schedule">Sat 09:00 Ct 1</span>
 </div><div class="rr-match">
 <span class="p1">Juha Heikkinen / Juha Vuollet</span>
 <span class="vs">VS</span>
 <span class="p2">Jarkko Seppä / Harri Suhonen</span>
+<span class="match-schedule">Sat 13:00 Ct 3</span>
 </div><div class="rr-match">
 <span class="p1">Janne Julkunen / Antti Laitala</span>
 <span class="vs">VS</span>
 <span class="p2">Jarkko Seppä / Harri Suhonen</span>
+<span class="match-schedule">Sat 14:00 Ct 3</span>
 </div>
 </div>
 </div>
@@ -1838,26 +1807,32 @@
 <span class="p1">Janne Vuollet / Juha Vuollet</span>
 <span class="vs">VS</span>
 <span class="p2">Juha Seppälä / Simo Tolonen</span>
+<span class="match-schedule">Sat 10:00 Ct 1</span>
 </div><div class="rr-match">
 <span class="p1">Janne Vuollet / Juha Vuollet</span>
 <span class="vs">VS</span>
 <span class="p2">Ari Fingerroos / Pete Pietilä</span>
+<span class="match-schedule">Sat 14:00 Ct 2</span>
 </div><div class="rr-match">
 <span class="p1">Janne Vuollet / Juha Vuollet</span>
 <span class="vs">VS</span>
 <span class="p2">Tapani Kilpi / Janne Raasakka</span>
+<span class="match-schedule">Sat 15:00 Ct 1</span>
 </div><div class="rr-match">
 <span class="p1">Juha Seppälä / Simo Tolonen</span>
 <span class="vs">VS</span>
 <span class="p2">Ari Fingerroos / Pete Pietilä</span>
+<span class="match-schedule">Sat 15:00 Ct 2</span>
 </div><div class="rr-match">
 <span class="p1">Juha Seppälä / Simo Tolonen</span>
 <span class="vs">VS</span>
 <span class="p2">Tapani Kilpi / Janne Raasakka</span>
+<span class="match-schedule">Sat 11:30 Ct 3</span>
 </div><div class="rr-match">
 <span class="p1">Ari Fingerroos / Pete Pietilä</span>
 <span class="vs">VS</span>
 <span class="p2">Tapani Kilpi / Janne Raasakka</span>
+<span class="match-schedule">Sat 09:00 Ct 3</span>
 </div>
 </div>
 </div>
@@ -1884,14 +1859,17 @@
 <span class="p1">Ajith Kutty</span>
 <span class="vs">VS</span>
 <span class="p2">Jukka Häivälä</span>
+<span class="match-schedule">Sat 09:30 Ct 1</span>
 </div><div class="rr-match">
 <span class="p1">Ajith Kutty</span>
 <span class="vs">VS</span>
 <span class="p2">Miikka Pylväs</span>
+<span class="match-schedule">Sat 10:30 Ct 2</span>
 </div><div class="rr-match">
 <span class="p1">Jukka Häivälä</span>
 <span class="vs">VS</span>
 <span class="p2">Miikka Pylväs</span>
+<span class="match-schedule">Sat 11:30 Ct 12</span>
 </div>
 </div>
 </div>
@@ -1919,14 +1897,17 @@
 <span class="p1">Juha Vuollet</span>
 <span class="vs">VS</span>
 <span class="p2">Markku Leskelä</span>
+<span class="match-schedule">Sat 11:00 Ct 1</span>
 </div><div class="rr-match">
 <span class="p1">Juha Vuollet</span>
 <span class="vs">VS</span>
 <span class="p2">Mikko Venetvaara</span>
+<span class="match-schedule">Sat 12:00 Ct 1</span>
 </div><div class="rr-match">
 <span class="p1">Markku Leskelä</span>
 <span class="vs">VS</span>
 <span class="p2">Mikko Venetvaara</span>
+<span class="match-schedule">Sat 13:00 Ct 1</span>
 </div>
 </div>
 <div class="group-title">Group B</div>
@@ -1943,26 +1924,26 @@
 <span class="p1">David Cristobal Hornillos</span>
 <span class="vs">VS</span>
 <span class="p2">Jani Järvinen</span>
+<span class="match-schedule">Sat 09:30 Ct 2</span>
 </div><div class="rr-match">
 <span class="p1">David Cristobal Hornillos</span>
 <span class="vs">VS</span>
 <span class="p2">Jukka Penttinen</span>
+<span class="match-schedule">Sat 10:30 Ct 1</span>
 </div><div class="rr-match">
 <span class="p1">Jani Järvinen</span>
 <span class="vs">VS</span>
 <span class="p2">Jukka Penttinen</span>
+<span class="match-schedule">Sat 11:30 Ct 1</span>
 </div>
 </div>
 <div class="section-title" style="margin-top:1.5rem;">Playoff Bracket (Top from each group)</div>
 <div class="bracket">
-<div class="bracket-round">
-<div class="bracket-round-title">Final</div>
-<div class="bracket-match">
-<div class="match-num">M1</div>
+<div class="bracket-round"><div class="bracket-round-title">Final</div><div class="bracket-matches"><div class="match-wrap"><div class="bracket-match">
+<div class="match-num">M1<span class="match-schedule">Sun 10:30 Ct 6</span></div>
 <div class="player-slot bye-slot">Slot 1</div>
 <div class="player-slot bye-slot">Slot 2</div>
-</div>
-</div>
+</div></div></div></div>
 </div>
 </div>
 </div><div class="division-card">
@@ -1988,14 +1969,17 @@
 <span class="p1">Antti Laitala / Teija Härkönen</span>
 <span class="vs">VS</span>
 <span class="p2">Harri Lukkarila / Sonja Perälä</span>
+<span class="match-schedule">Sat 10:00 Ct 2</span>
 </div><div class="rr-match">
 <span class="p1">Antti Laitala / Teija Härkönen</span>
 <span class="vs">VS</span>
 <span class="p2">Tapio Kukkonen / Mira Mustonen</span>
+<span class="match-schedule">Sat 12:30 Ct 1</span>
 </div><div class="rr-match">
 <span class="p1">Harri Lukkarila / Sonja Perälä</span>
 <span class="vs">VS</span>
 <span class="p2">Tapio Kukkonen / Mira Mustonen</span>
+<span class="match-schedule">Sat 13:30 Ct 1</span>
 </div>
 </div>
 </div>
@@ -2028,26 +2012,32 @@
 <span class="p1">Sami Pajunen</span>
 <span class="vs">VS</span>
 <span class="p2">Tommi Ruoho</span>
+<span class="match-schedule">Sat 11:00 Ct 5</span>
 </div><div class="rr-match">
 <span class="p1">Sami Pajunen</span>
 <span class="vs">VS</span>
 <span class="p2">Elmeri Lybeck</span>
+<span class="match-schedule">Sat 15:00 Ct 5</span>
 </div><div class="rr-match">
 <span class="p1">Sami Pajunen</span>
 <span class="vs">VS</span>
 <span class="p2">Paulus Huhtamäki</span>
+<span class="match-schedule">Sat 19:00 Ct 5</span>
 </div><div class="rr-match">
 <span class="p1">Tommi Ruoho</span>
 <span class="vs">VS</span>
 <span class="p2">Elmeri Lybeck</span>
+<span class="match-schedule">Sat 19:00 Ct 7</span>
 </div><div class="rr-match">
 <span class="p1">Tommi Ruoho</span>
 <span class="vs">VS</span>
 <span class="p2">Paulus Huhtamäki</span>
+<span class="match-schedule">Sat 15:00 Ct 7</span>
 </div><div class="rr-match">
 <span class="p1">Elmeri Lybeck</span>
 <span class="vs">VS</span>
 <span class="p2">Paulus Huhtamäki</span>
+<span class="match-schedule">Sat 11:00 Ct 7</span>
 </div>
 </div>
 </div>
@@ -2074,14 +2064,17 @@
 <span class="p1">Nelly Määttä</span>
 <span class="vs">VS</span>
 <span class="p2">Pihla Mäkelä</span>
+<span class="match-schedule">Sat 11:00 Ct 6</span>
 </div><div class="rr-match">
 <span class="p1">Nelly Määttä</span>
 <span class="vs">VS</span>
 <span class="p2">Emilia Ojala</span>
+<span class="match-schedule">Sat 15:00 Ct 6</span>
 </div><div class="rr-match">
 <span class="p1">Pihla Mäkelä</span>
 <span class="vs">VS</span>
 <span class="p2">Emilia Ojala</span>
+<span class="match-schedule">Sat 19:00 Ct 6</span>
 </div>
 </div>
 </div>
@@ -2108,26 +2101,32 @@
 <span class="p1">Sami Pajunen / Pihla Mäkelä</span>
 <span class="vs">VS</span>
 <span class="p2">Tommi Ruoho / Emilia Ojala</span>
+<span class="match-schedule">Sat 09:00 Ct 5</span>
 </div><div class="rr-match">
 <span class="p1">Sami Pajunen / Pihla Mäkelä</span>
 <span class="vs">VS</span>
 <span class="p2">Elmeri Lybeck / Nelly Määttä</span>
+<span class="match-schedule">Sat 13:00 Ct 5</span>
 </div><div class="rr-match">
 <span class="p1">Sami Pajunen / Pihla Mäkelä</span>
 <span class="vs">VS</span>
 <span class="p2">Paulus Huhtamäki / Jenni Lahti</span>
+<span class="match-schedule">Sat 17:00 Ct 5</span>
 </div><div class="rr-match">
 <span class="p1">Tommi Ruoho / Emilia Ojala</span>
 <span class="vs">VS</span>
 <span class="p2">Elmeri Lybeck / Nelly Määttä</span>
+<span class="match-schedule">Sat 17:00 Ct 6</span>
 </div><div class="rr-match">
 <span class="p1">Tommi Ruoho / Emilia Ojala</span>
 <span class="vs">VS</span>
 <span class="p2">Paulus Huhtamäki / Jenni Lahti</span>
+<span class="match-schedule">Sat 13:00 Ct 6</span>
 </div><div class="rr-match">
 <span class="p1">Elmeri Lybeck / Nelly Määttä</span>
 <span class="vs">VS</span>
 <span class="p2">Paulus Huhtamäki / Jenni Lahti</span>
+<span class="match-schedule">Sat 09:00 Ct 6</span>
 </div>
 </div>
 </div>

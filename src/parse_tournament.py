@@ -3,11 +3,11 @@ Parse the Kumpoo Tervasulan Eliitti 2025 tournament Excel file
 and output structured JSON data — one file per division/sheet.
 
 Usage:
-    python parse_tournament.py
+    python src/parse_tournament.py
 
 Reads:  Draws Kumpoo Tervasulan Eliitti 2025 vain kaaviot.XLSX
-Writes: divisions/<SheetName>.json  (one per sheet)
-        divisions/tournament_index.json  (summary index)
+Writes: output/divisions/<SheetName>.json  (one per sheet)
+        output/divisions/tournament_index.json  (summary index)
 """
 
 import json
@@ -15,12 +15,12 @@ import re
 import os
 import openpyxl
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXCEL_FILE = os.path.join(
     BASE_DIR,
     "Draws Kumpoo Tervasulan Eliitti 2025 vain kaaviot.XLSX",
 )
-OUTPUT_DIR = os.path.join(BASE_DIR, "divisions")
+OUTPUT_DIR = os.path.join(BASE_DIR, "output", "divisions")
 
 TOURNAMENT_NAME = "Kumpoo Tervasulan Eliitti 2025"
 

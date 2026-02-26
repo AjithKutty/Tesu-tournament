@@ -6,30 +6,50 @@ Badminton tournament website generator for the "Kumpoo Tervasulan Eliitti 2025" 
 
 ```
 Tesu-Tournament/
-├── parse_tournament.py          # Excel → JSON parser
-├── generate_website.py          # JSON → HTML website generator
-├── requirements.txt             # Python deps (openpyxl)
-├── index.html                   # Generated website (DO NOT edit by hand)
-├── divisions/                   # Generated JSON files (one per sheet)
-│   ├── tournament_index.json    # Master index of all divisions
-│   └── *.json                   # Per-division data files
-├── scheduling-rules.md          # Court scheduling rules
-└── Draws Kumpoo...XLSX          # Source Excel file from Badminton Finland
+├── src/
+│   ├── parse_tournament.py          # Excel → JSON parser
+│   ├── generate_website.py          # JSON → HTML website generator
+│   └── generate_schedule.py         # JSON → schedule JSON + HTML
+├── output/
+│   ├── divisions/                   # Generated JSON files (one per sheet)
+│   │   ├── tournament_index.json    # Master index of all divisions
+│   │   └── *.json                   # Per-division data files
+│   ├── schedules/                   # Generated schedule JSON files
+│   │   ├── schedule_index.json      # Schedule session index
+│   │   └── *.json                   # Per-session schedule files
+│   └── webpages/
+│       ├── index.html               # Generated tournament draws page
+│       └── schedule.html            # Generated match schedule page
+├── docs/
+│   ├── requirements/
+│   │   └── scheduling-rules.md
+│   ├── architecture/
+│   │   └── scheduling-proposal.md
+│   └── implementation/
+│       ├── implementation-plan.md
+│       └── website-schedule-plan.md
+├── requirements.txt                 # Python deps (openpyxl)
+├── CLAUDE.md
+└── Draws Kumpoo...XLSX              # Source Excel file from Badminton Finland
 ```
 
 ## Workflow
 
 ```
-Excel (.XLSX)  →  parse_tournament.py  →  divisions/*.json  →  generate_website.py  →  index.html
+Excel (.XLSX)  →  src/parse_tournament.py  →  output/divisions/*.json
+                  src/generate_schedule.py →  output/schedules/*.json
+                  src/generate_website.py  →  output/webpages/index.html + schedule.html
 ```
 
-1. `python parse_tournament.py` — Reads the Excel file and writes 32 JSON files into `divisions/`
-2. `python generate_website.py` — Reads the JSON files and generates `index.html`
+1. `python src/parse_tournament.py` — Reads the Excel file and writes 32 JSON files into `output/divisions/`
+2. `python src/generate_schedule.py` — Reads division data and generates schedule into `output/schedules/`
+3. `python src/generate_website.py` — Reads JSON files and generates `output/webpages/index.html` + `schedule.html`
 
 ## Key Conventions
 
-- **Do not hand-edit `index.html`** — it is generated output. Change `generate_website.py` instead.
-- **Do not hand-edit `divisions/*.json`** — they are generated output. Fix `parse_tournament.py` instead.
+- **Do not hand-edit `output/webpages/*.html`** — they are generated output. Change `src/generate_website.py` instead.
+- **Do not hand-edit `output/divisions/*.json`** — they are generated output. Fix `src/parse_tournament.py` instead.
+- **Do not hand-edit `output/schedules/*.json`** — they are generated output. Fix `src/generate_schedule.py` instead.
 - Python 3 with `openpyxl` as the only external dependency. Install via `pip install -r requirements.txt`.
 - No template engines or frontend frameworks — pure Python string formatting for HTML generation.
 
@@ -68,14 +88,21 @@ Source: `Draws Kumpoo Tervasulan Eliitti 2025 vain kaaviot.XLSX` (from badminton
 
 ## Testing Changes
 
-After modifying either script:
+After modifying any script:
 ```bash
-python parse_tournament.py      # Re-parse Excel
-python generate_website.py      # Re-generate website
+python src/parse_tournament.py      # Re-parse Excel
+python src/generate_schedule.py     # Re-generate schedules
+python src/generate_website.py      # Re-generate website
 ```
-Then open `index.html` in a browser and verify:
+Then open `output/webpages/index.html` in a browser and verify:
 - All 7 tabs work (Open A/B/C, Junior, Veterans, Elite, Clubs)
-- Elimination divisions show full bracket (R1 through Final)
+- Elimination divisions show full bracket (R1 through Final) with tree-style connectors
 - Group+playoff divisions show groups + playoff bracket
 - Round-robin divisions show VS match cards
+- Schedule annotations (time + court) on match cards
 - No "Bye" entries in player lists
+
+Open `output/webpages/schedule.html` and verify:
+- Session tabs with time × court grid
+- 45-min Elite matches span two rows
+- Navigation links between both pages work

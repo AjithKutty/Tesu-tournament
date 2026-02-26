@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Match Schedule — Kumpoo Tervasulan Eliitti 2025</title>
+<style>
+:root {
+    --primary: #0d2137;
+    --primary-light: #163a5c;
+    --accent: #00b894;
+    --accent-dark: #00997a;
+    --bg: #f0f4f8;
+    --card-bg: #ffffff;
+    --text: #2d3748;
+    --text-light: #718096;
+    --border: #e2e8f0;
+    --junior: #38a169;
+    --open: #3182ce;
+    --veterans: #dd6b20;
+    --elite: #805ad5;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .hero { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; text-align: center; padding: 3rem 1rem 2rem; }
+  .hero h1 { font-size: 2.2rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .hero .subtitle { font-size: 1.1rem; opacity: 0.85; margin-bottom: 1rem; }
+  .hero .meta { display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; font-size: 0.95rem; opacity: 0.75; }
+  .shuttlecock { font-size: 2.5rem; margin-bottom: 0.5rem; display: block; }
+  .stats-bar { display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; background: var(--card-bg); padding: 1rem; border-bottom: 1px solid var(--border); box-shadow: var(--shadow); }
+  .stat { text-align: center; }
+  .stat .num { font-size: 1.5rem; font-weight: 700; color: var(--accent-dark); }
+  .stat .label { font-size: 0.8rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.05em; }
+  .tabs-wrapper { position: sticky; top: 0; z-index: 100; background: var(--card-bg); border-bottom: 2px solid var(--border); box-shadow: var(--shadow); }
+  .tabs { display: flex; justify-content: center; gap: 0; max-width: 900px; margin: 0 auto; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab-btn { padding: 0.9rem 1.4rem; border: none; background: none; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: var(--text-light); border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+  .tab-btn:hover { color: var(--text); background: #f7fafc; }
+  .tab-btn.active { color: var(--accent-dark); border-bottom-color: var(--accent); }
+  .content { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .cat-header { margin-bottom: 1.5rem; }
+  .cat-header h2 { font-size: 1.4rem; margin-bottom: 0.2rem; }
+  .cat-header p { color: var(--text-light); font-size: 0.9rem; }
+  .division-card { background: var(--card-bg); border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 1.5rem; overflow: hidden; border: 1px solid var(--border); }
+  .division-header { padding: 1rem 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; transition: background 0.15s; }
+  .division-header:hover { background: #f7fafc; }
+  .division-header .left { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+  .division-header h3 { font-size: 1.05rem; font-weight: 600; }
+  .badge { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 20px; font-size: 0.7rem; font-weight: 700; color: white; text-transform: uppercase; letter-spacing: 0.04em; }
+  .badge-junior { background: var(--junior); }
+  .badge-open { background: var(--open); }
+  .badge-veterans { background: var(--veterans); }
+  .badge-elite { background: var(--elite); }
+  .format-tag { font-size: 0.78rem; color: var(--text-light); background: var(--bg); padding: 0.2rem 0.6rem; border-radius: 6px; }
+  .chevron { font-size: 1.2rem; color: var(--text-light); transition: transform 0.3s; }
+  .division-card.open .chevron { transform: rotate(180deg); }
+  .division-body { display: none; padding: 0 1.2rem 1.2rem; }
+  .division-card.open .division-body { display: block; }
+  .draw-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 0.5rem; }
+  .draw-table th { text-align: left; padding: 0.5rem 0.6rem; background: var(--bg); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-light); border-bottom: 2px solid var(--border); }
+  .draw-table td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border); }
+  .draw-table tr:last-child td { border-bottom: none; }
+  .draw-table tr:hover { background: #f7fafc; }
+  .seed { color: var(--accent-dark); font-weight: 700; font-size: 0.8rem; }
+  .club { color: var(--text-light); font-size: 0.82rem; }
+  .wdn { color: #e53e3e; font-weight: 600; font-size: 0.75rem; }
+  .sub { color: #d69e2e; font-weight: 600; font-size: 0.75rem; }
+  .group-title { font-size: 0.95rem; font-weight: 700; margin: 1rem 0 0.3rem; padding: 0.4rem 0.7rem; background: var(--primary); color: white; border-radius: 6px; display: inline-block; }
+  .group-title:first-child { margin-top: 0; }
+  .section-title { font-size: 0.95rem; font-weight: 700; margin: 1.2rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 2px solid var(--accent); color: var(--primary); }
+  .bracket { display: flex; align-items: stretch; overflow-x: auto; padding: 0.5rem 0; gap: 0; }
+  .bracket-round { min-width: 220px; flex-shrink: 0; display: flex; flex-direction: column; }
+  .bracket-round-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-light); padding: 0.3rem 0.5rem; background: var(--bg); border-radius: 4px; text-align: center; letter-spacing: 0.05em; }
+  .bracket-matches { display: flex; flex-direction: column; flex: 1; }
+  .match-wrap { flex: 1; display: flex; align-items: center; padding: 2px 0; }
+  .bracket-match { background: var(--bg); border-radius: 6px; border: 1px solid var(--border); overflow: hidden; font-size: 0.8rem; width: 100%; }
+  .bracket-match .match-num { font-size: 0.65rem; color: var(--text-light); padding: 0.15rem 0.4rem; background: var(--border); }
+  .bracket-match .player-slot { padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .bracket-match .player-slot:last-child { border-bottom: none; }
+  .bracket-match .player-slot.bye-slot { color: var(--text-light); font-style: italic; }
+  .bracket-conn-col { display: flex; flex-direction: column; flex-shrink: 0; }
+  .bracket-conn-col > .bracket-round-title { visibility: hidden; }
+  .bracket-conn { display: flex; flex-direction: column; flex: 1; min-width: 24px; }
+  .conn-cell { flex: 1; position: relative; }
+  .conn-cell.conn-top::after { content: ''; position: absolute; top: 50%; left: 0; right: 0; bottom: 0; border-top: 2px solid var(--border); border-right: 2px solid var(--border); border-top-right-radius: 4px; }
+  .conn-cell.conn-bot::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 50%; border-bottom: 2px solid var(--border); border-right: 2px solid var(--border); border-bottom-right-radius: 4px; }
+  .conn-cell.conn-bot::before { content: ''; position: absolute; top: 0; right: -12px; width: 12px; border-top: 2px solid var(--border); }
+  .rr-matches { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.4rem; margin-top: 0.5rem; }
+  .rr-match { display: flex; align-items: center; gap: 0.5rem; background: var(--bg); border-radius: 6px; padding: 0.4rem 0.7rem; font-size: 0.82rem; border: 1px solid var(--border); }
+  .rr-match .vs { font-weight: 700; color: var(--accent-dark); font-size: 0.7rem; flex-shrink: 0; }
+  .rr-match .p1, .rr-match .p2 { flex: 1; }
+  .rr-match .p2 { text-align: right; }
+  .clubs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.8rem; margin-top: 1rem; }
+  .club-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 1rem; box-shadow: var(--shadow); font-size: 0.9rem; }
+  .club-card strong { color: var(--primary); }
+  .footer { text-align: center; padding: 2rem 1rem; color: var(--text-light); font-size: 0.8rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+  .match-schedule { font-size: 0.6rem; color: var(--accent-dark); font-weight: 600; float: right; letter-spacing: 0.02em; }
+  .rr-match .match-schedule { float: none; display: block; text-align: center; font-size: 0.7rem; margin-top: 0.15rem; }
+  .nav-link { display: inline-block; margin-top: 0.5rem; color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.3); padding: 0.3rem 1rem; border-radius: 20px; transition: all 0.2s; }
+  .nav-link:hover { background: rgba(255,255,255,0.15); color: white; }
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 1.5rem; }
+    .stats-bar { gap: 1rem; }
+    .tab-btn { padding: 0.7rem 0.9rem; font-size: 0.82rem; }
+    .content { padding: 1rem 0.5rem 2rem; }
+    .draw-table { font-size: 0.82rem; }
+    .draw-table th, .draw-table td { padding: 0.35rem 0.4rem; }
+    .bracket-round { min-width: 180px; }
+  }
+
+  .schedule-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 0.5rem; }
+  .schedule-grid { border-collapse: collapse; font-size: 0.75rem; min-width: 100%; }
+  .schedule-grid th { position: sticky; top: 0; background: var(--primary); color: white; padding: 0.4rem 0.3rem; text-align: center; font-size: 0.75rem; z-index: 10; white-space: nowrap; min-width: 130px; }
+  .schedule-grid th:first-child { min-width: 55px; left: 0; z-index: 15; }
+  .schedule-grid .time-cell { font-weight: 700; background: var(--primary-light); color: white; text-align: center; padding: 0.4rem 0.3rem; position: sticky; left: 0; z-index: 5; white-space: nowrap; }
+  .sched-cell { border: 1px solid var(--border); padding: 0.3rem; vertical-align: top; background: var(--card-bg); }
+  .sched-cell:hover { background: #f0f7ff; }
+  .sched-div { margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+  .sched-div .badge { font-size: 0.6rem; padding: 0.1rem 0.4rem; }
+  .sched-round { font-size: 0.6rem; color: var(--text-light); }
+  .sched-p { font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+  .sched-vs { font-size: 0.55rem; color: var(--accent-dark); font-weight: 700; }
+  .sched-empty { border: 1px solid #edf2f7; background: var(--bg); }
+  .sched-blocked { border: 1px solid #edf2f7; background: repeating-linear-gradient(45deg, var(--bg), var(--bg) 4px, #e8edf3 4px, #e8edf3 5px); }
+
+  .sched-panel { display: none; }
+  .sched-panel.active { display: block; }
+  .content { max-width: none; padding: 1rem; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+<span class="shuttlecock">&#127992;</span>
+<h1>Kumpoo Tervasulan Eliitti 2025</h1>
+<p class="subtitle">Match Schedule</p>
+<a href="index.html" class="nav-link">View Game Draws</a>
+</div>
+
+<div class="stats-bar">
+<div class="stat"><div class="num">234</div><div class="label">Matches</div></div>
+<div class="stat"><div class="num">12</div><div class="label">Courts (Sat)</div></div>
+<div class="stat"><div class="num">8</div><div class="label">Courts (Sun)</div></div>
+<div class="stat"><div class="num">2</div><div class="label">Days</div></div>
+</div>
+
+<div class="tabs-wrapper">
+<div class="tabs">
+<button class="tab-btn sched-tab-btn active" data-session="saturday_morning">Saturday Morning (91)</button><button class="tab-btn sched-tab-btn" data-session="saturday_afternoon">Saturday Afternoon (93)</button><button class="tab-btn sched-tab-btn" data-session="saturday_evening">Saturday Evening (14)</button><button class="tab-btn sched-tab-btn" data-session="sunday_morning">Sunday Morning (36)</button>
+</div>
+</div>
+
+<div class="content">
+<div class="sched-panel active" id="sched-saturday_morning"><div class="schedule-wrap">
+<table class="schedule-grid">
+<thead><tr><th>Time</th><th>Court 1</th><th>Court 2</th><th>Court 3</th><th>Court 4</th><th>Court 5</th><th>Court 6</th><th>Court 7</th><th>Court 8</th><th>Court 9</th><th>Court 10</th><th>Court 11</th><th>Court 12</th></tr></thead>
+<tbody>
+<tr><td class="time-cell">09:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MD 35</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Juha Heikkinen / Juha Vuollet">Juha Heikkinen / Juha Vuollet</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Janne Julkunen / Antti Laitala">Janne Julkunen / Antti Laitala</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WD C</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Eeva-Liisa Kaikkonen / Parisa Rezaeei">Eeva-Liisa Kaikkonen / Parisa Rezaeei</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Mira Kangasniemi / Jutta Risikko">Mira Kangasniemi / Jutta Risikko</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MD 45</span><span class="sched-round">Pool M6</span></div>
+<div class="sched-p" title="Ari Fingerroos / Pete Pietilä">Ari Fingerroos / Pete Pietilä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Tapani Kilpi / Janne Raasakka">Tapani Kilpi / Janne Raasakka</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group B Pool M1</span></div>
+<div class="sched-p" title="Joose Orpana">Joose Orpana</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Ashwath Kutty">Ashwath Kutty</div>
+</td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">XD V</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Sami Pajunen / Pihla Mäkelä">Sami Pajunen / Pihla Mäkelä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Tommi Ruoho / Emilia Ojala">Tommi Ruoho / Emilia Ojala</div>
+</td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">XD V</span><span class="sched-round">Pool M6</span></div>
+<div class="sched-p" title="Elmeri Lybeck / Nelly Määttä">Elmeri Lybeck / Nelly Määttä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Paulus Huhtamäki / Jenni Lahti">Paulus Huhtamäki / Jenni Lahti</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WD A</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Mira Mustonen / Sonja Perälä">Mira Mustonen / Sonja Perälä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Raisa Kauppi / Emilia Mattila">Raisa Kauppi / Emilia Mattila</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U15</span><span class="sched-round">Group B Pool M1</span></div>
+<div class="sched-p" title="Matti Isomaa">Matti Isomaa</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jimi Manninen">Jimi Manninen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BD U13</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Marouane Arifi / Swaraj Sabat">Marouane Arifi / Swaraj Sabat</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Somnas Dasanayake / Senuka Weeraddana">Somnas Dasanayake / Senuka Weeraddana</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BD U15</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Niilo Niskanen / Arttu Pirneskoski">Niilo Niskanen / Arttu Pirneskoski</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Naitik Diwate / Juhana Paaso">Naitik Diwate / Juhana Paaso</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BD U17</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Viktor Cristobal / Arttu Mäkelä">Viktor Cristobal / Arttu Mäkelä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Roope Häyrynen / Leevi Pyykkönen">Roope Häyrynen / Leevi Pyykkönen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U11</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Luka Heikkilä">Luka Heikkilä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Siwei Lucas Qiu">Siwei Lucas Qiu</div>
+</td></tr><tr><td class="time-cell">09:30</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MS 35</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Ajith Kutty">Ajith Kutty</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jukka Häivälä">Jukka Häivälä</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MS 45</span><span class="sched-round">Group B Pool M1</span></div>
+<div class="sched-p" title="David Cristobal Hornillos">David Cristobal Hornillos</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jani Järvinen">Jani Järvinen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WS C</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Minja Hakala">Minja Hakala</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Tiia Laurila">Tiia Laurila</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD A</span><span class="sched-round">Round 1 M6</span></div>
+<div class="sched-p" title="Jukka-Pekka Kivistö / Tommi Salonpää">Jukka-Pekka Kivistö / Tommi Salonpää</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Janne Haurinen / Marko Koivusaari">Janne Haurinen / Marko Koivusaari</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD A</span><span class="sched-round">Round 1 M3</span></div>
+<div class="sched-p" title="Joel Pennanen / Luka Penttinen">Joel Pennanen / Luka Penttinen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Aaro Romppainen / Elias Vuollet">Aaro Romppainen / Elias Vuollet</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD A</span><span class="sched-round">Round 1 M5</span></div>
+<div class="sched-p" title="Teppo Aho / Jesse Viitanen">Teppo Aho / Jesse Viitanen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Hoang Nguyen / Aki-Petteri Pokka">Hoang Nguyen / Aki-Petteri Pokka</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group E Pool M1</span></div>
+<div class="sched-p" title="Jaakob Vuollet">Jaakob Vuollet</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Walter Ekstrand">Walter Ekstrand</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U11</span><span class="sched-round">Pool M6</span></div>
+<div class="sched-p" title="Ann Nelson">Ann Nelson</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Ashlyn Jinu">Ashlyn Jinu</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD C</span><span class="sched-round">Round 1 M6</span></div>
+<div class="sched-p" title="Pragnesh Prajapati / Narasimhulu Thoti">Pragnesh Prajapati / Narasimhulu Thoti</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Janne Heikkilä / Olli Komulainen">Janne Heikkilä / Olli Komulainen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD C</span><span class="sched-round">Round 1 M7</span></div>
+<div class="sched-p" title="Heikki Huotari / Matias Laakko">Heikki Huotari / Matias Laakko</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Sanath K S / Bijith Kokkanchalil">Sanath K S / Bijith Kokkanchalil</div>
+</td></tr><tr><td class="time-cell">10:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MD 45</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Janne Vuollet / Juha Vuollet">Janne Vuollet / Juha Vuollet</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Juha Seppälä / Simo Tolonen">Juha Seppälä / Simo Tolonen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">XD 35</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Antti Laitala / Teija Härkönen">Antti Laitala / Teija Härkönen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Harri Lukkarila / Sonja Perälä">Harri Lukkarila / Sonja Perälä</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group C Pool M1</span></div>
+<div class="sched-p" title="Pauli Alapukki">Pauli Alapukki</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Roope Häyrynen">Roope Häyrynen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group D Pool M1</span></div>
+<div class="sched-p" title="Casimir Aalto">Casimir Aalto</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Leevi Pyykkönen">Leevi Pyykkönen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group B Pool M2</span></div>
+<div class="sched-p" title="Joose Orpana">Joose Orpana</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Nandhan Krishnamoorthy Thiyagarajan">Nandhan Krishnamoorthy Thiyagarajan</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WS C</span><span class="sched-round">Pool M6</span></div>
+<div class="sched-p" title="Mira Kangasniemi">Mira Kangasniemi</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Eeva-Liisa Kaikkonen">Eeva-Liisa Kaikkonen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD A</span><span class="sched-round">Round 1 M8</span></div>
+<div class="sched-p" title="Mika Pasanen / Teemu Rantala">Mika Pasanen / Teemu Rantala</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Anton Ketola / Iiro Romppainen">Anton Ketola / Iiro Romppainen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Round 2 M1</span></div>
+<div class="sched-p" title="Winner R1-M1">Winner R1-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M2">Winner R1-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group A Pool M1</span></div>
+<div class="sched-p" title="Jonathan Jinu John">Jonathan Jinu John</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Marouane Arifi">Marouane Arifi</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U15</span><span class="sched-round">Group A Pool M1</span></div>
+<div class="sched-p" title="Arttu Pirneskoski">Arttu Pirneskoski</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Veikka Mustaparta">Veikka Mustaparta</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group A Pool M1</span></div>
+<div class="sched-p" title="Aleksi Petäjäkangas">Aleksi Petäjäkangas</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Matti Isomaa">Matti Isomaa</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group B Pool M1</span></div>
+<div class="sched-p" title="Niilo Niskanen">Niilo Niskanen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Aatu Mustaparta">Aatu Mustaparta</div>
+</td></tr><tr><td class="time-cell">10:30</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MS 45</span><span class="sched-round">Group B Pool M2</span></div>
+<div class="sched-p" title="David Cristobal Hornillos">David Cristobal Hornillos</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jukka Penttinen">Jukka Penttinen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MS 35</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Ajith Kutty">Ajith Kutty</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Miikka Pylväs">Miikka Pylväs</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Round 1 M13</span></div>
+<div class="sched-p" title="Jukka-Pekka Kivistö / Matti Peitso">Jukka-Pekka Kivistö / Matti Peitso</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Janne Heikkilä / Pragnesh Prajapati">Janne Heikkilä / Pragnesh Prajapati</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Round 2 M1</span></div>
+<div class="sched-p" title="Winner R1-M1">Winner R1-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M2">Winner R1-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS A</span><span class="sched-round">Round 1 M2</span></div>
+<div class="sched-p" title="Janne Haurinen">Janne Haurinen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Eetu Hanhineva">Eetu Hanhineva</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS A</span><span class="sched-round">Round 1 M7</span></div>
+<div class="sched-p" title="Heikki Roivainen">Heikki Roivainen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Joel Pennanen">Joel Pennanen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Round 2 M2</span></div>
+<div class="sched-p" title="Winner R1-M3">Winner R1-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M4">Winner R1-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Round 2 M3</span></div>
+<div class="sched-p" title="Winner R1-M5">Winner R1-M5</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M6">Winner R1-M6</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group E Pool M2</span></div>
+<div class="sched-p" title="Jaakob Vuollet">Jaakob Vuollet</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Viktor Cristobal">Viktor Cristobal</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U11</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Luka Heikkilä">Luka Heikkilä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Ann Nelson">Ann Nelson</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U11</span><span class="sched-round">Pool M5</span></div>
+<div class="sched-p" title="Siwei Lucas Qiu">Siwei Lucas Qiu</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Ashlyn Jinu">Ashlyn Jinu</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Round 2 M2</span></div>
+<div class="sched-p" title="Winner R1-M3">Winner R1-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M4">Winner R1-M4</div>
+</td></tr><tr><td class="time-cell">11:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MS 45</span><span class="sched-round">Group A Pool M1</span></div>
+<div class="sched-p" title="Juha Vuollet">Juha Vuollet</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Markku Leskelä">Markku Leskelä</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WS B</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Emilia Mattila">Emilia Mattila</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Teija Härkönen">Teija Härkönen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group B Pool M2</span></div>
+<div class="sched-p" title="Niilo Niskanen">Niilo Niskanen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Miika Surakka">Miika Surakka</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group D Pool M2</span></div>
+<div class="sched-p" title="Casimir Aalto">Casimir Aalto</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Arttu Mäkelä">Arttu Mäkelä</div>
+</td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">MS V</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Sami Pajunen">Sami Pajunen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Tommi Ruoho">Tommi Ruoho</div>
+</td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">WS V</span><span class="sched-round">Pool M1</span></div>
+<div class="sched-p" title="Nelly Määttä">Nelly Määttä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Pihla Mäkelä">Pihla Mäkelä</div>
+</td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">MS V</span><span class="sched-round">Pool M6</span></div>
+<div class="sched-p" title="Elmeri Lybeck">Elmeri Lybeck</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Paulus Huhtamäki">Paulus Huhtamäki</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group B Pool M3</span></div>
+<div class="sched-p" title="Joose Orpana">Joose Orpana</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Somnas Dasanayake">Somnas Dasanayake</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group A Pool M2</span></div>
+<div class="sched-p" title="Jonathan Jinu John">Jonathan Jinu John</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Sathvik Sanath">Sathvik Sanath</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U15</span><span class="sched-round">Group A Pool M2</span></div>
+<div class="sched-p" title="Arttu Pirneskoski">Arttu Pirneskoski</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Juhana Paaso">Juhana Paaso</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U15</span><span class="sched-round">Group B Pool M2</span></div>
+<div class="sched-p" title="Matti Isomaa">Matti Isomaa</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Naitik Diwate">Naitik Diwate</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group A Pool M2</span></div>
+<div class="sched-p" title="Aleksi Petäjäkangas">Aleksi Petäjäkangas</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Eemeli Tolonen">Eemeli Tolonen</div>
+</td></tr><tr><td class="time-cell">11:30</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MS 45</span><span class="sched-round">Group B Pool M3</span></div>
+<div class="sched-p" title="Jani Järvinen">Jani Järvinen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jukka Penttinen">Jukka Penttinen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WD C</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Eeva-Liisa Kaikkonen / Parisa Rezaeei">Eeva-Liisa Kaikkonen / Parisa Rezaeei</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Henna Salonpää / Raija Tuomela">Henna Salonpää / Raija Tuomela</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MD 45</span><span class="sched-round">Pool M5</span></div>
+<div class="sched-p" title="Juha Seppälä / Simo Tolonen">Juha Seppälä / Simo Tolonen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Tapani Kilpi / Janne Raasakka">Tapani Kilpi / Janne Raasakka</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WS C</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Minja Hakala">Minja Hakala</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Mira Kangasniemi">Mira Kangasniemi</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WD A</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Mira Mustonen / Sonja Perälä">Mira Mustonen / Sonja Perälä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Henna Hukari / Eerika Laakso">Henna Hukari / Eerika Laakso</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group E Pool M3</span></div>
+<div class="sched-p" title="Walter Ekstrand">Walter Ekstrand</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Viktor Cristobal">Viktor Cristobal</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group B Pool M5</span></div>
+<div class="sched-p" title="Ashwath Kutty">Ashwath Kutty</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Nandhan Krishnamoorthy Thiyagarajan">Nandhan Krishnamoorthy Thiyagarajan</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U11</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Luka Heikkilä">Luka Heikkilä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Ashlyn Jinu">Ashlyn Jinu</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MS 35</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Jukka Häivälä">Jukka Häivälä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Miikka Pylväs">Miikka Pylväs</div>
+</td></tr><tr><td class="time-cell">12:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MS 45</span><span class="sched-round">Group A Pool M2</span></div>
+<div class="sched-p" title="Juha Vuollet">Juha Vuollet</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Mikko Venetvaara">Mikko Venetvaara</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group D Pool M3</span></div>
+<div class="sched-p" title="Casimir Aalto">Casimir Aalto</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Roope Vähäkuopus">Roope Vähäkuopus</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group A Pool M4</span></div>
+<div class="sched-p" title="Marouane Arifi">Marouane Arifi</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Sathvik Sanath">Sathvik Sanath</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group B Pool M4</span></div>
+<div class="sched-p" title="Joose Orpana">Joose Orpana</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Aarush Navalde">Aarush Navalde</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group B Pool M4</span></div>
+<div class="sched-p" title="Aatu Mustaparta">Aatu Mustaparta</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Miika Surakka">Miika Surakka</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group D Pool M4</span></div>
+<div class="sched-p" title="Leevi Pyykkönen">Leevi Pyykkönen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Arttu Mäkelä">Arttu Mäkelä</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WS B</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Emilia Mattila">Emilia Mattila</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jaana Kopsala">Jaana Kopsala</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U11</span><span class="sched-round">Pool M4</span></div>
+<div class="sched-p" title="Siwei Lucas Qiu">Siwei Lucas Qiu</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Ann Nelson">Ann Nelson</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group C Pool M2</span></div>
+<div class="sched-p" title="Pauli Alapukki">Pauli Alapukki</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Naitik Diwate">Naitik Diwate</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group A Pool M3</span></div>
+<div class="sched-p" title="Jonathan Jinu John">Jonathan Jinu John</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Senuka Weeraddana">Senuka Weeraddana</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U15</span><span class="sched-round">Group A Pool M3</span></div>
+<div class="sched-p" title="Veikka Mustaparta">Veikka Mustaparta</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Juhana Paaso">Juhana Paaso</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U15</span><span class="sched-round">Group B Pool M3</span></div>
+<div class="sched-p" title="Matti Isomaa">Matti Isomaa</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Leo Takalo">Leo Takalo</div>
+</td></tr><tr><td class="time-cell">12:30</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">XD 35</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Antti Laitala / Teija Härkönen">Antti Laitala / Teija Härkönen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Tapio Kukkonen / Mira Mustonen">Tapio Kukkonen / Mira Mustonen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WS C</span><span class="sched-round">Pool M5</span></div>
+<div class="sched-p" title="Tiia Laurila">Tiia Laurila</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Eeva-Liisa Kaikkonen">Eeva-Liisa Kaikkonen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WD C</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Mira Kangasniemi / Jutta Risikko">Mira Kangasniemi / Jutta Risikko</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Henna Salonpää / Raija Tuomela">Henna Salonpää / Raija Tuomela</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Round 1 M9</span></div>
+<div class="sched-p" title="Walter Ekstrand / Niklas Hukari">Walter Ekstrand / Niklas Hukari</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Hampus Hansson / Milo Stridsman">Hampus Hansson / Milo Stridsman</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS A</span><span class="sched-round">Round 1 M4</span></div>
+<div class="sched-p" title="Tommi Salonpää">Tommi Salonpää</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Iiro Romppainen">Iiro Romppainen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS A</span><span class="sched-round">Round 1 M5</span></div>
+<div class="sched-p" title="Miikka Pylväs">Miikka Pylväs</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Ilari Leskelä">Ilari Leskelä</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Round 2 M3</span></div>
+<div class="sched-p" title="Winner R1-M5">Winner R1-M5</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M6">Winner R1-M6</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Round 2 M4</span></div>
+<div class="sched-p" title="Winner R1-M7">Winner R1-M7</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M8">Winner R1-M8</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group B Pool M6</span></div>
+<div class="sched-p" title="Ashwath Kutty">Ashwath Kutty</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Somnas Dasanayake">Somnas Dasanayake</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Round 1 M9</span></div>
+<div class="sched-p" title="Oscar Syk">Oscar Syk</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Mika Pasanen">Mika Pasanen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 1 M9</span></div>
+<div class="sched-p" title="Antti Ropponen">Antti Ropponen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jaakob Vuollet">Jaakob Vuollet</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Round 2 M7</span></div>
+<div class="sched-p" title="Winner R1-M13">Winner R1-M13</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M14">Winner R1-M14</div>
+</td></tr>
+</tbody>
+</table>
+</div></div><div class="sched-panel" id="sched-saturday_afternoon"><div class="schedule-wrap">
+<table class="schedule-grid">
+<thead><tr><th>Time</th><th>Court 1</th><th>Court 2</th><th>Court 3</th><th>Court 4</th><th>Court 5</th><th>Court 6</th><th>Court 7</th><th>Court 8</th><th>Court 9</th><th>Court 10</th><th>Court 11</th><th>Court 12</th></tr></thead>
+<tbody>
+<tr><td class="time-cell">13:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MS 45</span><span class="sched-round">Group A Pool M3</span></div>
+<div class="sched-p" title="Markku Leskelä">Markku Leskelä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Mikko Venetvaara">Mikko Venetvaara</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group D Pool M5</span></div>
+<div class="sched-p" title="Leevi Pyykkönen">Leevi Pyykkönen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Roope Vähäkuopus">Roope Vähäkuopus</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MD 35</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Juha Heikkinen / Juha Vuollet">Juha Heikkinen / Juha Vuollet</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jarkko Seppä / Harri Suhonen">Jarkko Seppä / Harri Suhonen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD C</span><span class="sched-round">Round 1 M5</span></div>
+<div class="sched-p" title="Teemu Karvonen / Timo Surakka">Teemu Karvonen / Timo Surakka</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Pauli Alapukki / Anssi Isopahkala">Pauli Alapukki / Anssi Isopahkala</div>
+</td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">XD V</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Sami Pajunen / Pihla Mäkelä">Sami Pajunen / Pihla Mäkelä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Elmeri Lybeck / Nelly Määttä">Elmeri Lybeck / Nelly Määttä</div>
+</td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">XD V</span><span class="sched-round">Pool M5</span></div>
+<div class="sched-p" title="Tommi Ruoho / Emilia Ojala">Tommi Ruoho / Emilia Ojala</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Paulus Huhtamäki / Jenni Lahti">Paulus Huhtamäki / Jenni Lahti</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WD A</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Raisa Kauppi / Emilia Mattila">Raisa Kauppi / Emilia Mattila</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Henna Hukari / Eerika Laakso">Henna Hukari / Eerika Laakso</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Round 2 M6</span></div>
+<div class="sched-p" title="Winner R1-M11">Winner R1-M11</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M12">Winner R1-M12</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group A Pool M3</span></div>
+<div class="sched-p" title="Matti Isomaa">Matti Isomaa</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Eemeli Tolonen">Eemeli Tolonen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group B Pool M3</span></div>
+<div class="sched-p" title="Niilo Niskanen">Niilo Niskanen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Veikka Mustaparta">Veikka Mustaparta</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group C Pool M3</span></div>
+<div class="sched-p" title="Roope Häyrynen">Roope Häyrynen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Naitik Diwate">Naitik Diwate</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group A Pool M5</span></div>
+<div class="sched-p" title="Marouane Arifi">Marouane Arifi</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Senuka Weeraddana">Senuka Weeraddana</div>
+</td></tr><tr><td class="time-cell">13:30</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">XD 35</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Harri Lukkarila / Sonja Perälä">Harri Lukkarila / Sonja Perälä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Tapio Kukkonen / Mira Mustonen">Tapio Kukkonen / Mira Mustonen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WS B</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Teija Härkönen">Teija Härkönen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jaana Kopsala">Jaana Kopsala</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WS C</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Minja Hakala">Minja Hakala</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Eeva-Liisa Kaikkonen">Eeva-Liisa Kaikkonen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">WS C</span><span class="sched-round">Pool M4</span></div>
+<div class="sched-p" title="Tiia Laurila">Tiia Laurila</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Mira Kangasniemi">Mira Kangasniemi</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Round 2 M6</span></div>
+<div class="sched-p" title="Winner R1-M11">Winner R1-M11</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M12">Winner R1-M12</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Round 2 M7</span></div>
+<div class="sched-p" title="Winner R1-M13">Winner R1-M13</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M14">Winner R1-M14</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group B Pool M7</span></div>
+<div class="sched-p" title="Ashwath Kutty">Ashwath Kutty</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Aarush Navalde">Aarush Navalde</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group B Pool M8</span></div>
+<div class="sched-p" title="Nandhan Krishnamoorthy Thiyagarajan">Nandhan Krishnamoorthy Thiyagarajan</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Somnas Dasanayake">Somnas Dasanayake</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Round 2 M5</span></div>
+<div class="sched-p" title="Winner R1-M9">Winner R1-M9</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M10">Winner R1-M10</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Round 2 M5</span></div>
+<div class="sched-p" title="Winner R1-M9">Winner R1-M9</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M10">Winner R1-M10</div>
+</td></tr><tr><td class="time-cell">14:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BD U13</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Marouane Arifi / Swaraj Sabat">Marouane Arifi / Swaraj Sabat</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jonathan Jinu John / Joose Orpana">Jonathan Jinu John / Joose Orpana</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MD 45</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Janne Vuollet / Juha Vuollet">Janne Vuollet / Juha Vuollet</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Ari Fingerroos / Pete Pietilä">Ari Fingerroos / Pete Pietilä</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MD 35</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Janne Julkunen / Antti Laitala">Janne Julkunen / Antti Laitala</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jarkko Seppä / Harri Suhonen">Jarkko Seppä / Harri Suhonen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 1 M2</span></div>
+<div class="sched-p" title="Timo Surakka">Timo Surakka</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Abin Babu">Abin Babu</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD A</span><span class="sched-round">Round 1 M2</span></div>
+<div class="sched-p" title="Juha Heikkinen / Henri Kangas">Juha Heikkinen / Henri Kangas</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Mikko Luhtaniemi / Jenny Nyström">Mikko Luhtaniemi / Jenny Nyström</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Round 2 M8</span></div>
+<div class="sched-p" title="Winner R1-M15">Winner R1-M15</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M16">Winner R1-M16</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Round 2 M8</span></div>
+<div class="sched-p" title="Winner R1-M15">Winner R1-M15</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M16">Winner R1-M16</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD A</span><span class="sched-round">Quarter-Final M3</span></div>
+<div class="sched-p" title="Winner R1-M5">Winner R1-M5</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M6">Winner R1-M6</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U15</span><span class="sched-round">Group B Pool M4</span></div>
+<div class="sched-p" title="Jimi Manninen">Jimi Manninen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Naitik Diwate">Naitik Diwate</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group B Pool M5</span></div>
+<div class="sched-p" title="Aatu Mustaparta">Aatu Mustaparta</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Veikka Mustaparta">Veikka Mustaparta</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group A Pool M6</span></div>
+<div class="sched-p" title="Sathvik Sanath">Sathvik Sanath</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Senuka Weeraddana">Senuka Weeraddana</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group D Pool M6</span></div>
+<div class="sched-p" title="Arttu Mäkelä">Arttu Mäkelä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Roope Vähäkuopus">Roope Vähäkuopus</div>
+</td></tr><tr><td class="time-cell">14:30</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD C</span><span class="sched-round">Round 1 M3</span></div>
+<div class="sched-p" title="Joonas Koskinen / Harri Lukkarila">Joonas Koskinen / Harri Lukkarila</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Harri Huttula / Kalle Kouri">Harri Huttula / Kalle Kouri</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD C</span><span class="sched-round">Round 1 M4</span></div>
+<div class="sched-p" title="David Cristobal Hornillos / Ajith Kutty">David Cristobal Hornillos / Ajith Kutty</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jaana Kopsala / Eemeli Tolonen">Jaana Kopsala / Eemeli Tolonen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD C</span><span class="sched-round">Quarter-Final M3</span></div>
+<div class="sched-p" title="Winner R1-M5">Winner R1-M5</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M6">Winner R1-M6</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Quarter-Final M3</span></div>
+<div class="sched-p" title="Winner R2-M5">Winner R2-M5</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R2-M6">Winner R2-M6</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD A</span><span class="sched-round">Quarter-Final M4</span></div>
+<div class="sched-p" title="Janne Haurinen / Teija Härkönen">Janne Haurinen / Teija Härkönen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Elias Vuollet / Eerika Laakso">Elias Vuollet / Eerika Laakso</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS A</span><span class="sched-round">Quarter-Final M1</span></div>
+<div class="sched-p" title="Winner R1-M1">Winner R1-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M2">Winner R1-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS A</span><span class="sched-round">Quarter-Final M2</span></div>
+<div class="sched-p" title="Winner R1-M3">Winner R1-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M4">Winner R1-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS A</span><span class="sched-round">Quarter-Final M3</span></div>
+<div class="sched-p" title="Winner R1-M5">Winner R1-M5</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M6">Winner R1-M6</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group B Pool M9</span></div>
+<div class="sched-p" title="Nandhan Krishnamoorthy Thiyagarajan">Nandhan Krishnamoorthy Thiyagarajan</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Aarush Navalde">Aarush Navalde</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD C</span><span class="sched-round">Quarter-Final M4</span></div>
+<div class="sched-p" title="Winner R1-M7">Winner R1-M7</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M8">Winner R1-M8</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Quarter-Final M3</span></div>
+<div class="sched-p" title="Winner R2-M5">Winner R2-M5</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R2-M6">Winner R2-M6</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS A</span><span class="sched-round">Quarter-Final M4</span></div>
+<div class="sched-p" title="Winner R1-M7">Winner R1-M7</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M8">Winner R1-M8</div>
+</td></tr><tr><td class="time-cell">15:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MD 45</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Janne Vuollet / Juha Vuollet">Janne Vuollet / Juha Vuollet</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Tapani Kilpi / Janne Raasakka">Tapani Kilpi / Janne Raasakka</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MD 45</span><span class="sched-round">Pool M4</span></div>
+<div class="sched-p" title="Juha Seppälä / Simo Tolonen">Juha Seppälä / Simo Tolonen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Ari Fingerroos / Pete Pietilä">Ari Fingerroos / Pete Pietilä</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 1 M6</span></div>
+<div class="sched-p" title="Mikko Luhtaniemi">Mikko Luhtaniemi</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Matias Laakko">Matias Laakko</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 2 M1</span></div>
+<div class="sched-p" title="Winner R1-M1">Winner R1-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M2">Winner R1-M2</div>
+</td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">MS V</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Sami Pajunen">Sami Pajunen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Elmeri Lybeck">Elmeri Lybeck</div>
+</td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">WS V</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Nelly Määttä">Nelly Määttä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Emilia Ojala">Emilia Ojala</div>
+</td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">MS V</span><span class="sched-round">Pool M5</span></div>
+<div class="sched-p" title="Tommi Ruoho">Tommi Ruoho</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Paulus Huhtamäki">Paulus Huhtamäki</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD A</span><span class="sched-round">Round 1 M4</span></div>
+<div class="sched-p" title="Sami Gröhn / Jani Pernu">Sami Gröhn / Jani Pernu</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Janne Julkunen / Antti Laitala">Janne Julkunen / Antti Laitala</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U15</span><span class="sched-round">Group B Pool M5</span></div>
+<div class="sched-p" title="Jimi Manninen">Jimi Manninen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Leo Takalo">Leo Takalo</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Group B Pool M6</span></div>
+<div class="sched-p" title="Miika Surakka">Miika Surakka</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Veikka Mustaparta">Veikka Mustaparta</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BD U15</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Niilo Niskanen / Arttu Pirneskoski">Niilo Niskanen / Arttu Pirneskoski</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jonathan Jinu John / Joose Orpana">Jonathan Jinu John / Joose Orpana</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BD U17</span><span class="sched-round">Pool M2</span></div>
+<div class="sched-p" title="Viktor Cristobal / Arttu Mäkelä">Viktor Cristobal / Arttu Mäkelä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Aatu Mustaparta / Roope Vähäkuopus">Aatu Mustaparta / Roope Vähäkuopus</div>
+</td></tr><tr><td class="time-cell">15:30</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 1 M15</span></div>
+<div class="sched-p" title="Eemeli Tolonen">Eemeli Tolonen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Gyrass Ksatria">Gyrass Ksatria</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD C</span><span class="sched-round">Quarter-Final M2</span></div>
+<div class="sched-p" title="Winner R1-M3">Winner R1-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M4">Winner R1-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD A</span><span class="sched-round">Quarter-Final M3</span></div>
+<div class="sched-p" title="Anton Ketola / Raisa Kauppi">Anton Ketola / Raisa Kauppi</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Juha Heikkinen / Mira Mustonen">Juha Heikkinen / Mira Mustonen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Quarter-Final M4</span></div>
+<div class="sched-p" title="Winner R2-M7">Winner R2-M7</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R2-M8">Winner R2-M8</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD A</span><span class="sched-round">Quarter-Final M1</span></div>
+<div class="sched-p" title="Winner R1-M1">Winner R1-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M2">Winner R1-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Group B Pool M10</span></div>
+<div class="sched-p" title="Somnas Dasanayake">Somnas Dasanayake</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Aarush Navalde">Aarush Navalde</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD B</span><span class="sched-round">Quarter-Final M4</span></div>
+<div class="sched-p" title="Niklas Hukari / Jaana Kopsala">Niklas Hukari / Jaana Kopsala</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Marko Mäkelä / Tuulikki Mäkelä">Marko Mäkelä / Tuulikki Mäkelä</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Quarter-Final M1</span></div>
+<div class="sched-p" title="Winner R2-M1">Winner R2-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R2-M2">Winner R2-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Quarter-Final M1</span></div>
+<div class="sched-p" title="Winner R2-M1">Winner R2-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R2-M2">Winner R2-M2</div>
+</td></tr><tr><td class="time-cell">16:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD C</span><span class="sched-round">Round 1 M2</span></div>
+<div class="sched-p" title="Ari Fingerroos / Pete Pietilä">Ari Fingerroos / Pete Pietilä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Md Mozammel Hossain / Le Nguyen">Md Mozammel Hossain / Le Nguyen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Round 1 M8</span></div>
+<div class="sched-p" title="Harri Huttula / Kalle Kouri">Harri Huttula / Kalle Kouri</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Olli Komulainen / Janne Raasakka">Olli Komulainen / Janne Raasakka</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 1 M8</span></div>
+<div class="sched-p" title="Tapani Kilpi">Tapani Kilpi</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Teemu Karvonen">Teemu Karvonen</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 1 M13</span></div>
+<div class="sched-p" title="Lars Forchini">Lars Forchini</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Miika Surakka">Miika Surakka</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Playoff Quarter-Final M2</span></div>
+<div class="sched-p" title="Slot 3">Slot 3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Slot 4">Slot 4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Playoff Quarter-Final M3</span></div>
+<div class="sched-p" title="Slot 5">Slot 5</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Slot 6">Slot 6</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Playoff Quarter-Final M4</span></div>
+<div class="sched-p" title="Slot 7">Slot 7</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Slot 8">Slot 8</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD A</span><span class="sched-round">Quarter-Final M2</span></div>
+<div class="sched-p" title="Winner R1-M3">Winner R1-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M4">Winner R1-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U15</span><span class="sched-round">Group B Pool M6</span></div>
+<div class="sched-p" title="Naitik Diwate">Naitik Diwate</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Leo Takalo">Leo Takalo</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BD U17</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Roope Häyrynen / Leevi Pyykkönen">Roope Häyrynen / Leevi Pyykkönen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Aatu Mustaparta / Roope Vähäkuopus">Aatu Mustaparta / Roope Vähäkuopus</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 2 M3</span></div>
+<div class="sched-p" title="Winner R1-M5">Winner R1-M5</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M6">Winner R1-M6</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Playoff Quarter-Final M1</span></div>
+<div class="sched-p" title="Slot 1">Slot 1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Slot 2">Slot 2</div>
+</td></tr><tr><td class="time-cell">16:30</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 2 M8</span></div>
+<div class="sched-p" title="Winner R1-M15">Winner R1-M15</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M16">Winner R1-M16</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD B</span><span class="sched-round">Quarter-Final M3</span></div>
+<div class="sched-p" title="Jaakko Hakala / Minja Hakala">Jaakko Hakala / Minja Hakala</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jukka-Pekka Kivistö / Raisa Kauppi">Jukka-Pekka Kivistö / Raisa Kauppi</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Quarter-Final M2</span></div>
+<div class="sched-p" title="Winner R2-M3">Winner R2-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R2-M4">Winner R2-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Quarter-Final M4</span></div>
+<div class="sched-p" title="Winner R2-M7">Winner R2-M7</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R2-M8">Winner R2-M8</div>
+</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BD U13</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Somnas Dasanayake / Senuka Weeraddana">Somnas Dasanayake / Senuka Weeraddana</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jonathan Jinu John / Joose Orpana">Jonathan Jinu John / Joose Orpana</div>
+</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td></tr><tr><td class="time-cell">17:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 1 M4</span></div>
+<div class="sched-p" title="Leevi Pyykkönen">Leevi Pyykkönen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Ajith Kutty">Ajith Kutty</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 1 M11</span></div>
+<div class="sched-p" title="Roope Häyrynen">Roope Häyrynen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Kare Hämeenaho">Kare Hämeenaho</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Round 2 M4</span></div>
+<div class="sched-p" title="Winner R1-M7">Winner R1-M7</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M8">Winner R1-M8</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 2 M4</span></div>
+<div class="sched-p" title="Winner R1-M7">Winner R1-M7</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M8">Winner R1-M8</div>
+</td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">XD V</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Sami Pajunen / Pihla Mäkelä">Sami Pajunen / Pihla Mäkelä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Paulus Huhtamäki / Jenni Lahti">Paulus Huhtamäki / Jenni Lahti</div>
+</td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">XD V</span><span class="sched-round">Pool M4</span></div>
+<div class="sched-p" title="Tommi Ruoho / Emilia Ojala">Tommi Ruoho / Emilia Ojala</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Elmeri Lybeck / Nelly Määttä">Elmeri Lybeck / Nelly Määttä</div>
+</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 2 M7</span></div>
+<div class="sched-p" title="Winner R1-M13">Winner R1-M13</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M14">Winner R1-M14</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD C</span><span class="sched-round">Quarter-Final M1</span></div>
+<div class="sched-p" title="Winner R1-M1">Winner R1-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M2">Winner R1-M2</div>
+</td><td class="sched-empty"></td><td class="sched-empty"></td></tr><tr><td class="time-cell">17:30</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BD U15</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Naitik Diwate / Juhana Paaso">Naitik Diwate / Juhana Paaso</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jonathan Jinu John / Joose Orpana">Jonathan Jinu John / Joose Orpana</div>
+</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td></tr>
+</tbody>
+</table>
+</div></div><div class="sched-panel" id="sched-saturday_evening"><div class="schedule-wrap">
+<table class="schedule-grid">
+<thead><tr><th>Time</th><th>Court 1</th><th>Court 2</th><th>Court 3</th><th>Court 4</th><th>Court 5</th><th>Court 6</th><th>Court 7</th><th>Court 9</th><th>Court 10</th></tr></thead>
+<tbody>
+<tr><td class="time-cell">18:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 2 M2</span></div>
+<div class="sched-p" title="Winner R1-M3">Winner R1-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M4">Winner R1-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 2 M6</span></div>
+<div class="sched-p" title="Winner R1-M11">Winner R1-M11</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M12">Winner R1-M12</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Quarter-Final M2</span></div>
+<div class="sched-p" title="Winner R2-M3">Winner R2-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R2-M4">Winner R2-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Quarter-Final M2</span></div>
+<div class="sched-p" title="Winner R2-M3">Winner R2-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R2-M4">Winner R2-M4</div>
+</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD C</span><span class="sched-round">Quarter-Final M3</span></div>
+<div class="sched-p" title="Kare Hämeenaho / Eeva-Liisa Kaikkonen">Kare Hämeenaho / Eeva-Liisa Kaikkonen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Kari Laurila / Tiia Laurila">Kari Laurila / Tiia Laurila</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Quarter-Final M4</span></div>
+<div class="sched-p" title="Winner R2-M7">Winner R2-M7</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R2-M8">Winner R2-M8</div>
+</td></tr><tr><td class="time-cell">18:30</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td></tr><tr><td class="time-cell">19:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 1 M10</span></div>
+<div class="sched-p" title="Jesse Viitanen">Jesse Viitanen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Jenni Lahti">Jenni Lahti</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Quarter-Final M1</span></div>
+<div class="sched-p" title="Winner R2-M1">Winner R2-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R2-M2">Winner R2-M2</div>
+</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">MS V</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Sami Pajunen">Sami Pajunen</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Paulus Huhtamäki">Paulus Huhtamäki</div>
+</td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">WS V</span><span class="sched-round">Pool M3</span></div>
+<div class="sched-p" title="Pihla Mäkelä">Pihla Mäkelä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Emilia Ojala">Emilia Ojala</div>
+</td><td class="sched-cell" rowspan="2">
+<div class="sched-div"><span class="badge badge-elite">MS V</span><span class="sched-round">Pool M4</span></div>
+<div class="sched-p" title="Tommi Ruoho">Tommi Ruoho</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Elmeri Lybeck">Elmeri Lybeck</div>
+</td><td class="sched-empty"></td><td class="sched-empty"></td></tr><tr><td class="time-cell">19:30</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td></tr><tr><td class="time-cell">20:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Round 2 M5</span></div>
+<div class="sched-p" title="Winner R1-M9">Winner R1-M9</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M10">Winner R1-M10</div>
+</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td></tr><tr><td class="time-cell">20:30</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td></tr><tr><td class="time-cell">21:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Quarter-Final M3</span></div>
+<div class="sched-p" title="Winner R2-M5">Winner R2-M5</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R2-M6">Winner R2-M6</div>
+</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD A</span><span class="sched-round">Round 1 M7</span></div>
+<div class="sched-p" title="Tapio Kukkonen / Jaakko Raasakka">Tapio Kukkonen / Jaakko Raasakka</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Sami Pajunen / Tommi Ruoho">Sami Pajunen / Tommi Ruoho</div>
+</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td></tr><tr><td class="time-cell">21:30</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td></tr>
+</tbody>
+</table>
+</div></div><div class="sched-panel" id="sched-sunday_morning"><div class="schedule-wrap">
+<table class="schedule-grid">
+<thead><tr><th>Time</th><th>Court 1</th><th>Court 2</th><th>Court 3</th><th>Court 4</th><th>Court 5</th><th>Court 6</th><th>Court 7</th><th>Court 8</th></tr></thead>
+<tbody>
+<tr><td class="time-cell">09:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Playoff Semi-Final M1</span></div>
+<div class="sched-p" title="Winner QF-M1">Winner QF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M2">Winner QF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Playoff Semi-Final M2</span></div>
+<div class="sched-p" title="Winner QF-M3">Winner QF-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M4">Winner QF-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD C</span><span class="sched-round">Semi-Final M1</span></div>
+<div class="sched-p" title="Winner QF-M1">Winner QF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M2">Winner QF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD C</span><span class="sched-round">Semi-Final M2</span></div>
+<div class="sched-p" title="Winner QF-M3">Winner QF-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M4">Winner QF-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD A</span><span class="sched-round">Quarter-Final M4</span></div>
+<div class="sched-p" title="Winner R1-M7">Winner R1-M7</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner R1-M8">Winner R1-M8</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD A</span><span class="sched-round">Quarter-Final M2</span></div>
+<div class="sched-p" title="Tapio Kukkonen / Jutta Risikko">Tapio Kukkonen / Jutta Risikko</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Heikki Roivainen / Mira Kangasniemi">Heikki Roivainen / Mira Kangasniemi</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD A</span><span class="sched-round">Semi-Final M1</span></div>
+<div class="sched-p" title="Winner QF-M1">Winner QF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M2">Winner QF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Semi-Final M2</span></div>
+<div class="sched-p" title="Winner QF-M3">Winner QF-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M4">Winner QF-M4</div>
+</td></tr><tr><td class="time-cell">09:30</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Semi-Final M1</span></div>
+<div class="sched-p" title="Winner QF-M1">Winner QF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M2">Winner QF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Semi-Final M2</span></div>
+<div class="sched-p" title="Winner QF-M3">Winner QF-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M4">Winner QF-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD B</span><span class="sched-round">Semi-Final M2</span></div>
+<div class="sched-p" title="Winner QF-M3">Winner QF-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M4">Winner QF-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Semi-Final M1</span></div>
+<div class="sched-p" title="Winner QF-M1">Winner QF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M2">Winner QF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD A</span><span class="sched-round">Semi-Final M2</span></div>
+<div class="sched-p" title="Winner QF-M3">Winner QF-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M4">Winner QF-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS A</span><span class="sched-round">Semi-Final M1</span></div>
+<div class="sched-p" title="Winner QF-M1">Winner QF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M2">Winner QF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS A</span><span class="sched-round">Semi-Final M2</span></div>
+<div class="sched-p" title="Winner QF-M3">Winner QF-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M4">Winner QF-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD C</span><span class="sched-round">Semi-Final M2</span></div>
+<div class="sched-p" title="Winner QF-M3">Winner QF-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M4">Winner QF-M4</div>
+</td></tr><tr><td class="time-cell">10:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD B</span><span class="sched-round">Quarter-Final M2</span></div>
+<div class="sched-p" title="Harri Lukkarila / Sonja Perälä">Harri Lukkarila / Sonja Perälä</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Henri Kangas / Jutta Risikko">Henri Kangas / Jutta Risikko</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Semi-Final M2</span></div>
+<div class="sched-p" title="Winner QF-M3">Winner QF-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M4">Winner QF-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Semi-Final M1</span></div>
+<div class="sched-p" title="Winner QF-M1">Winner QF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M2">Winner QF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD C</span><span class="sched-round">Semi-Final M1</span></div>
+<div class="sched-p" title="Winner QF-M1">Winner QF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M2">Winner QF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD A</span><span class="sched-round">Semi-Final M2</span></div>
+<div class="sched-p" title="Winner QF-M3">Winner QF-M3</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M4">Winner QF-M4</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD A</span><span class="sched-round">Semi-Final M1</span></div>
+<div class="sched-p" title="Winner QF-M1">Winner QF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M2">Winner QF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD C</span><span class="sched-round">Final M1</span></div>
+<div class="sched-p" title="Winner SF-M1">Winner SF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner SF-M2">Winner SF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U17</span><span class="sched-round">Playoff Final M1</span></div>
+<div class="sched-p" title="Winner SF-M1">Winner SF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner SF-M2">Winner SF-M2</div>
+</td></tr><tr><td class="time-cell">10:30</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS C</span><span class="sched-round">Final M1</span></div>
+<div class="sched-p" title="Winner SF-M1">Winner SF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner SF-M2">Winner SF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD B</span><span class="sched-round">Final M1</span></div>
+<div class="sched-p" title="Winner SF-M1">Winner SF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner SF-M2">Winner SF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U13</span><span class="sched-round">Playoff Final M1</span></div>
+<div class="sched-p" title="Slot 1">Slot 1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Slot 2">Slot 2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-junior">BS U15</span><span class="sched-round">Playoff Final M1</span></div>
+<div class="sched-p" title="Slot 1">Slot 1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Slot 2">Slot 2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS A</span><span class="sched-round">Final M1</span></div>
+<div class="sched-p" title="Winner SF-M1">Winner SF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner SF-M2">Winner SF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-veterans">MS 45</span><span class="sched-round">Playoff Final M1</span></div>
+<div class="sched-p" title="Slot 1">Slot 1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Slot 2">Slot 2</div>
+</td><td class="sched-empty"></td><td class="sched-empty"></td></tr><tr><td class="time-cell">11:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD B</span><span class="sched-round">Semi-Final M1</span></div>
+<div class="sched-p" title="Winner QF-M1">Winner QF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner QF-M2">Winner QF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD C</span><span class="sched-round">Final M1</span></div>
+<div class="sched-p" title="Winner SF-M1">Winner SF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner SF-M2">Winner SF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MS B</span><span class="sched-round">Final M1</span></div>
+<div class="sched-p" title="Winner SF-M1">Winner SF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner SF-M2">Winner SF-M2</div>
+</td><td class="sched-empty"></td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">MD A</span><span class="sched-round">Final M1</span></div>
+<div class="sched-p" title="Winner SF-M1">Winner SF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner SF-M2">Winner SF-M2</div>
+</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD A</span><span class="sched-round">Final M1</span></div>
+<div class="sched-p" title="Winner SF-M1">Winner SF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner SF-M2">Winner SF-M2</div>
+</td><td class="sched-empty"></td><td class="sched-empty"></td></tr><tr><td class="time-cell">11:30</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td></tr><tr><td class="time-cell">12:00</td><td class="sched-cell">
+<div class="sched-div"><span class="badge badge-open">XD B</span><span class="sched-round">Final M1</span></div>
+<div class="sched-p" title="Winner SF-M1">Winner SF-M1</div>
+<div class="sched-vs">vs</div>
+<div class="sched-p" title="Winner SF-M2">Winner SF-M2</div>
+</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td></tr><tr><td class="time-cell">12:30</td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td><td class="sched-empty"></td></tr>
+</tbody>
+</table>
+</div></div>
+</div>
+
+<div class="footer">
+Kumpoo Tervasulan Eliitti 2025 &middot; Match Schedule
+</div>
+
+<script>
+document.querySelectorAll('.sched-tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sched-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.sched-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('sched-' + btn.dataset.session).classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
