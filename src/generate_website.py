@@ -17,7 +17,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIVISIONS_DIR = os.path.join(BASE_DIR, "output", "divisions")
 SCHEDULES_DIR = os.path.join(BASE_DIR, "output", "schedules")
 OUTPUT_FILE = os.path.join(BASE_DIR, "output", "webpages", "index.html")
-SCHEDULE_OUTPUT = os.path.join(BASE_DIR, "output", "webpages", "schedule.html")
+SCHEDULE_OUTPUT = os.path.join(BASE_DIR, "output", "webpages", "schedule.html")  # legacy, no longer generated
 
 CATEGORY_BADGE = {
     "Open A": "badge-open",
@@ -475,8 +475,6 @@ CSS = """:root {
   .footer { text-align: center; padding: 2rem 1rem; color: var(--text-light); font-size: 0.8rem; border-top: 1px solid var(--border); margin-top: 2rem; }
   .match-schedule { font-size: 0.6rem; color: var(--accent-dark); font-weight: 600; float: right; letter-spacing: 0.02em; }
   .rr-match .match-schedule { float: none; display: block; text-align: center; font-size: 0.7rem; margin-top: 0.15rem; }
-  .nav-link { display: inline-block; margin-top: 0.5rem; color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.3); padding: 0.3rem 1rem; border-radius: 20px; transition: all 0.2s; }
-  .nav-link:hover { background: rgba(255,255,255,0.15); color: white; }
   @media (max-width: 600px) {
     .hero h1 { font-size: 1.5rem; }
     .stats-bar { gap: 1rem; }
@@ -485,24 +483,7 @@ CSS = """:root {
     .draw-table { font-size: 0.82rem; }
     .draw-table th, .draw-table td { padding: 0.35rem 0.4rem; }
     .bracket-round { min-width: 180px; }
-  }"""
-
-JS = """document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-  });
-});
-function toggleCard(header) {
-  header.closest('.division-card').classList.toggle('open');
-}"""
-
-
-# ── Schedule page generation ──────────────────────────────────────
-
-SCHEDULE_CSS = """
+  }
   .schedule-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 0.5rem; }
   .schedule-grid { border-collapse: collapse; font-size: 0.75rem; min-width: 100%; }
   .schedule-grid th { position: sticky; top: 0; background: var(--primary); color: white; padding: 0.4rem 0.3rem; text-align: center; font-size: 0.75rem; z-index: 10; white-space: nowrap; min-width: 130px; }
@@ -516,10 +497,25 @@ SCHEDULE_CSS = """
   .sched-p { font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
   .sched-vs { font-size: 0.55rem; color: var(--accent-dark); font-weight: 700; }
   .sched-empty { border: 1px solid #edf2f7; background: var(--bg); }
-  .sched-blocked { border: 1px solid #edf2f7; background: repeating-linear-gradient(45deg, var(--bg), var(--bg) 4px, #e8edf3 4px, #e8edf3 5px); }
-"""
+  .sched-panel { display: none; }
+  .sched-panel.active { display: block; }
+  .sched-tabs { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+  .sched-tab-btn { padding: 0.5rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); cursor: pointer; font-size: 0.82rem; transition: all 0.2s; }
+  .sched-tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+  #tab-schedule .content { max-width: none; padding: 1rem; }"""
 
-SCHEDULE_JS = """document.querySelectorAll('.sched-tab-btn').forEach(btn => {
+JS = """document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+function toggleCard(header) {
+  header.closest('.division-card').classList.toggle('open');
+}
+document.querySelectorAll('.sched-tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.sched-tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.sched-panel').forEach(p => p.classList.remove('active'));
@@ -609,14 +605,16 @@ def render_schedule_grid(session_data):
 </div>"""
 
 
-def generate_schedule_html(all_sessions):
-    """Generate the complete schedule.html page."""
-    # Session tabs
+def render_schedule_panel(all_sessions):
+    """Render the Schedule tab panel content with session sub-tabs and grids."""
+    if not all_sessions:
+        return '<p style="color: var(--text-light); padding: 1rem;">No schedule data available.</p>'
+
     tab_ids = []
     tab_buttons = []
     tab_panels = []
 
-    for i, sess in enumerate(all_sessions):
+    for sess in all_sessions:
         if not sess.get("matches"):
             continue
         sess_id = sess["session"].lower().replace(" ", "_")
@@ -625,65 +623,24 @@ def generate_schedule_html(all_sessions):
         label = sess["session"]
         count = len(sess["matches"])
         tab_buttons.append(
-            f'<button class="tab-btn sched-tab-btn{active}" data-session="{sess_id}">{label} ({count})</button>'
+            f'<button class="sched-tab-btn{active}" data-session="{sess_id}">{label} ({count})</button>'
         )
         grid = render_schedule_grid(sess)
         tab_panels.append(f'<div class="sched-panel{active}" id="sched-{sess_id}">{grid}</div>')
 
     total = sum(len(s.get("matches", [])) for s in all_sessions)
 
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Match Schedule — Kumpoo Tervasulan Eliitti 2025</title>
-<style>
-{CSS}
-{SCHEDULE_CSS}
-  .sched-panel {{ display: none; }}
-  .sched-panel.active {{ display: block; }}
-  .content {{ max-width: none; padding: 1rem; }}
-</style>
-</head>
-<body>
-
-<div class="hero">
-<span class="shuttlecock">&#127992;</span>
-<h1>Kumpoo Tervasulan Eliitti 2025</h1>
-<p class="subtitle">Match Schedule</p>
-<a href="index.html" class="nav-link">View Game Draws</a>
+    return f"""<div class="cat-header">
+<h2>Match Schedule</h2>
+<p>{total} matches across {len(tab_ids)} sessions &middot; 12 courts (Sat) &middot; 8 courts (Sun)</p>
 </div>
-
-<div class="stats-bar">
-<div class="stat"><div class="num">{total}</div><div class="label">Matches</div></div>
-<div class="stat"><div class="num">12</div><div class="label">Courts (Sat)</div></div>
-<div class="stat"><div class="num">8</div><div class="label">Courts (Sun)</div></div>
-<div class="stat"><div class="num">2</div><div class="label">Days</div></div>
-</div>
-
-<div class="tabs-wrapper">
-<div class="tabs">
+<div class="sched-tabs">
 {"".join(tab_buttons)}
 </div>
-</div>
-
-<div class="content">
-{"".join(tab_panels)}
-</div>
-
-<div class="footer">
-Kumpoo Tervasulan Eliitti 2025 &middot; Match Schedule
-</div>
-
-<script>
-{SCHEDULE_JS}
-</script>
-</body>
-</html>"""
+{"".join(tab_panels)}"""
 
 
-def generate_html(schedule_lookup=None):
+def generate_html(schedule_lookup=None, all_sessions=None):
     # Load index
     with open(os.path.join(DIVISIONS_DIR, "tournament_index.json"), encoding="utf-8") as f:
         index = json.load(f)
@@ -719,6 +676,8 @@ def generate_html(schedule_lookup=None):
             f'<button class="tab-btn{active}" data-tab="{cat_cfg["tab_id"]}">{cat_cfg["key"]}</button>'
         )
     tab_buttons.append('<button class="tab-btn" data-tab="clubs">Clubs</button>')
+    if all_sessions:
+        tab_buttons.append('<button class="tab-btn" data-tab="schedule">Schedule</button>')
 
     # Build tab panels
     tab_panels = []
@@ -747,6 +706,12 @@ def generate_html(schedule_lookup=None):
 {render_clubs_tab(clubs)}
 </div>""")
 
+    # Schedule tab
+    if all_sessions:
+        tab_panels.append(f"""<div class="tab-panel" id="tab-schedule">
+{render_schedule_panel(all_sessions)}
+</div>""")
+
     # Assemble full page
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -763,8 +728,7 @@ def generate_html(schedule_lookup=None):
 <div class="hero">
 <span class="shuttlecock">&#127992;</span>
 <h1>Kumpoo Tervasulan Eliitti 2025</h1>
-<p class="subtitle">Badminton Tournament Draws</p>
-<a href="schedule.html" class="nav-link">View Match Schedule</a>
+<p class="subtitle">Badminton Tournament</p>
 <div class="meta">
 <span>Hosted by TeSu (Tervasulka)</span>
 <span>badmintonfinland.tournamentsoftware.com</span>
@@ -811,18 +775,11 @@ def main():
     if schedule_lookup:
         print(f"Loaded schedule: {len(schedule_lookup)} matches from {len(all_sessions)} sessions")
 
-    # Generate index.html
-    html = generate_html(schedule_lookup)
+    # Generate index.html (single page with all tabs including schedule)
+    html = generate_html(schedule_lookup, all_sessions)
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"Generated: {OUTPUT_FILE} ({len(html):,} bytes)")
-
-    # Generate schedule.html
-    if all_sessions:
-        sched_html = generate_schedule_html(all_sessions)
-        with open(SCHEDULE_OUTPUT, "w", encoding="utf-8") as f:
-            f.write(sched_html)
-        print(f"Generated: {SCHEDULE_OUTPUT} ({len(sched_html):,} bytes)")
 
 
 if __name__ == "__main__":

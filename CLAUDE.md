@@ -7,9 +7,10 @@ Badminton tournament website generator for the "Kumpoo Tervasulan Eliitti 2025" 
 ```
 Tesu-Tournament/
 ├── src/
+│   ├── main.py                      # Unified entry point (runs all 3 steps)
 │   ├── parse_tournament.py          # Excel → JSON parser
-│   ├── generate_website.py          # JSON → HTML website generator
-│   └── generate_schedule.py         # JSON → schedule JSON + HTML
+│   ├── generate_schedule.py         # JSON → schedule JSON
+│   └── generate_website.py          # JSON → HTML website
 ├── output/
 │   ├── divisions/                   # Generated JSON files (one per sheet)
 │   │   ├── tournament_index.json    # Master index of all divisions
@@ -18,8 +19,7 @@ Tesu-Tournament/
 │   │   ├── schedule_index.json      # Schedule session index
 │   │   └── *.json                   # Per-session schedule files
 │   └── webpages/
-│       ├── index.html               # Generated tournament draws page
-│       └── schedule.html            # Generated match schedule page
+│       └── index.html               # Generated single-page website
 ├── docs/
 │   ├── requirements/
 │   │   └── scheduling-rules.md
@@ -36,22 +36,29 @@ Tesu-Tournament/
 ## Workflow
 
 ```
-Excel (.XLSX)  →  src/parse_tournament.py  →  output/divisions/*.json
-                  src/generate_schedule.py →  output/schedules/*.json
-                  src/generate_website.py  →  output/webpages/index.html + schedule.html
+python src/main.py    # Runs all three steps and produces output/webpages/index.html
 ```
 
+The pipeline:
+```
+Excel (.XLSX)  →  parse_tournament.py  →  output/divisions/*.json
+                  generate_schedule.py →  output/schedules/*.json
+                  generate_website.py  →  output/webpages/index.html
+```
+
+Individual scripts can still be run standalone:
 1. `python src/parse_tournament.py` — Reads the Excel file and writes 32 JSON files into `output/divisions/`
 2. `python src/generate_schedule.py` — Reads division data and generates schedule into `output/schedules/`
-3. `python src/generate_website.py` — Reads JSON files and generates `output/webpages/index.html` + `schedule.html`
+3. `python src/generate_website.py` — Reads divisions + schedules and generates `output/webpages/index.html`
 
 ## Key Conventions
 
-- **Do not hand-edit `output/webpages/*.html`** — they are generated output. Change `src/generate_website.py` instead.
+- **Do not hand-edit `output/webpages/index.html`** — it is generated output. Change `src/generate_website.py` instead.
 - **Do not hand-edit `output/divisions/*.json`** — they are generated output. Fix `src/parse_tournament.py` instead.
 - **Do not hand-edit `output/schedules/*.json`** — they are generated output. Fix `src/generate_schedule.py` instead.
 - Python 3 with `openpyxl` as the only external dependency. Install via `pip install -r requirements.txt`.
 - No template engines or frontend frameworks — pure Python string formatting for HTML generation.
+- Single-page website with 8 tabs: Open A, Open B, Open C, Junior, Veterans, Elite, Clubs, Schedule.
 
 ## Excel File Structure
 
@@ -88,21 +95,16 @@ Source: `Draws Kumpoo Tervasulan Eliitti 2025 vain kaaviot.XLSX` (from badminton
 
 ## Testing Changes
 
-After modifying any script:
+After modifying any script, run the full pipeline:
 ```bash
-python src/parse_tournament.py      # Re-parse Excel
-python src/generate_schedule.py     # Re-generate schedules
-python src/generate_website.py      # Re-generate website
+python src/main.py
 ```
 Then open `output/webpages/index.html` in a browser and verify:
-- All 7 tabs work (Open A/B/C, Junior, Veterans, Elite, Clubs)
+- All 8 tabs work (Open A/B/C, Junior, Veterans, Elite, Clubs, Schedule)
 - Elimination divisions show full bracket (R1 through Final) with tree-style connectors
 - Group+playoff divisions show groups + playoff bracket
 - Round-robin divisions show VS match cards
 - Schedule annotations (time + court) on match cards
+- Schedule tab shows session sub-tabs with time × court grids
+- 45-min Elite matches span two rows in schedule grid
 - No "Bye" entries in player lists
-
-Open `output/webpages/schedule.html` and verify:
-- Session tabs with time × court grid
-- 45-min Elite matches span two rows
-- Navigation links between both pages work
