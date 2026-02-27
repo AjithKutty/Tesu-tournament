@@ -685,11 +685,12 @@ def process_workbook(filepath):
     return index_json, len(index_entries)
 
 
-def main():
-    print(f"Reading: {EXCEL_FILE}")
+def main(filepath=None):
+    filepath = filepath or EXCEL_FILE
+    print(f"Reading: {filepath}")
     print(f"Output:  {OUTPUT_DIR}/\n")
 
-    index, count = process_workbook(EXCEL_FILE)
+    index, count = process_workbook(filepath)
 
     print(f"Generated {count} JSON files + tournament_index.json")
     print(f"Total clubs: {len(index['clubs'])}\n")
