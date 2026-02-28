@@ -149,6 +149,9 @@ class Match:
         self.has_real_players = bool(known_players) and not (
             player1.startswith("Winner ") or player1.startswith("Slot ")
         )
+        # Effective players for scheduling (filtered by probability threshold)
+        # Set by _apply_probability_filter(); defaults to known_players
+        self.effective_players = list(known_players) if known_players else []
 
 
 def load_all_matches():
@@ -417,6 +420,211 @@ def _resolve_known_players(all_matches, match_by_id):
             match.known_players = list(set(get_all_possible_players(match.id)))
 
 
+# ── Schedule configuration ──────────────────────────────────────
+
+DEFAULT_SCHEDULE_CONFIG = {
+    "default_threshold": 0.0,
+    "use_seeding": False,
+    "seeding_probabilities": {
+        "1_vs_unseeded": 0.75,
+        "2_vs_unseeded": 0.70,
+        "3/4_vs_unseeded": 0.65,
+        "seed_vs_seed": 0.55,
+        "default": 0.50,
+    },
+    "divisions": {},
+}
+
+
+def _load_schedule_config(config_path):
+    """Load schedule configuration from JSON file, merged with defaults."""
+    config = dict(DEFAULT_SCHEDULE_CONFIG)
+    if config_path:
+        with open(config_path, encoding="utf-8") as f:
+            user_config = json.load(f)
+        config["default_threshold"] = user_config.get("default_threshold", config["default_threshold"])
+        config["use_seeding"] = user_config.get("use_seeding", config["use_seeding"])
+        if "seeding_probabilities" in user_config:
+            config["seeding_probabilities"].update(user_config["seeding_probabilities"])
+        config["divisions"] = user_config.get("divisions", {})
+    return config
+
+
+# ── Probability-based player filtering ──────────────────────────
+
+def _get_round_depth(match, match_by_id, cache=None):
+    """Compute round depth: number of prerequisite chain links to a real-player match."""
+    if cache is None:
+        cache = {}
+    if match.id in cache:
+        return cache[match.id]
+    if match.has_real_players or not match.prerequisites:
+        cache[match.id] = 0
+        return 0
+    max_depth = 0
+    for prereq_id in match.prerequisites:
+        prereq = match_by_id.get(prereq_id)
+        if prereq:
+            max_depth = max(max_depth, 1 + _get_round_depth(prereq, match_by_id, cache))
+    cache[match.id] = max_depth
+    return max_depth
+
+
+def _get_seed_label(player_name, seed_map):
+    """Look up seed label for a player. Returns e.g. '1', '2', '3/4', or None."""
+    return seed_map.get(player_name)
+
+
+def _get_win_probability(seed_a, seed_b, seeding_probs):
+    """Get win probability for player A vs player B based on seeds.
+    Returns probability of A winning."""
+    default_prob = seeding_probs.get("default", 0.50)
+
+    if seed_a is None and seed_b is None:
+        return default_prob
+
+    if seed_a is not None and seed_b is None:
+        key = f"{seed_a}_vs_unseeded"
+        return seeding_probs.get(key, default_prob)
+
+    if seed_a is None and seed_b is not None:
+        key = f"{seed_b}_vs_unseeded"
+        return 1.0 - seeding_probs.get(key, default_prob)
+
+    # Both seeded
+    return seeding_probs.get("seed_vs_seed", default_prob)
+
+
+def _build_seed_map(all_matches, match_by_id):
+    """Build player_name -> seed_label map from division JSON data."""
+    seed_map = {}
+    # Read seed info from division files
+    index_path = os.path.join(DIVISIONS_DIR, "tournament_index.json")
+    if not os.path.exists(index_path):
+        return seed_map
+    with open(index_path, encoding="utf-8") as f:
+        index = json.load(f)
+    for entry in index["divisions"]:
+        if entry["draw_type"] != "main_draw":
+            continue
+        filepath = os.path.join(DIVISIONS_DIR, entry["file"])
+        with open(filepath, encoding="utf-8") as f:
+            data = json.load(f)
+        for player in data.get("players", []):
+            seed = player.get("seed")
+            if seed:
+                name = player.get("name")
+                if name:
+                    seed_map[name] = seed
+                # Doubles: players may be in a "players" sub-list
+                for sub in player.get("players", []):
+                    if sub.get("seed"):
+                        seed_map[sub["name"]] = sub["seed"]
+                    elif seed:
+                        seed_map[sub["name"]] = seed
+    return seed_map
+
+
+def _compute_player_probabilities(all_matches, match_by_id, config):
+    """Compute normalized probability for each player reaching each match.
+    Returns dict: match_id -> {player_name: normalized_probability}"""
+    use_seeding = config.get("use_seeding", False)
+    seeding_probs = config.get("seeding_probabilities", {})
+
+    seed_map = _build_seed_map(all_matches, match_by_id) if use_seeding else {}
+
+    # Raw probabilities: match_id -> {player: raw_probability}
+    raw_probs = {}
+
+    # Process matches in priority order (ensures feeders computed before dependents)
+    sorted_matches = sorted(all_matches, key=lambda m: m.priority)
+
+    for match in sorted_matches:
+        if match.has_real_players:
+            # Real-player match: all players at 100%
+            raw_probs[match.id] = {p: 1.0 for p in match.known_players}
+            continue
+
+        match_probs = {}
+        for prereq_id in match.prerequisites:
+            prereq = match_by_id.get(prereq_id)
+            if prereq is None:
+                continue
+            prereq_player_probs = raw_probs.get(prereq_id, {})
+
+            if not prereq_player_probs:
+                continue
+
+            if use_seeding:
+                # For each player in the prerequisite, compute their win probability
+                # against the other players in that match
+                prereq_players = list(prereq_player_probs.keys())
+                # Split into the two sides (player1 players vs player2 players)
+                p1_names = set(extract_player_names(prereq.player1))
+                p2_names = set(extract_player_names(prereq.player2))
+                for player, prob in prereq_player_probs.items():
+                    player_seed = _get_seed_label(player, seed_map)
+                    # Find opponent seed (representative from other side)
+                    if player in p1_names:
+                        opponents = [p for p in prereq_players if p in p2_names]
+                    else:
+                        opponents = [p for p in prereq_players if p in p1_names]
+                    if opponents:
+                        opp_seed = _get_seed_label(opponents[0], seed_map)
+                        win_prob = _get_win_probability(player_seed, opp_seed, seeding_probs)
+                    else:
+                        win_prob = seeding_probs.get("default", 0.50)
+                    match_probs[player] = prob * win_prob
+            else:
+                # Default 50/50: each player gets half their current probability
+                for player, prob in prereq_player_probs.items():
+                    match_probs[player] = prob * 0.5
+
+        raw_probs[match.id] = match_probs
+
+    # Normalize per match by round depth
+    depth_cache = {}
+    normalized = {}
+    for match in all_matches:
+        if match.has_real_players:
+            normalized[match.id] = {p: 1.0 for p in match.known_players}
+            continue
+
+        depth = _get_round_depth(match, match_by_id, depth_cache)
+        base_prob = 0.5 ** depth if depth > 0 else 1.0
+
+        match_raw = raw_probs.get(match.id, {})
+        norm_probs = {}
+        for player, prob in match_raw.items():
+            norm_probs[player] = min(prob / base_prob, 1.0) if base_prob > 0 else 1.0
+        normalized[match.id] = norm_probs
+
+    return normalized
+
+
+def _apply_probability_filter(all_matches, probabilities, config):
+    """Filter each match's known_players by probability threshold.
+    Sets match.effective_players."""
+    default_threshold = config.get("default_threshold", 0.0)
+    div_configs = config.get("divisions", {})
+
+    for match in all_matches:
+        threshold = default_threshold
+        div_override = div_configs.get(match.division_code, {})
+        if isinstance(div_override, dict):
+            threshold = div_override.get("threshold", default_threshold)
+
+        if threshold <= 0.0:
+            # No filtering: include all known players
+            match.effective_players = list(match.known_players)
+        else:
+            match_probs = probabilities.get(match.id, {})
+            match.effective_players = [
+                p for p in match.known_players
+                if match_probs.get(p, 0.0) >= threshold
+            ]
+
+
 # ── Court schedule ───────────────────────────────────────────────
 
 class CourtSchedule:
@@ -529,8 +737,15 @@ ALL_SLOTS = generate_all_slots()
 
 # ── Scheduling algorithm ─────────────────────────────────────────
 
-def schedule_matches(matches, match_by_id):
+def schedule_matches(matches, match_by_id, config=None):
     """Main scheduling loop. Returns (scheduled_dict, unscheduled_list)."""
+    if config is None:
+        config = dict(DEFAULT_SCHEDULE_CONFIG)
+
+    # Compute probabilities and filter effective players
+    probabilities = _compute_player_probabilities(matches, match_by_id, config)
+    _apply_probability_filter(matches, probabilities, config)
+
     court_sched = CourtSchedule()
     player_tracker = PlayerTracker()
     scheduled = {}       # match_id -> (court, minute)
@@ -549,9 +764,9 @@ def schedule_matches(matches, match_by_id):
         # Compute earliest start time
         earliest = 0
 
-        # Player availability — only for matches with real (known) players
-        if match.has_real_players and match.known_players:
-            earliest = max(earliest, player_tracker.earliest_for(match.known_players))
+        # Player availability — for all matches with effective players
+        if match.effective_players:
+            earliest = max(earliest, player_tracker.earliest_for(match.effective_players))
 
         # Prerequisite constraint — feeder matches must finish + rest
         for prereq_id in match.prerequisites:
@@ -578,18 +793,22 @@ def schedule_matches(matches, match_by_id):
             courts = get_eligible_courts(match, slot)
             for court in courts:
                 if court_sched.can_book(court, slot, match.duration_min):
-                    # Check player availability only for real-player matches
-                    if match.has_real_players and match.known_players:
+                    # Check player availability for all matches with effective players
+                    if match.effective_players:
                         all_available = all(
                             player_tracker.available_from[p] <= slot
-                            for p in match.known_players
+                            for p in match.effective_players
                         )
                         if not all_available:
                             continue
 
                     # Book it
                     court_sched.book(court, slot, match.id, match.duration_min)
-                    if match.has_real_players:
+                    # Only update tracker for real-player matches (confirmed players).
+                    # Placeholder matches check effective_players for rest but don't
+                    # add tracker entries — avoids over-constraining cross-division
+                    # schedules when all possible players would be blocked.
+                    if match.has_real_players and match.known_players:
                         player_tracker.update(
                             match.known_players, slot,
                             match.duration_min, match.rest_min
@@ -751,13 +970,23 @@ def write_schedules(matches, match_by_id, scheduled, unscheduled, warnings):
 
 # ── Main ─────────────────────────────────────────────────────────
 
-def main():
+def main(config_path=None):
+    config = _load_schedule_config(config_path)
+    if config_path:
+        print(f"Schedule config: {config_path}")
+        print(f"  default_threshold: {config['default_threshold']}")
+        print(f"  use_seeding: {config['use_seeding']}")
+        div_overrides = config.get("divisions", {})
+        if div_overrides:
+            print(f"  division overrides: {list(div_overrides.keys())}")
+        print()
+
     print(f"Loading divisions from: {DIVISIONS_DIR}/")
     matches, match_by_id = load_all_matches()
     print(f"Loaded {len(matches)} schedulable matches (byes excluded)\n")
 
     print("Scheduling...")
-    scheduled, unscheduled, court_sched, player_tracker = schedule_matches(matches, match_by_id)
+    scheduled, unscheduled, court_sched, player_tracker = schedule_matches(matches, match_by_id, config)
 
     print(f"  Scheduled: {len(scheduled)}")
     print(f"  Unscheduled: {len(unscheduled)}")

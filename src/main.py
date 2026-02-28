@@ -56,6 +56,11 @@ def main():
         action="store_true",
         help="Include match results from web (only with --source=web)",
     )
+    parser.add_argument(
+        "--schedule-config",
+        default=None,
+        help="Path to schedule configuration JSON file (probability thresholds, seeding)",
+    )
     args = parser.parse_args()
 
     if args.source == "web" and not args.url:
@@ -74,7 +79,7 @@ def main():
     print("=" * 60)
     print("Step 2/3: Generating match schedules")
     print("=" * 60)
-    schedule_main()
+    schedule_main(config_path=args.schedule_config)
 
     print()
     print("=" * 60)
