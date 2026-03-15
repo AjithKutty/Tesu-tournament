@@ -353,6 +353,142 @@ def render_clubs_tab(clubs):
 </div>"""
 
 
+def _split_player_names(player_str):
+    """Split a player string into individual names.
+
+    Singles: "Luka Penttinen" -> ["Luka Penttinen"]
+    Doubles: "Iiro Romppainen / Emilia Mattila" -> ["Iiro Romppainen", "Emilia Mattila"]
+    Placeholders/Bye: return empty list.
+    """
+    if not player_str or player_str == "Bye":
+        return []
+    if player_str.startswith("Winner ") or player_str.startswith("Slot "):
+        return []
+    return [n.strip() for n in player_str.split(" / ") if n.strip()]
+
+
+def build_player_schedule(all_sessions, divisions_dir):
+    """Build a map of individual player_name -> list of scheduled match dicts.
+
+    Doubles pairs are split so each partner appears separately in the
+    dropdown.  Each match dict includes a 'partner' field (None for
+    singles, partner name for doubles).
+    """
+    player_matches = {}  # individual player_name -> list of match dicts
+
+    if not all_sessions:
+        return player_matches
+
+    for sess in all_sessions:
+        for m in sess.get("matches", []):
+            p1_str = m.get("player1", "")
+            p2_str = m.get("player2", "")
+            date = sess.get("date", "")
+            time = m.get("time", "")
+            court = m.get("court", "")
+            div = m.get("division", "")
+            rnd = m.get("round", "")
+            mnum = m.get("match_num", "")
+            dur = m.get("duration_min", 30)
+            cat = m.get("category", "")
+
+            p1_names = _split_player_names(p1_str)
+            p2_names = _split_player_names(p2_str)
+
+            # For each individual on side 1, record the match
+            for name in p1_names:
+                partner = [n for n in p1_names if n != name]
+                if name not in player_matches:
+                    player_matches[name] = []
+                player_matches[name].append({
+                    "date": date, "time": time, "court": court,
+                    "division": div, "round": rnd, "match_num": mnum,
+                    "opponent": p2_str, "duration_min": dur, "category": cat,
+                    "partner": partner[0] if partner else None,
+                })
+
+            # For each individual on side 2, record the match
+            for name in p2_names:
+                partner = [n for n in p2_names if n != name]
+                if name not in player_matches:
+                    player_matches[name] = []
+                player_matches[name].append({
+                    "date": date, "time": time, "court": court,
+                    "division": div, "round": rnd, "match_num": mnum,
+                    "opponent": p1_str, "duration_min": dur, "category": cat,
+                    "partner": partner[0] if partner else None,
+                })
+
+    # Sort each player's matches by day then time
+    day_order = {}
+    for sess in all_sessions:
+        d = sess.get("date", "")
+        if d not in day_order:
+            day_order[d] = len(day_order)
+
+    for player in player_matches:
+        player_matches[player].sort(
+            key=lambda m: (day_order.get(m["date"], 99), m["time"])
+        )
+
+    return player_matches
+
+
+def render_players_tab(player_matches, badge_lookup):
+    """Render the Players tab with a searchable dropdown and match list."""
+    if not player_matches:
+        return '<p style="color: var(--text-light); padding: 1rem;">No schedule data available.</p>'
+
+    sorted_players = sorted(player_matches.keys())
+
+    # Build dropdown options
+    options = ['<option value="">-- Select a player --</option>']
+    for name in sorted_players:
+        count = len(player_matches[name])
+        options.append(f'<option value="{h(name)}">{h(name)} ({count} matches)</option>')
+
+    # Build per-player match cards (hidden by default, shown via JS)
+    player_panels = []
+    for name in sorted_players:
+        matches = player_matches[name]
+        cards = []
+        for m in matches:
+            badge = badge_lookup.get(m["category"], "badge-open")
+            opp = h(m["opponent"])
+            partner_html = ""
+            if m.get("partner"):
+                partner_html = f'<div class="player-match-partner">with {h(m["partner"])}</div>'
+            cards.append(f"""<div class="player-match-card">
+<div class="player-match-header">
+<span class="badge {badge}">{h(m['division'])}</span>
+<span class="player-match-round">{h(m['round'])} M{m['match_num']}</span>
+<span class="player-match-time">{h(m['date'][:3])} {h(m['time'])} &middot; Court {m['court']}</span>
+</div>
+{partner_html}<div class="player-match-opponent">vs {opp}</div>
+</div>""")
+
+        safe_name = h(name)
+        player_panels.append(
+            f'<div class="player-schedule" data-player="{safe_name}" style="display:none;">\n'
+            f'<div class="player-match-count">{len(matches)} scheduled match{"es" if len(matches) != 1 else ""}</div>\n'
+            + "\n".join(cards)
+            + "\n</div>"
+        )
+
+    return f"""<div class="cat-header">
+<h2>Player Schedule</h2>
+<p>{len(sorted_players)} players</p>
+</div>
+<div class="player-select-wrap">
+<select id="player-select" class="player-select" onchange="showPlayerSchedule(this.value)">
+{"".join(options)}
+</select>
+</div>
+<div id="player-schedules">
+{"".join(player_panels)}
+</div>"""
+
+
 # ── Page assembly ────────────────────────────────────────────────
 
 CSS = """:root {
@@ -475,7 +611,17 @@ CSS = """:root {
   .sched-tabs { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
   .sched-tab-btn { padding: 0.5rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); cursor: pointer; font-size: 0.82rem; transition: all 0.2s; }
   .sched-tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
-  #tab-schedule .content { max-width: none; padding: 1rem; }"""
+  #tab-schedule .content { max-width: none; padding: 1rem; }
+  .player-select-wrap { margin-bottom: 1rem; }
+  .player-select { width: 100%; max-width: 400px; padding: 0.6rem 0.8rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: var(--card-bg); color: var(--text); cursor: pointer; }
+  .player-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,184,148,0.15); }
+  .player-match-count { font-size: 0.85rem; color: var(--text-light); margin-bottom: 0.8rem; }
+  .player-match-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 1rem; margin-bottom: 0.5rem; box-shadow: var(--shadow); }
+  .player-match-header { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.3rem; }
+  .player-match-round { font-size: 0.8rem; color: var(--text-light); }
+  .player-match-time { font-size: 0.8rem; font-weight: 600; color: var(--accent-dark); margin-left: auto; }
+  .player-match-partner { font-size: 0.8rem; color: var(--accent-dark); font-weight: 600; margin-bottom: 0.15rem; }
+  .player-match-opponent { font-size: 0.9rem; }"""
 
 JS = """document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -495,7 +641,16 @@ document.querySelectorAll('.sched-tab-btn').forEach(btn => {
     btn.classList.add('active');
     document.getElementById('sched-' + btn.dataset.session).classList.add('active');
   });
-});"""
+});
+function showPlayerSchedule(name) {
+  document.querySelectorAll('.player-schedule').forEach(el => { el.style.display = 'none'; });
+  if (name) {
+    const panels = document.querySelectorAll('.player-schedule');
+    for (const el of panels) {
+      if (el.dataset.player === name) { el.style.display = 'block'; break; }
+    }
+  }
+}"""
 
 
 def add_30min(time_str):
@@ -663,6 +818,7 @@ def generate_html(config, schedule_lookup=None, all_sessions=None):
         )
     tab_buttons.append('<button class="tab-btn" data-tab="clubs">Clubs</button>')
     if all_sessions:
+        tab_buttons.append('<button class="tab-btn" data-tab="players">Players</button>')
         tab_buttons.append('<button class="tab-btn" data-tab="schedule">Schedule</button>')
 
     # Build tab panels
@@ -689,6 +845,13 @@ def generate_html(config, schedule_lookup=None, all_sessions=None):
     # Clubs tab
     tab_panels.append(f"""<div class="tab-panel" id="tab-clubs">
 {render_clubs_tab(clubs)}
+</div>""")
+
+    # Players tab
+    if all_sessions:
+        player_matches = build_player_schedule(all_sessions, divisions_dir)
+        tab_panels.append(f"""<div class="tab-panel" id="tab-players">
+{render_players_tab(player_matches, badge_lookup)}
 </div>""")
 
     # Schedule tab
