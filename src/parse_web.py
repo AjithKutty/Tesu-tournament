@@ -723,14 +723,61 @@ def build_elimination_division(matches, draw_size, is_doubles, full_results,
                         })
             pos += 1
 
-    # Build rounds array
-    rounds = []
-    for rnd_idx, rnd_name in enumerate(rnd_names):
-        use_scraped = (rnd_idx < len(rounds_of_matches) and rounds_of_matches[rnd_idx]
-                       and (rnd_idx == 0 or get_winners))
+    # Build position -> player map for bracket generation
+    pos_map = {p["position"]: p for p in players}
 
-        if use_scraped:
-            # This round has actual match data and we're allowed to use it
+    # Build the full structural bracket from draw_size first, then overlay
+    # scraped data.  This ensures all rounds have the correct match count
+    # even when the web doesn't list bye matches.
+
+    # Step 1: Build full structural bracket (same as Excel parser's build_full_bracket)
+    # Round 1: pair adjacent draw positions
+    r1_structural = []
+    for i in range(1, draw_size + 1, 2):
+        # Check if we have a player at each position
+        p1_entry = pos_map.get(i)
+        p2_entry = pos_map.get(i + 1)
+
+        p1_label = player_label(p1_entry, is_doubles) if p1_entry else "Bye"
+        p2_label = player_label(p2_entry, is_doubles) if p2_entry else "Bye"
+
+        match = {
+            "match": len(r1_structural) + 1,
+            "player1": p1_label,
+            "player2": p2_label,
+        }
+
+        if p1_label == "Bye" and p2_label != "Bye":
+            match["notes"] = f"{p2_label} auto-advances"
+        elif p2_label == "Bye" and p1_label != "Bye":
+            match["notes"] = f"{p1_label} auto-advances"
+        elif p1_label == "Bye" and p2_label == "Bye":
+            match["notes"] = "Empty slot"
+
+        r1_structural.append(match)
+
+    rounds = [{"name": rnd_names[0], "matches": r1_structural}]
+
+    # Later rounds: structural placeholders
+    for rnd_idx in range(1, len(rnd_names)):
+        rnd_name = rnd_names[rnd_idx]
+        prev_name = rnd_names[rnd_idx - 1]
+        prev_abbrev = ABBREV_MAP.get(prev_name, prev_name[:2])
+        num_matches = round_match_counts[rnd_idx]
+        struct_matches = []
+        for m in range(num_matches):
+            struct_matches.append({
+                "match": m + 1,
+                "player1": f"Winner {prev_abbrev}-M{m * 2 + 1}",
+                "player2": f"Winner {prev_abbrev}-M{m * 2 + 2}",
+            })
+        rounds.append({"name": rnd_name, "matches": struct_matches})
+
+    # Step 2: If get_winners, overlay scraped player names onto later rounds
+    if get_winners and len(rounds_of_matches) > 1:
+        for rnd_idx in range(1, len(rnd_names)):
+            if rnd_idx >= len(rounds_of_matches) or not rounds_of_matches[rnd_idx]:
+                continue
             scraped = rounds_of_matches[rnd_idx]
             round_matches = []
             for m_idx, match in enumerate(scraped):
@@ -743,13 +790,6 @@ def build_elimination_division(matches, draw_size, is_doubles, full_results,
                     "player2": p2_label,
                 }
 
-                # Auto-advance notes
-                if p1_label == "Bye" and p2_label != "Bye":
-                    entry["notes"] = f"{p2_label} auto-advances"
-                elif p2_label == "Bye" and p1_label != "Bye":
-                    entry["notes"] = f"{p1_label} auto-advances"
-
-                # Optional full results
                 if full_results:
                     if match.get("result"):
                         entry["result"] = match["result"]
@@ -762,32 +802,39 @@ def build_elimination_division(matches, draw_size, is_doubles, full_results,
 
                 round_matches.append(entry)
 
-            rounds.append({"name": rnd_name, "matches": round_matches})
-        else:
-            # Generate structural placeholders for unplayed rounds
-            if rnd_idx == 0:
-                # Round 1 with no data — generate from draw_size
-                r1_slot_matches = []
-                for m in range(draw_size // 2):
-                    r1_slot_matches.append({
-                        "match": m + 1,
-                        "player1": f"Slot {m * 2 + 1}",
-                        "player2": f"Slot {m * 2 + 2}",
-                    })
-                rounds.append({"name": rnd_name, "matches": r1_slot_matches})
-            else:
-                prev_name = rnd_names[rnd_idx - 1]
-                prev_abbrev = ABBREV_MAP.get(prev_name, prev_name[:2])
-                prev_count = len(rounds[-1]["matches"]) if rounds else round_match_counts[rnd_idx - 1]
-                num_matches = prev_count // 2
-                struct_matches = []
-                for m in range(num_matches):
-                    struct_matches.append({
-                        "match": m + 1,
-                        "player1": f"Winner {prev_abbrev}-M{m * 2 + 1}",
-                        "player2": f"Winner {prev_abbrev}-M{m * 2 + 2}",
-                    })
-                rounds.append({"name": rnd_name, "matches": struct_matches})
+            # Pad with structural placeholders if scraped has fewer matches
+            rnd_name = rnd_names[rnd_idx]
+            expected = round_match_counts[rnd_idx]
+            prev_name = rnd_names[rnd_idx - 1]
+            prev_abbrev = ABBREV_MAP.get(prev_name, prev_name[:2])
+            while len(round_matches) < expected:
+                m_num = len(round_matches)
+                round_matches.append({
+                    "match": m_num + 1,
+                    "player1": f"Winner {prev_abbrev}-M{m_num * 2 + 1}",
+                    "player2": f"Winner {prev_abbrev}-M{m_num * 2 + 2}",
+                })
+
+            rounds[rnd_idx] = {"name": rnd_name, "matches": round_matches}
+
+    # Step 3: Overlay full_results on R1 if applicable
+    if full_results and rounds_of_matches:
+        scraped_r1 = rounds_of_matches[0]
+        # Match scraped R1 data to structural R1 by player names
+        for s_match in scraped_r1:
+            s_p1 = _match_side_label(s_match["player1"], is_doubles)
+            s_p2 = _match_side_label(s_match["player2"], is_doubles)
+            for struct_m in rounds[0]["matches"]:
+                if struct_m["player1"] == s_p1 and struct_m["player2"] == s_p2:
+                    if s_match.get("result"):
+                        struct_m["result"] = s_match["result"]
+                    if s_match.get("duration"):
+                        struct_m["duration"] = s_match["duration"]
+                    if s_match.get("time"):
+                        struct_m["scheduled_time"] = s_match["time"]
+                    if s_match.get("court"):
+                        struct_m["court"] = s_match["court"]
+                    break
 
     return players, rounds, draw_size
 
