@@ -56,3 +56,34 @@ rest_rules:
 
   # Between games in any two divisions (absolute minimum)
   cross_division_rest: 30
+
+# ── Probability-based player filtering ────────────────────────────
+# For later-round matches with placeholder players ("Winner R1-M1"),
+# controls which possible players are checked for rest enforcement.
+# See docs/architecture/scheduling-probability.md for full details.
+
+probability_filter:
+  # Normalized probability threshold (0.0–1.0).
+  #   0.0 = include all possible players (conservative, default)
+  #   0.5 = include players with above-average advancement chance
+  #   1.0 = only confirmed players (ignores rest for placeholder matches)
+  default_threshold: 0.0
+
+  # Use seed information to compute win probabilities.
+  # When false, all matches are treated as 50/50 coin flips.
+  use_seeding: false
+
+  # Win probability lookup by seed matchup (only used when use_seeding: true)
+  seeding_probabilities:
+    1_vs_unseeded: 0.75
+    2_vs_unseeded: 0.70
+    3/4_vs_unseeded: 0.65
+    seed_vs_seed: 0.55
+    default: 0.50
+
+  # Per-division threshold overrides
+  # divisions:
+  #   "MS A":
+  #     threshold: 0.5        # More aggressive filtering for top division
+  #   "MS B":
+  #     threshold: 0.3
