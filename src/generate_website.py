@@ -634,7 +634,8 @@ CSS = """:root {
   .sched-tabs { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
   .sched-tab-btn { padding: 0.5rem 1rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); cursor: pointer; font-size: 0.82rem; transition: all 0.2s; }
   .sched-tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
-  #tab-schedule .content { max-width: none; padding: 1rem; }
+  #tab-schedule { padding: 0.5rem 1rem; }
+  #tab-players { padding: 1rem; max-width: 900px; margin: 0 auto; }
   .player-select-wrap { margin-bottom: 1rem; }
   .player-select { width: 100%; max-width: 400px; padding: 0.6rem 0.8rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: var(--card-bg); color: var(--text); cursor: pointer; }
   .player-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,184,148,0.15); }
@@ -896,16 +897,14 @@ def generate_html(config, schedule_lookup=None, all_sessions=None):
 {render_clubs_tab(clubs)}
 </div>""")
 
-    # Players tab
+    # Players and Schedule tabs are rendered outside .content (full-width)
+    fullwidth_panels = []
     if all_sessions:
         player_matches = build_player_schedule(all_sessions, divisions_dir)
-        tab_panels.append(f"""<div class="tab-panel" id="tab-players">
+        fullwidth_panels.append(f"""<div class="tab-panel" id="tab-players">
 {render_players_tab(player_matches, badge_lookup)}
 </div>""")
-
-    # Schedule tab
-    if all_sessions:
-        tab_panels.append(f"""<div class="tab-panel" id="tab-schedule">
+        fullwidth_panels.append(f"""<div class="tab-panel" id="tab-schedule">
 {render_schedule_panel(all_sessions, badge_lookup)}
 </div>""")
 
@@ -955,6 +954,8 @@ def generate_html(config, schedule_lookup=None, all_sessions=None):
 {"".join(tab_panels)}
 
 </div>
+
+{"".join(fullwidth_panels)}
 
 <div class="footer">
 {h(tournament_name)} &middot; Data from Badminton Finland Tournament Planner
