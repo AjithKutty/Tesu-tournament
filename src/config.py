@@ -2,8 +2,8 @@
 Load tournament configuration from YAML files.
 
 Each tournament directory contains a config/ subdirectory with:
-  tournament.yaml, venue.yaml, match_rules.yaml,
-  court_preferences.yaml, divisions.yaml, scheduling.yaml
+  tournament.yaml, venue.yaml, court_preferences.yaml,
+  divisions.yaml, scheduling.yaml
 """
 
 import os
@@ -21,14 +21,13 @@ def _load_yaml(path):
 def load_config(tournament_dir):
     """Load all config files from a tournament directory.
 
-    Returns a dict with keys: tournament, venue, match_rules,
-    court_preferences, divisions, scheduling, and resolved paths.
+    Returns a dict with keys: tournament, venue, court_preferences,
+    divisions, scheduling, and resolved paths.
     """
     config_dir = os.path.join(tournament_dir, "config")
 
     tournament = _load_yaml(os.path.join(config_dir, "tournament.yaml"))
     venue = _load_yaml(os.path.join(config_dir, "venue.yaml"))
-    match_rules = _load_yaml(os.path.join(config_dir, "match_rules.yaml"))
     court_prefs = _load_yaml(os.path.join(config_dir, "court_preferences.yaml"))
     divisions = _load_yaml(os.path.join(config_dir, "divisions.yaml"))
     scheduling = _load_yaml(os.path.join(config_dir, "scheduling.yaml"))
@@ -47,7 +46,6 @@ def load_config(tournament_dir):
     return {
         "tournament": tournament,
         "venue": venue,
-        "match_rules": match_rules,
         "court_preferences": court_prefs,
         "divisions": divisions,
         "scheduling": scheduling,
@@ -112,41 +110,81 @@ def get_slot_duration(config):
 
 
 def get_match_duration(config, category):
-    """Get match duration for a category."""
-    cats = config["match_rules"].get("categories", {})
+    """Get match duration for a category from scheduling.match_duration."""
+    md = config["scheduling"].get("match_duration", {})
+    cats = md.get("categories", {})
     if category in cats:
-        return cats[category].get("match_duration",
-                                  config["match_rules"].get("default", {}).get("match_duration", 30))
-    return config["match_rules"].get("default", {}).get("match_duration", 30)
-
-
-def get_rest_period(config, category):
-    """Get rest period for a category."""
-    cats = config["match_rules"].get("categories", {})
-    if category in cats:
-        return cats[category].get("rest_period",
-                                  config["match_rules"].get("default", {}).get("rest_period", 30))
-    return config["match_rules"].get("default", {}).get("rest_period", 30)
+        return cats[category]
+    return md.get("default", 30)
 
 
 def get_overrun_buffer(config, category):
-    """Get overrun buffer for a category (minutes).
+    """Get overrun buffer for a category (minutes) from scheduling.overrun_buffer.
 
-    Categories with an overrun_buffer require that preceding matches on
-    the same court leave this much extra time before the category's match
-    starts, to absorb potential overruns.  Returns 0 for categories
-    without the setting.
+    The buffer creates a gap between consecutive matches on the same
+    court, absorbing potential overruns.  Returns 0 if not configured.
     """
-    cats = config["match_rules"].get("categories", {})
+    ob = config["scheduling"].get("overrun_buffer", {})
+    cats = ob.get("categories", {})
     if category in cats:
-        return cats[category].get("overrun_buffer", 0)
-    return 0
+        return cats[category]
+    return ob.get("default", 0)
 
 
-def get_categories_with_overrun_buffer(config):
-    """Return set of category names that have a non-zero overrun_buffer."""
-    cats = config["match_rules"].get("categories", {})
-    return {name for name, cfg in cats.items() if cfg.get("overrun_buffer", 0) > 0}
+# ── Rest rule accessors ──────────────────────────────────────────
+
+
+def get_rest_rules(config):
+    """Get the full rest_rules dict from scheduling config."""
+    return config["scheduling"].get("rest_rules", {})
+
+
+def get_same_division_rest(config, div_code):
+    """Get rest period between games in the same division for a player."""
+    rules = get_rest_rules(config)
+    sd = rules.get("same_division_rest", {})
+    divs = sd.get("divisions", {})
+    if div_code in divs:
+        return divs[div_code]
+    return sd.get("default", 30)
+
+
+def get_same_category_rest(config, category):
+    """Get rest period between games in different divisions of the same category."""
+    rules = get_rest_rules(config)
+    sc = rules.get("same_category_rest", {})
+    cats = sc.get("categories", {})
+    if category in cats:
+        return cats[category]
+    return sc.get("default", 30)
+
+
+def get_cross_division_rest(config):
+    """Get minimum rest period between games in any two divisions."""
+    rules = get_rest_rules(config)
+    return rules.get("cross_division_rest", 30)
+
+
+def compute_rest_between(config, div_code_a, category_a, div_code_b, category_b):
+    """Compute the required rest between two matches for the same player.
+
+    Takes the division code and category of both matches and returns
+    the maximum applicable rest period (in minutes).
+
+    Rules applied (max of all applicable):
+      - cross_division_rest: always applies
+      - same_category_rest: if both matches are in the same category
+      - same_division_rest: if both matches are in the same division
+    """
+    rest = get_cross_division_rest(config)
+
+    if category_a == category_b:
+        rest = max(rest, get_same_category_rest(config, category_a))
+
+    if div_code_a == div_code_b:
+        rest = max(rest, get_same_division_rest(config, div_code_a))
+
+    return rest
 
 
 def get_court_preference(config, category, day_name=None):

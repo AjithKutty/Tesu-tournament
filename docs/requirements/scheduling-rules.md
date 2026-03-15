@@ -14,15 +14,19 @@ Courts that are not available on a given day are automatically excluded from sch
 
 ### Match Durations
 
-Match durations are defined in `match_rules.yaml` per division category. A default duration applies to categories not explicitly configured. Matches that exceed one scheduling slot (e.g., a 45-minute match in a 30-minute slot grid) block multiple consecutive slots on the assigned court.
+Match durations are defined in `scheduling.yaml` under `match_duration` per division category. A default duration applies to categories not explicitly configured. Matches that exceed one scheduling slot (e.g., a 45-minute match in a 30-minute slot grid) block multiple consecutive slots on the assigned court.
 
-### Rest Periods
+### Rest Rules
 
-Players are entitled to a rest period between consecutive matches. Rest periods are defined in `match_rules.yaml` per division category, with a default for unlisted categories.
+Rest between matches is context-dependent, defined in `scheduling.yaml` under `rest_rules`. Three levels of rest rules apply, and the **maximum** of all applicable rules is used:
+
+- **`same_division_rest`**: Between consecutive games for a player within the same division. Can be overridden per division (e.g., Elite singles needs 3 hours between games in MS V).
+- **`same_category_rest`**: Between games in different divisions of the same category (e.g., a player in MS V and XD V — both Elite — needs 60 min between them).
+- **`cross_division_rest`**: Absolute minimum rest between games in any two divisions (default baseline, e.g., 30 min).
 
 ### Match Overrun Buffer
 
-Matches may overrun their expected duration. To prevent cascading delays, a configurable `overrun_buffer` (in minutes) can be defined in `match_rules.yaml` per category or as a default for all categories. The buffer creates a time gap between consecutive matches on the same court, absorbing potential overruns.
+Matches may overrun their expected duration. To prevent cascading delays, a configurable `overrun_buffer` (in minutes) can be defined in `scheduling.yaml` per category or as a default for all categories. The buffer creates a time gap between consecutive matches on the same court, absorbing potential overruns.
 
 **How it works:**
 

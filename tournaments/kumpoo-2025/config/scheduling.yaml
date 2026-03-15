@@ -24,3 +24,35 @@ elite_divisions: ["MS V", "WS V", "XD V"]
 day_constraints:
   - rounds: ["Semi-Final", "Final"]
     day: "Sunday"
+
+# ── Match durations and court blocking ────────────────────────────
+
+match_duration:
+  default: 30           # Minutes
+  categories:
+    Elite: 45
+
+overrun_buffer:
+  default: 0            # No buffer needed for non-Elite matches
+  categories:
+    Elite: 15           # Elite matches must start on time — buffer before them
+
+# ── Rest rules ────────────────────────────────────────────────────
+# When multiple rules apply to the same player, the maximum is used.
+
+rest_rules:
+  # Between consecutive games for a player within the same division
+  same_division_rest:
+    default: 30
+    divisions:
+      "MS V": 180       # Elite singles: 3 hours apart
+      "WS V": 180
+
+  # Between games in different divisions of the same category
+  same_category_rest:
+    default: 30
+    categories:
+      Elite: 120
+
+  # Between games in any two divisions (absolute minimum)
+  cross_division_rest: 30

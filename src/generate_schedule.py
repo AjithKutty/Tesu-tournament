@@ -21,7 +21,8 @@ from datetime import date
 from config import (load_config, get_tournament_name, get_priorities,
                     get_round_priority_map, get_elite_divisions,
                     get_day_constraints, get_match_duration,
-                    get_rest_period, get_overrun_buffer,
+                    get_overrun_buffer, compute_rest_between,
+                    get_cross_division_rest, get_same_division_rest,
                     get_court_preference,
                     get_slot_duration, build_venue_model,
                     minute_to_display as config_minute_to_display)
@@ -78,7 +79,7 @@ def parse_winner_ref(player_str):
 class Match:
     def __init__(self, match_id, div_code, div_name, category, round_name,
                  match_num, player1, player2, known_players, duration_min,
-                 rest_min, priority, day_constraint, prerequisites, is_elite,
+                 priority, day_constraint, prerequisites, is_elite,
                  overrun_buffer=0):
         self.id = match_id
         self.division_code = div_code
@@ -90,7 +91,6 @@ class Match:
         self.player2 = player2
         self.known_players = known_players
         self.duration_min = duration_min
-        self.rest_min = rest_min
         self.priority = priority
         self.day_constraint = day_constraint  # required day name (e.g. "Sunday") or None
         self.prerequisites = prerequisites
@@ -150,10 +150,9 @@ def load_all_matches(config):
         fmt = data["format"]
         is_elite = div_code in elite_divisions
         duration = get_match_duration(config, category)
-        rest = get_rest_period(config, category)
         overrun_buf = get_overrun_buffer(config, category)
 
-        loader_args = (data, div_code, div_name, category, is_elite, duration, rest,
+        loader_args = (data, div_code, div_name, category, is_elite, duration,
                        resolved_round_priority, priorities, day_constraint_map, overrun_buf)
 
         if fmt == "elimination":
@@ -180,7 +179,7 @@ def load_all_matches(config):
     return all_matches, match_by_id
 
 
-def _load_elimination_matches(data, div_code, div_name, category, is_elite, duration, rest,
+def _load_elimination_matches(data, div_code, div_name, category, is_elite, duration,
                               resolved_round_priority, priorities, day_constraint_map,
                               overrun_buf=0):
     matches = []
@@ -225,7 +224,7 @@ def _load_elimination_matches(data, div_code, div_name, category, is_elite, dura
                 div_code=div_code, div_name=div_name, category=category,
                 round_name=round_name, match_num=m["match"],
                 player1=p1, player2=p2, known_players=known,
-                duration_min=duration, rest_min=rest,
+                duration_min=duration,
                 priority=priority, day_constraint=day_constraint,
                 prerequisites=prereqs, is_elite=is_elite,
                 overrun_buffer=overrun_buf,
@@ -262,7 +261,7 @@ def _compute_pool_rounds(matches):
         m.pool_round = rounds.get(i, 0)
 
 
-def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, duration, rest,
+def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, duration,
                              resolved_round_priority, priorities, day_constraint_map,
                              overrun_buf=0):
     matches = []
@@ -278,7 +277,7 @@ def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, durat
             div_code=div_code, div_name=div_name, category=category,
             round_name="Pool", match_num=m["match"],
             player1=p1, player2=p2, known_players=known,
-            duration_min=duration, rest_min=rest,
+            duration_min=duration,
             priority=pool_priority, day_constraint=None,
             prerequisites=[], is_elite=is_elite,
             overrun_buffer=overrun_buf,
@@ -290,7 +289,7 @@ def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, durat
     return matches
 
 
-def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, duration, rest,
+def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, duration,
                                 resolved_round_priority, priorities, day_constraint_map,
                                 overrun_buf=0):
     matches = []
@@ -310,7 +309,7 @@ def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, du
                 div_code=div_code, div_name=div_name, category=category,
                 round_name=f"{group_name} Pool", match_num=m["match"],
                 player1=p1, player2=p2, known_players=known,
-                duration_min=duration, rest_min=rest,
+                duration_min=duration,
                 priority=priorities.get("pool", 10), day_constraint=None,
                 prerequisites=[], is_elite=is_elite,
                 overrun_buffer=overrun_buf,
@@ -357,7 +356,7 @@ def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, du
                     div_code=div_code, div_name=div_name, category=category,
                     round_name=f"Playoff {round_name}", match_num=m["match"],
                     player1=p1, player2=p2, known_players=known,
-                    duration_min=duration, rest_min=rest,
+                    duration_min=duration,
                     priority=priority, day_constraint=day_constraint,
                     prerequisites=prereqs, is_elite=is_elite,
                     overrun_buffer=overrun_buf,
@@ -472,20 +471,42 @@ class CourtSchedule:
 
 
 class PlayerTracker:
-    def __init__(self):
-        self.available_from = defaultdict(int)  # player_name -> earliest minute
+    """Tracks player match history for rest-rule enforcement.
 
-    def earliest_for(self, players):
-        """Get the earliest time when all players are available."""
+    Instead of a single 'available_from' per player, stores the full
+    history of scheduled matches so that rest between any two matches
+    can be computed using the context-dependent rest rules (same division,
+    same category, or cross-division).
+    """
+
+    def __init__(self, config):
+        self.config = config
+        # player_name -> list of (end_minute, div_code, category)
+        # sorted by end_minute ascending
+        self.history = defaultdict(list)
+
+    def earliest_for_match(self, players, new_div_code, new_category):
+        """Get the earliest time when all players can start a match in the given division.
+
+        Checks each player's match history and applies the maximum rest
+        rule for each prior match.
+        """
         if not players:
             return 0
-        return max(self.available_from[p] for p in players)
-
-    def update(self, players, match_start, duration, rest):
-        """Update player availability after a match."""
-        next_available = match_start + duration + rest
+        earliest = 0
         for p in players:
-            self.available_from[p] = max(self.available_from[p], next_available)
+            for end_min, prev_div, prev_cat in self.history[p]:
+                rest = compute_rest_between(
+                    self.config, prev_div, prev_cat, new_div_code, new_category
+                )
+                earliest = max(earliest, end_min + rest)
+        return earliest
+
+    def update(self, players, match_start, duration, div_code, category):
+        """Record a scheduled match for player availability tracking."""
+        end_min = match_start + duration
+        for p in players:
+            self.history[p].append((end_min, div_code, category))
 
 
 # ── Court eligibility ────────────────────────────────────────────
@@ -533,7 +554,7 @@ def get_eligible_courts(match, time_minute, config, venue_model):
 def schedule_matches(matches, match_by_id, config, venue_model):
     """Main scheduling loop. Returns (scheduled_dict, unscheduled_list)."""
     court_sched = CourtSchedule(venue_model)
-    player_tracker = PlayerTracker()
+    player_tracker = PlayerTracker(config)
     scheduled = {}       # match_id -> (court, minute)
     scheduled_end = {}   # match_id -> end minute
     unscheduled = []
@@ -541,6 +562,9 @@ def schedule_matches(matches, match_by_id, config, venue_model):
     all_slots = venue_model["all_slots"]
     slot_duration = venue_model["slot_duration"]
     day_start_minutes = venue_model["day_start_minutes"]
+
+    # Minimum rest for prerequisite gaps (cross-division baseline)
+    min_prereq_rest = get_cross_division_rest(config)
 
     # Sort by priority, then pool_round (groups non-conflicting RR matches),
     # then most-constrained-first (-player count, so doubles before singles),
@@ -555,13 +579,16 @@ def schedule_matches(matches, match_by_id, config, venue_model):
         earliest = 0
 
         # Player availability — only for matches with real (known) players
+        # Uses context-dependent rest rules (same div, same cat, cross-div)
         if match.has_real_players and match.known_players:
-            earliest = max(earliest, player_tracker.earliest_for(match.known_players))
+            earliest = max(earliest, player_tracker.earliest_for_match(
+                match.known_players, match.division_code, match.category
+            ))
 
-        # Prerequisite constraint — feeder matches must finish + rest
+        # Prerequisite constraint — feeder matches must finish + minimum rest
         for prereq_id in match.prerequisites:
             if prereq_id in scheduled_end:
-                earliest = max(earliest, scheduled_end[prereq_id] + match.rest_min)
+                earliest = max(earliest, scheduled_end[prereq_id] + min_prereq_rest)
             elif prereq_id not in scheduled:
                 # Prerequisite wasn't scheduled (maybe it was a bye that got skipped)
                 pass
@@ -584,13 +611,12 @@ def schedule_matches(matches, match_by_id, config, venue_model):
             courts = get_eligible_courts(match, slot, config, venue_model)
             for court in courts:
                 if court_sched.can_book(court, slot, match.duration_min, match.overrun_buffer):
-                    # Check player availability only for real-player matches
+                    # Check player availability for real-player matches
                     if match.has_real_players and match.known_players:
-                        all_available = all(
-                            player_tracker.available_from[p] <= slot
-                            for p in match.known_players
+                        player_earliest = player_tracker.earliest_for_match(
+                            match.known_players, match.division_code, match.category
                         )
-                        if not all_available:
+                        if player_earliest > slot:
                             continue
 
                     # Book it — blocks duration + overrun_buffer on the court
@@ -598,7 +624,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                     if match.has_real_players:
                         player_tracker.update(
                             match.known_players, slot,
-                            match.duration_min, match.rest_min
+                            match.duration_min, match.division_code, match.category
                         )
                     scheduled[match.id] = (court, slot)
                     scheduled_end[match.id] = slot + match.duration_min
