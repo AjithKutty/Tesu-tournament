@@ -776,6 +776,7 @@ def main():
         print(f"Loaded schedule: {len(schedule_lookup)} matches from {len(all_sessions)} sessions")
 
     # Generate index.html (single page with all tabs including schedule)
+    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
     html = generate_html(schedule_lookup, all_sessions)
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write(html)
