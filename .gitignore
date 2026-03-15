@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .claude/
 output/
+desktop/node_modules/
+desktop/dist-electron/
+desktop/dist/

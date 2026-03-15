@@ -1,0 +1,106 @@
+{
+  "name": "",
+  "slot_duration_minutes": 30,
+  "days": [
+    {
+      "label": "Saturday",
+      "courts": [
+        {"court": 1, "available_from": "09:00", "available_to": "22:00"},
+        {"court": 2, "available_from": "09:00", "available_to": "22:00"},
+        {"court": 3, "available_from": "09:00", "available_to": "22:00"},
+        {"court": 4, "available_from": "09:00", "available_to": "22:00"},
+        {"court": 5, "available_from": "09:00", "available_to": "22:00"},
+        {"court": 6, "available_from": "09:00", "available_to": "22:00"},
+        {"court": 7, "available_from": "09:00", "available_to": "22:00"},
+        {"court": 8, "available_from": "09:00", "available_to": "22:00"},
+        {"court": 9, "available_from": "09:00", "available_to": "22:00"},
+        {"court": 10, "available_from": "09:00", "available_to": "22:00"},
+        {"court": 11, "available_from": "09:00", "available_to": "22:00"},
+        {"court": 12, "available_from": "09:00", "available_to": "22:00"}
+      ]
+    },
+    {
+      "label": "Sunday",
+      "courts": [
+        {"court": 1, "available_from": "09:00", "available_to": "16:00"},
+        {"court": 2, "available_from": "09:00", "available_to": "16:00"},
+        {"court": 3, "available_from": "09:00", "available_to": "16:00"},
+        {"court": 4, "available_from": "09:00", "available_to": "16:00"},
+        {"court": 5, "available_from": "09:00", "available_to": "18:00"},
+        {"court": 6, "available_from": "09:00", "available_to": "18:00"},
+        {"court": 7, "available_from": "09:00", "available_to": "18:00"},
+        {"court": 8, "available_from": "09:00", "available_to": "18:00"}
+      ]
+    }
+  ],
+  "sessions": [
+    {"name": "Saturday Morning", "day_index": 0, "start_time": "09:00", "end_time": "13:00"},
+    {"name": "Saturday Afternoon", "day_index": 0, "start_time": "13:00", "end_time": "18:00"},
+    {"name": "Saturday Evening", "day_index": 0, "start_time": "18:00", "end_time": "22:00"},
+    {"name": "Sunday Morning", "day_index": 1, "start_time": "09:00", "end_time": "13:00"},
+    {"name": "Sunday Afternoon", "day_index": 1, "start_time": "13:00", "end_time": "18:00"}
+  ],
+  "categories": [
+    {
+      "id": "elite",
+      "label": "Elite",
+      "color": "#805ad5",
+      "duration_minutes": 45,
+      "rest_minutes": 60,
+      "required_courts": [5, 6, 7, 8],
+      "preferred_courts": null,
+      "sf_final_day_index": 1
+    },
+    {
+      "id": "open_a",
+      "label": "Open A",
+      "color": "#3182ce",
+      "duration_minutes": 30,
+      "rest_minutes": 30,
+      "required_courts": null,
+      "preferred_courts": [5, 6, 7, 8],
+      "sf_final_day_index": 1
+    },
+    {
+      "id": "open_b",
+      "label": "Open B",
+      "color": "#2b6cb0",
+      "duration_minutes": 30,
+      "rest_minutes": 30,
+      "required_courts": null,
+      "preferred_courts": null,
+      "sf_final_day_index": 1
+    },
+    {
+      "id": "open_c",
+      "label": "Open C",
+      "color": "#2c5282",
+      "duration_minutes": 30,
+      "rest_minutes": 30,
+      "required_courts": null,
+      "preferred_courts": null,
+      "sf_final_day_index": 1
+    },
+    {
+      "id": "junior",
+      "label": "Junior",
+      "color": "#38a169",
+      "duration_minutes": 30,
+      "rest_minutes": 30,
+      "required_courts": null,
+      "preferred_courts": [9, 10, 11, 12],
+      "sf_final_day_index": 1
+    },
+    {
+      "id": "veterans",
+      "label": "Veterans",
+      "color": "#dd6b20",
+      "duration_minutes": 30,
+      "rest_minutes": 30,
+      "required_courts": null,
+      "preferred_courts": null,
+      "sf_final_day_index": 1
+    }
+  ],
+  "division_category_map": {}
+}

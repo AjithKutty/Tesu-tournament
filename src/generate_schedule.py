@@ -657,6 +657,12 @@ class CourtSchedule:
         for i in range(slots_needed):
             self.booked[(court, minute + i * SLOT_DURATION)] = match_id
 
+    def unbook(self, court, minute, duration_min):
+        """Remove a booking. Inverse of book()."""
+        slots_needed = (duration_min + SLOT_DURATION - 1) // SLOT_DURATION
+        for i in range(slots_needed):
+            self.booked.pop((court, minute + i * SLOT_DURATION), None)
+
     def can_book(self, court, minute, duration_min):
         """Check if a court can be booked for the full duration."""
         slots_needed = (duration_min + SLOT_DURATION - 1) // SLOT_DURATION

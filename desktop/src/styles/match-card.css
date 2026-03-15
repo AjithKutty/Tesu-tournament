@@ -1,0 +1,113 @@
+.match-card {
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--card-category-color, var(--accent));
+  background: var(--card-bg);
+  padding: 3px 5px;
+  font-size: 0.72rem;
+  cursor: grab;
+  user-select: none;
+  transition: box-shadow 0.15s, border-color 0.15s;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.match-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.match-card:active {
+  cursor: grabbing;
+}
+
+.match-card.has-conflict {
+  border-color: var(--danger);
+  border-width: 2px;
+}
+
+.match-card.is-pinned {
+  background: #f7fafc;
+}
+
+.match-card.is-completed {
+  border-left-color: var(--success);
+  opacity: 0.85;
+}
+
+.match-card.is-placeholder {
+  border-left-style: dashed;
+  font-style: italic;
+}
+
+.match-card.swap-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.match-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2px;
+}
+
+.match-card-division {
+  font-weight: 700;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.match-card-icons {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.match-card-icon {
+  font-size: 0.65rem;
+}
+
+.match-card-round {
+  font-size: 0.6rem;
+  color: var(--text-light);
+}
+
+.match-card-players {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+}
+
+.match-card-player {
+  font-size: 0.68rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+
+.match-card-vs {
+  font-size: 0.55rem;
+  color: var(--accent-dark);
+  font-weight: 700;
+  text-align: center;
+}
+
+.match-card-result {
+  font-size: 0.6rem;
+  color: var(--success);
+  font-weight: 600;
+  text-align: center;
+}
+
+.match-card.is-dragging {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  transform: rotate(2deg);
+}
