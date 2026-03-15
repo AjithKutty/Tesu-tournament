@@ -20,6 +20,16 @@ Match durations are defined in `match_rules.yaml` per division category. A defau
 
 Players are entitled to a rest period between consecutive matches. Rest periods are defined in `match_rules.yaml` per division category, with a default for unlisted categories.
 
+### Elite Match Punctuality (Overrun Buffer)
+
+Elite matches must start at their scheduled time with no delay. If a preceding match on the same court overruns its expected duration, it would cause the Elite match to start late — which is unacceptable.
+
+To prevent this, a configurable `overrun_buffer` (in minutes) is added to the effective court-blocking duration of any match scheduled on a court where an Elite match follows. This buffer creates a time gap between the expected end of the preceding match and the start of the Elite match, absorbing potential overruns.
+
+- The buffer is defined in `match_rules.yaml` under the Elite category as `overrun_buffer`.
+- When scheduling, the scheduler checks whether an Elite match is the next match on the same court. If so, the preceding match blocks the court for `match_duration + overrun_buffer` instead of just `match_duration`.
+- This constraint only applies to Elite courts. For other divisions, a match that overruns simply pushes the next match on that court to a different time or court — there is no strict punctuality requirement.
+
 ### Court Preferences
 
 Court assignment preferences are defined in `court_preferences.yaml` per division category:

@@ -129,8 +129,32 @@ def get_rest_period(config, category):
     return config["match_rules"].get("default", {}).get("rest_period", 30)
 
 
-def get_court_preference(config, category):
-    """Get court preference chain for a category.
+def get_overrun_buffer(config, category):
+    """Get overrun buffer for a category (minutes).
+
+    Categories with an overrun_buffer require that preceding matches on
+    the same court leave this much extra time before the category's match
+    starts, to absorb potential overruns.  Returns 0 for categories
+    without the setting.
+    """
+    cats = config["match_rules"].get("categories", {})
+    if category in cats:
+        return cats[category].get("overrun_buffer", 0)
+    return 0
+
+
+def get_categories_with_overrun_buffer(config):
+    """Return set of category names that have a non-zero overrun_buffer."""
+    cats = config["match_rules"].get("categories", {})
+    return {name for name, cfg in cats.items() if cfg.get("overrun_buffer", 0) > 0}
+
+
+def get_court_preference(config, category, day_name=None):
+    """Get court preference chain for a category, optionally for a specific day.
+
+    If day_name is provided and the category has a day_overrides section
+    with an entry for that day, the day-specific preferences are used
+    (merged on top of the category defaults).
 
     Returns dict with keys: required_courts, preferred_courts,
     fallback_courts, last_resort_courts (each a list or None).
@@ -143,12 +167,24 @@ def get_court_preference(config, category):
     else:
         entry = default
 
-    return {
+    # Start with the base preference for this category
+    result = {
         "required_courts": entry.get("required_courts"),
         "preferred_courts": entry.get("preferred_courts", default.get("preferred_courts")),
         "fallback_courts": entry.get("fallback_courts", default.get("fallback_courts")),
         "last_resort_courts": entry.get("last_resort_courts", default.get("last_resort_courts")),
     }
+
+    # Apply day-specific overrides if present
+    if day_name and category in cats:
+        day_overrides = cats[category].get("day_overrides", {})
+        if day_name in day_overrides:
+            day_entry = day_overrides[day_name]
+            for key in ("required_courts", "preferred_courts", "fallback_courts", "last_resort_courts"):
+                if key in day_entry:
+                    result[key] = day_entry[key]
+
+    return result
 
 
 def get_priorities(config):

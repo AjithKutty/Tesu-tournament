@@ -105,11 +105,13 @@ categories:
   Elite:
     match_duration: 45
     rest_period: 60
+    overrun_buffer: 15           # Extra minutes of court gap before Elite matches
 ```
 
 Notes:
 - Any category not listed under `categories` uses the `default` values.
 - A match occupying more than one slot duration (e.g., 45 min with 30 min slots) blocks multiple consecutive slots on the court.
+- `overrun_buffer` ensures punctuality for the category's matches: the scheduler requires this many extra minutes of free court time before the match starts, absorbing potential overruns from the preceding match on the same court. Only applies to categories that define it.
 
 ### `court_preferences.yaml` — Court Preferences per Category
 
@@ -124,9 +126,12 @@ categories:
     fallback_courts: [1, 2, 3, 4]        # Then these
     last_resort_courts: [9, 10, 11, 12]  # Only if nothing else available
   Junior:
-    preferred_courts: [9, 10, 11, 12]
-    fallback_courts: [1, 2, 3, 4]
-    last_resort_courts: [5, 6, 7, 8]
+    required_courts: [9, 10, 11, 12]     # Saturday: must use courts 9-12
+    day_overrides:
+      Sunday:                            # On Sunday (courts 9-12 unavailable):
+        required_courts: null            #   clear the hard constraint
+        preferred_courts: [1, 2, 3, 4]   #   prefer courts 1-4 instead
+        fallback_courts: [5, 6, 7, 8]
 
 default:
   preferred_courts: [1, 2, 3, 4]
@@ -139,6 +144,7 @@ Notes:
 - `preferred_courts` → `fallback_courts` → `last_resort_courts` is a soft preference chain.
 - Court numbers that don't exist on a given day (e.g., courts 9-12 on Sunday) are automatically excluded.
 - Categories not listed use the `default` preference.
+- `day_overrides` allows per-day court preferences within a category. The day name must match a day in `venue.yaml`. Day-specific values override the base category values; set a key to `null` to clear a base constraint (e.g., clearing `required_courts` on a day where those courts are unavailable).
 
 ### `divisions.yaml` — Division Categories and Display
 

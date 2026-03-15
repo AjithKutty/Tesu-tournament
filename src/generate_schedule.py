@@ -21,7 +21,8 @@ from datetime import date
 from config import (load_config, get_tournament_name, get_priorities,
                     get_round_priority_map, get_elite_divisions,
                     get_day_constraints, get_match_duration,
-                    get_rest_period, get_court_preference,
+                    get_rest_period, get_overrun_buffer,
+                    get_court_preference,
                     get_slot_duration, build_venue_model,
                     minute_to_display as config_minute_to_display)
 
@@ -77,7 +78,8 @@ def parse_winner_ref(player_str):
 class Match:
     def __init__(self, match_id, div_code, div_name, category, round_name,
                  match_num, player1, player2, known_players, duration_min,
-                 rest_min, priority, day_constraint, prerequisites, is_elite):
+                 rest_min, priority, day_constraint, prerequisites, is_elite,
+                 overrun_buffer=0):
         self.id = match_id
         self.division_code = div_code
         self.division_name = div_name
@@ -93,6 +95,7 @@ class Match:
         self.day_constraint = day_constraint  # required day name (e.g. "Sunday") or None
         self.prerequisites = prerequisites
         self.is_elite = is_elite
+        self.overrun_buffer = overrun_buffer  # extra minutes to keep court free before this match
         self.pool_round = 0  # scheduling round within a RR pool (0-based)
         # True if actual players are known (R1/pool), False if placeholder ("Winner of...")
         self.has_real_players = bool(known_players) and not (
@@ -148,9 +151,10 @@ def load_all_matches(config):
         is_elite = div_code in elite_divisions
         duration = get_match_duration(config, category)
         rest = get_rest_period(config, category)
+        overrun_buf = get_overrun_buffer(config, category)
 
         loader_args = (data, div_code, div_name, category, is_elite, duration, rest,
-                       resolved_round_priority, priorities, day_constraint_map)
+                       resolved_round_priority, priorities, day_constraint_map, overrun_buf)
 
         if fmt == "elimination":
             matches = _load_elimination_matches(*loader_args)
@@ -177,7 +181,8 @@ def load_all_matches(config):
 
 
 def _load_elimination_matches(data, div_code, div_name, category, is_elite, duration, rest,
-                              resolved_round_priority, priorities, day_constraint_map):
+                              resolved_round_priority, priorities, day_constraint_map,
+                              overrun_buf=0):
     matches = []
     rounds = data.get("rounds", [])
 
@@ -223,6 +228,7 @@ def _load_elimination_matches(data, div_code, div_name, category, is_elite, dura
                 duration_min=duration, rest_min=rest,
                 priority=priority, day_constraint=day_constraint,
                 prerequisites=prereqs, is_elite=is_elite,
+                overrun_buffer=overrun_buf,
             )
             matches.append(match)
 
@@ -257,7 +263,8 @@ def _compute_pool_rounds(matches):
 
 
 def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, duration, rest,
-                             resolved_round_priority, priorities, day_constraint_map):
+                             resolved_round_priority, priorities, day_constraint_map,
+                             overrun_buf=0):
     matches = []
     for m in data.get("matches", []):
         match_id = make_match_id(div_code, "Pool", m["match"])
@@ -274,6 +281,7 @@ def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, durat
             duration_min=duration, rest_min=rest,
             priority=pool_priority, day_constraint=None,
             prerequisites=[], is_elite=is_elite,
+            overrun_buffer=overrun_buf,
         )
         matches.append(match)
 
@@ -283,7 +291,8 @@ def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, durat
 
 
 def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, duration, rest,
-                                resolved_round_priority, priorities, day_constraint_map):
+                                resolved_round_priority, priorities, day_constraint_map,
+                                overrun_buf=0):
     matches = []
     group_match_ids = []
 
@@ -304,6 +313,7 @@ def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, du
                 duration_min=duration, rest_min=rest,
                 priority=priorities.get("pool", 10), day_constraint=None,
                 prerequisites=[], is_elite=is_elite,
+                overrun_buffer=overrun_buf,
             )
             matches.append(match)
             group_match_ids.append(match_id)
@@ -350,6 +360,7 @@ def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, du
                     duration_min=duration, rest_min=rest,
                     priority=priority, day_constraint=day_constraint,
                     prerequisites=prereqs, is_elite=is_elite,
+                    overrun_buffer=overrun_buf,
                 )
                 matches.append(match)
 
@@ -427,6 +438,25 @@ class CourtSchedule:
                 return False
         return True
 
+    def has_buffer_before(self, court, minute, buffer_min):
+        """Check that the court has been free for buffer_min before minute.
+
+        Used for overrun buffer: ensures the preceding match's potential
+        overrun won't delay this match's start.
+        """
+        if buffer_min <= 0:
+            return True
+        slot_duration = self.venue_model["slot_duration"]
+        # Check slots in the buffer window before the match
+        slots_to_check = (buffer_min + slot_duration - 1) // slot_duration
+        for i in range(1, slots_to_check + 1):
+            t = minute - i * slot_duration
+            if t < 0:
+                break  # Before tournament start, no conflict
+            if (court, t) in self.booked:
+                return False
+        return True
+
 
 class PlayerTracker:
     def __init__(self):
@@ -447,10 +477,19 @@ class PlayerTracker:
 
 # ── Court eligibility ────────────────────────────────────────────
 
+def _day_name_for_minute(venue_model, minute):
+    """Return the day name for a given minute offset."""
+    for day in venue_model["days"]:
+        if day["start_minute"] <= minute < day["start_minute"] + 24 * 60:
+            return day["name"]
+    return None
+
+
 def get_eligible_courts(match, time_minute, config, venue_model):
     """Get ordered list of courts to try for a match at a given time."""
     category = match.category
-    pref = get_court_preference(config, category)
+    day_name = _day_name_for_minute(venue_model, time_minute)
+    pref = get_court_preference(config, category, day_name=day_name)
 
     # Build ordered court list from preference chain
     ordered = []
@@ -532,6 +571,11 @@ def schedule_matches(matches, match_by_id, config, venue_model):
             courts = get_eligible_courts(match, slot, config, venue_model)
             for court in courts:
                 if court_sched.can_book(court, slot, match.duration_min):
+                    # Overrun buffer: ensure court is free before this match
+                    if match.overrun_buffer > 0:
+                        if not court_sched.has_buffer_before(court, slot, match.overrun_buffer):
+                            continue
+
                     # Check player availability only for real-player matches
                     if match.has_real_players and match.known_players:
                         all_available = all(
@@ -628,17 +672,16 @@ def validate_schedule(matches, match_by_id, scheduled, court_sched, player_track
                     f"{id2} starts at {config_minute_to_display(venue_model, start2)}"
                 )
 
-    # Check court preferences for elite matches
-    elite_divisions = get_elite_divisions(config)
+    # Check court preferences (required_courts) for all matches
     for match in matches:
         if match.id not in scheduled:
             continue
-        if match.is_elite:
-            court, minute = scheduled[match.id]
-            pref = get_court_preference(config, match.category)
-            required = pref.get("required_courts")
-            if required and court not in required:
-                warnings.append(f"Elite on wrong court: {match.id} on court {court}")
+        court, minute = scheduled[match.id]
+        day_name = _day_name_for_minute(venue_model, minute)
+        pref = get_court_preference(config, match.category, day_name=day_name)
+        required = pref.get("required_courts")
+        if required and court not in required:
+            warnings.append(f"{match.category} on wrong court: {match.id} on court {court}")
 
     return warnings
 

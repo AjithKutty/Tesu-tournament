@@ -6,3 +6,4 @@ categories:
   Elite:
     match_duration: 45
     rest_period: 60
+    overrun_buffer: 15  # Extra minutes blocked on court before Elite matches
