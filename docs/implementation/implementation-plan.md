@@ -111,9 +111,10 @@ Same validation checks, but thresholds and constraints come from config:
 2. **Bye matches are not scheduled** — auto-advances don't need court time
 3. **Playoff sheets** are skipped (data is embedded in the main draw JSON via the `playoff` key)
 4. **Round-robin divisions** typically have no SF/Final rounds, so day constraints may not apply
-5. **Court preference is soft** (try preferred first, fall back) **except `required_courts` which is hard**
+5. **Court preference is soft** (try preferred first, fall back) **except `required_courts` which is hard**; `day_overrides` allow per-day customization
 6. **Worst-case buffering** for later rounds — guarantees no rest violations regardless of who wins
 7. **All constraints from config** — no hardcoded venue/time/court values in the scheduling code
+8. **Overrun buffer is bidirectional** — when booking a match, the court is blocked for `duration + overrun_buffer` after it AND the buffer time before it is reserved. This prevents both (a) a match being placed too close after an already-booked match, and (b) a later-scheduled match being placed too close before an earlier-scheduled high-priority match. This is necessary because matches are scheduled in priority order, not chronological order.
 
 ## Verification
 

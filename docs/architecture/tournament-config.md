@@ -100,18 +100,19 @@ Defines how long matches last and how much rest players get, per division catego
 default:
   match_duration: 30             # Minutes
   rest_period: 30                # Minutes between matches for same player
+  overrun_buffer: 15             # Extra minutes of court gap between consecutive matches
 
 categories:
   Elite:
     match_duration: 45
     rest_period: 60
-    overrun_buffer: 15           # Extra minutes of court gap before Elite matches
+    overrun_buffer: 15
 ```
 
 Notes:
 - Any category not listed under `categories` uses the `default` values.
 - A match occupying more than one slot duration (e.g., 45 min with 30 min slots) blocks multiple consecutive slots on the court.
-- `overrun_buffer` ensures punctuality for the category's matches: the scheduler requires this many extra minutes of free court time before the match starts, absorbing potential overruns from the preceding match on the same court. Only applies to categories that define it.
+- `overrun_buffer` creates a gap between consecutive matches on the same court. The court is blocked for `match_duration + overrun_buffer` after the match, and the buffer time before the match is also reserved. This bidirectional blocking ensures the buffer works regardless of scheduling order. Set to `0` to disable.
 
 ### `court_preferences.yaml` — Court Preferences per Category
 

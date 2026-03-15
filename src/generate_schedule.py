@@ -421,40 +421,53 @@ class CourtSchedule:
                 return True
         return False
 
-    def book(self, court, minute, match_id, duration_min):
-        """Book a court for a match. 45-min matches block 2 slots."""
+    def book(self, court, minute, match_id, duration_min, overrun_buffer=0):
+        """Book a court for a match.
+
+        Blocks slots for two purposes:
+        1. match_duration + overrun_buffer AFTER the start — the match
+           itself plus a gap so the next match isn't affected by overruns.
+        2. overrun_buffer BEFORE the start — reserves a gap so no
+           later-scheduled match can end too close before this one.
+
+        This bidirectional blocking ensures the buffer works regardless
+        of scheduling order (higher-priority matches are scheduled first
+        but lower-priority matches fill in around them later).
+        """
         slot_duration = self.venue_model["slot_duration"]
-        slots_needed = (duration_min + slot_duration - 1) // slot_duration
-        for i in range(slots_needed):
+
+        # Block forward: match duration + buffer after
+        total_forward = duration_min + overrun_buffer
+        slots_forward = (total_forward + slot_duration - 1) // slot_duration
+        for i in range(slots_forward):
             self.booked[(court, minute + i * slot_duration)] = match_id
 
-    def can_book(self, court, minute, duration_min):
-        """Check if a court can be booked for the full duration."""
+        # Block backward: buffer before this match's start
+        if overrun_buffer > 0:
+            slots_before = (overrun_buffer + slot_duration - 1) // slot_duration
+            for i in range(1, slots_before + 1):
+                t = minute - i * slot_duration
+                if t >= 0 and (court, t) not in self.booked:
+                    self.booked[(court, t)] = f"_buffer_{match_id}"
+
+    def can_book(self, court, minute, duration_min, overrun_buffer=0):
+        """Check if a court can be booked for duration + overrun buffer."""
         slot_duration = self.venue_model["slot_duration"]
-        slots_needed = (duration_min + slot_duration - 1) // slot_duration
-        for i in range(slots_needed):
+        total_forward = duration_min + overrun_buffer
+        slots_forward = (total_forward + slot_duration - 1) // slot_duration
+        for i in range(slots_forward):
             t = minute + i * slot_duration
             if not self.is_available(court, t):
                 return False
-        return True
 
-    def has_buffer_before(self, court, minute, buffer_min):
-        """Check that the court has been free for buffer_min before minute.
+        # Check backward buffer slots
+        if overrun_buffer > 0:
+            slots_before = (overrun_buffer + slot_duration - 1) // slot_duration
+            for i in range(1, slots_before + 1):
+                t = minute - i * slot_duration
+                if t >= 0 and not self.is_available(court, t):
+                    return False
 
-        Used for overrun buffer: ensures the preceding match's potential
-        overrun won't delay this match's start.
-        """
-        if buffer_min <= 0:
-            return True
-        slot_duration = self.venue_model["slot_duration"]
-        # Check slots in the buffer window before the match
-        slots_to_check = (buffer_min + slot_duration - 1) // slot_duration
-        for i in range(1, slots_to_check + 1):
-            t = minute - i * slot_duration
-            if t < 0:
-                break  # Before tournament start, no conflict
-            if (court, t) in self.booked:
-                return False
         return True
 
 
@@ -570,12 +583,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
 
             courts = get_eligible_courts(match, slot, config, venue_model)
             for court in courts:
-                if court_sched.can_book(court, slot, match.duration_min):
-                    # Overrun buffer: ensure court is free before this match
-                    if match.overrun_buffer > 0:
-                        if not court_sched.has_buffer_before(court, slot, match.overrun_buffer):
-                            continue
-
+                if court_sched.can_book(court, slot, match.duration_min, match.overrun_buffer):
                     # Check player availability only for real-player matches
                     if match.has_real_players and match.known_players:
                         all_available = all(
@@ -585,8 +593,8 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                         if not all_available:
                             continue
 
-                    # Book it
-                    court_sched.book(court, slot, match.id, match.duration_min)
+                    # Book it — blocks duration + overrun_buffer on the court
+                    court_sched.book(court, slot, match.id, match.duration_min, match.overrun_buffer)
                     if match.has_real_players:
                         player_tracker.update(
                             match.known_players, slot,

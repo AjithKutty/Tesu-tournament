@@ -20,15 +20,23 @@ Match durations are defined in `match_rules.yaml` per division category. A defau
 
 Players are entitled to a rest period between consecutive matches. Rest periods are defined in `match_rules.yaml` per division category, with a default for unlisted categories.
 
-### Elite Match Punctuality (Overrun Buffer)
+### Match Overrun Buffer
 
-Elite matches must start at their scheduled time with no delay. If a preceding match on the same court overruns its expected duration, it would cause the Elite match to start late — which is unacceptable.
+Matches may overrun their expected duration. To prevent cascading delays, a configurable `overrun_buffer` (in minutes) can be defined in `match_rules.yaml` per category or as a default for all categories. The buffer creates a time gap between consecutive matches on the same court, absorbing potential overruns.
 
-To prevent this, a configurable `overrun_buffer` (in minutes) is added to the effective court-blocking duration of any match scheduled on a court where an Elite match follows. This buffer creates a time gap between the expected end of the preceding match and the start of the Elite match, absorbing potential overruns.
+**How it works:**
 
-- The buffer is defined in `match_rules.yaml` under the Elite category as `overrun_buffer`.
-- When scheduling, the scheduler checks whether an Elite match is the next match on the same court. If so, the preceding match blocks the court for `match_duration + overrun_buffer` instead of just `match_duration`.
-- This constraint only applies to Elite courts. For other divisions, a match that overruns simply pushes the next match on that court to a different time or court — there is no strict punctuality requirement.
+When a match has an `overrun_buffer`, the scheduler blocks the court bidirectionally:
+- **After the match**: the court is blocked for `match_duration + overrun_buffer` instead of just `match_duration`, preventing the next match from starting too soon.
+- **Before the match**: the buffer time before the match start is also reserved, preventing a later-scheduled match from being placed too close before it.
+
+This bidirectional blocking is necessary because matches are scheduled in priority order — higher-priority matches (e.g., Elite) are placed first, and lower-priority matches fill in around them later. Without the backward reservation, a lower-priority match could be placed immediately before a higher-priority match, leaving no gap for overruns.
+
+**Configuration:**
+
+- `overrun_buffer` is defined in `match_rules.yaml` under `default` and/or per category.
+- A typical value is 15 minutes with a 30-minute slot grid, which reserves one additional slot as buffer.
+- Setting `overrun_buffer: 0` disables the buffer for that category.
 
 ### Court Preferences
 

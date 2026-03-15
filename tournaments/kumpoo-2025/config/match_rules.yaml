@@ -1,5 +1,6 @@
 default:
   match_duration: 30  # Minutes
+  overrun_buffer: 15
   rest_period: 30     # Minutes between matches for same player
 
 categories:
