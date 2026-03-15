@@ -80,6 +80,7 @@ Individual scripts can still be run standalone:
 
 Scrapes tournament data from tournamentsoftware.com as an alternative to the Excel input.
 
+- 0.5-second delay between HTTP requests to avoid throttling
 - Bypasses cookie consent wall via POST to `/cookiewall/Save`
 - Scrapes `draws.aspx` for draw list, `draw.aspx` for format/size, `drawmatches.aspx` for match data, `clubs.aspx` for club list
 - Format detection: "Cup-kaavio" = elimination, "Lohko" = round-robin, group draws detected by ` - Group X` suffix
@@ -120,6 +121,32 @@ Source: `Draws Kumpoo Tervasulan Eliitti 2025 vain kaaviot.XLSX` (from badminton
 | Junior | junior | BS/BD U11, U13, U15, U17 |
 | Veterans | veterans | MS/MD/XD 35+, MS/MD 45+ |
 | Elite | elite | MS/WS/XD V |
+
+## Schedule Generator (generate_schedule.py)
+
+Generates match schedules respecting court availability, player rest, and round ordering.
+
+- **Courts**: Saturday 12 courts (1-12) from 9:00-22:00; Sunday 8 courts (1-8), courts 1-4 until 16:00, courts 5-8 until 18:00
+- **Match durations**: Elite 45 min (blocks two 30-min slots), all others 30 min
+- **Rest periods**: Elite 60 min, all others 30 min
+- **Court preferences**: Elite and Open A prefer courts 5-8; Junior prefers courts 9-12
+- **Sessions**: Saturday Morning/Afternoon/Evening, Sunday Morning/Afternoon
+- **Scheduling algorithm**: Greedy slot assignment sorted by priority (Elite pool → pool → R1 → group/playoff → R2 → QF → SF → Final)
+- **Pool round parallelism**: Round-robin matches use graph coloring so independent matches can run simultaneously
+- **Worst-case rest buffering**: Later-round matches trace prerequisites back to R1 to find all possible players; scheduling guarantees rest even for worst-case bracket outcomes
+- **Bye matches**: Loaded but not scheduled (no court time needed)
+- **Sunday rule**: Semifinals and Finals must be on Sunday
+- **Match IDs**: Format `"{div_code}:{round_name}:M{num}"` used for prerequisite tracking
+
+## Website Generator (generate_website.py)
+
+Generates a self-contained single-page HTML website with inline CSS and vanilla JavaScript.
+
+- **Schedule cross-reference**: Lookup keyed by `(division_code, round_name, match_num)` → time/court/date annotation on match cards
+- **Bracket rendering**: Tree-style CSS connectors using `::before`/`::after` pseudo-elements (not SVG)
+- **Collapsible cards**: Division cards toggle via `.open` CSS class
+- **Schedule grid**: Time rows × court columns; 45-min matches use `rowspan="2"`
+- **Responsive**: Mobile breakpoint at 600px with horizontal scroll for tables and brackets
 
 ## Testing Changes
 
