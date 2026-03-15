@@ -655,9 +655,14 @@ def _group_matches_into_rounds(matches, is_doubles):
     return rounds_of_matches
 
 
-def build_elimination_division(matches, draw_size, is_doubles, full_results):
+def build_elimination_division(matches, draw_size, is_doubles, full_results,
+                               get_winners=False):
     """
     Build players list and rounds structure from scraped elimination matches.
+
+    When get_winners is False (default), later-round matches use structural
+    placeholders ('Winner R1-M1') instead of actual winner names from the
+    scraped data.  Only Round 1 uses real player names.
 
     Returns (players, rounds, draw_size).
     """
@@ -721,8 +726,11 @@ def build_elimination_division(matches, draw_size, is_doubles, full_results):
     # Build rounds array
     rounds = []
     for rnd_idx, rnd_name in enumerate(rnd_names):
-        if rnd_idx < len(rounds_of_matches) and rounds_of_matches[rnd_idx]:
-            # This round has actual match data
+        use_scraped = (rnd_idx < len(rounds_of_matches) and rounds_of_matches[rnd_idx]
+                       and (rnd_idx == 0 or get_winners))
+
+        if use_scraped:
+            # This round has actual match data and we're allowed to use it
             scraped = rounds_of_matches[rnd_idx]
             round_matches = []
             for m_idx, match in enumerate(scraped):
@@ -938,7 +946,7 @@ def build_playoff_bracket(draw_size, rnd_names=None):
 
 # ── Main orchestration ──────────────────────────────────────────
 
-def process_tournament(url, config, full_results=False, rescrape=False):
+def process_tournament(url, config, full_results=False, rescrape=False, get_winners=False):
     """
     Scrape a tournament from tournamentsoftware.com and write division JSON files.
 
@@ -1026,13 +1034,13 @@ def process_tournament(url, config, full_results=False, rescrape=False):
             files_written += _process_group_playoff(
                 session, base_url, tournament_id, tournament_name,
                 info, div_info, full_results, index_entries,
-                output_dir, scraped_dir, rescrape,
+                output_dir, scraped_dir, rescrape, get_winners,
             )
         else:
             files_written += _process_standalone(
                 session, base_url, tournament_id, tournament_name,
                 info, div_info["draw"], full_results, index_entries,
-                output_dir, scraped_dir, rescrape,
+                output_dir, scraped_dir, rescrape, get_winners,
             )
 
     # Write tournament index
@@ -1089,7 +1097,7 @@ def _fetch_draw_matches_cached(session, base_url, tournament_id, draw_num,
 def _process_standalone(
     session, base_url, tournament_id, tournament_name,
     info, draw, full_results, index_entries,
-    output_dir, scraped_dir, rescrape,
+    output_dir, scraped_dir, rescrape, get_winners=False,
 ):
     """Process a standalone elimination or round-robin division."""
     draw_num = draw["draw_num"]
@@ -1130,7 +1138,7 @@ def _process_standalone(
 
     if fmt == "elimination":
         players, rounds, ds = build_elimination_division(
-            matches, draw_size, info["is_doubles"], full_results
+            matches, draw_size, info["is_doubles"], full_results, get_winners
         )
         division_json["drawSize"] = ds
         division_json["players"] = players
@@ -1163,7 +1171,7 @@ def _process_standalone(
 def _process_group_playoff(
     session, base_url, tournament_id, tournament_name,
     info, div_info, full_results, index_entries,
-    output_dir, scraped_dir, rescrape,
+    output_dir, scraped_dir, rescrape, get_winners=False,
 ):
     """Process a group+playoff division."""
     files_written = 0
@@ -1284,7 +1292,7 @@ def _process_group_playoff(
 
 # ── Entry point ─────────────────────────────────────────────────
 
-def main(config=None, url=None, full_results=False, rescrape=False):
+def main(config=None, url=None, full_results=False, rescrape=False, get_winners=False):
     if config is None and url is None:
         parser = argparse.ArgumentParser(
             description="Scrape tournament data from tournamentsoftware.com"
@@ -1305,9 +1313,16 @@ def main(config=None, url=None, full_results=False, rescrape=False):
             action="store_true",
             help="Force re-scraping, ignore cached data",
         )
+        parser.add_argument(
+            "--get-winners",
+            action="store_true",
+            help="Use actual winner names in later bracket rounds "
+                 "(default: use structural placeholders)",
+        )
         args = parser.parse_args()
         full_results = args.full_results
         rescrape = args.rescrape
+        get_winners = args.get_winners
 
         if args.tournament:
             config = load_config(args.tournament)
@@ -1342,7 +1357,7 @@ def main(config=None, url=None, full_results=False, rescrape=False):
     print(f"Rescrape: {rescrape}")
     print(f"Output:  {output_dir}/\n")
 
-    index, count = process_tournament(url, config, full_results, rescrape)
+    index, count = process_tournament(url, config, full_results, rescrape, get_winners)
 
     print(f"\nGenerated {count} division JSON files + tournament_index.json")
     print(f"Total clubs: {len(index['clubs'])}\n")

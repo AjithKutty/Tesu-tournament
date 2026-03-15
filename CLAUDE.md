@@ -52,6 +52,9 @@ python src/main.py --tournament tournaments/kumpoo-2025
 python src/main.py --tournament tournaments/kumpoo-2025 --source web
 python src/main.py --tournament tournaments/kumpoo-2025 --source web --full-results
 
+# Web scraping with actual winner names in later bracket rounds:
+python src/main.py --tournament tournaments/kumpoo-2025 --source web --get-winners
+
 # Override Excel file path:
 python src/main.py --tournament tournaments/kumpoo-2025 --source excel --file "path/to/draws.xlsx"
 ```
@@ -108,6 +111,8 @@ Scrapes tournament data from tournamentsoftware.com as an alternative to the Exc
 - Club per player is NOT available from the web (only country code `[FIN]`) — set to `null`
 - Draw positions are inferred from match order in Round 1
 - `--full-results` flag adds optional `result`, `duration`, `scheduled_time`, `court` fields to match entries
+- By default, later-round elimination matches use structural placeholders (`Winner R1-M1`) instead of actual winner names from scraped data
+- `--get-winners` flag uses actual winner names from scraped data in later bracket rounds (reveals tournament results)
 
 ## Excel File Structure
 

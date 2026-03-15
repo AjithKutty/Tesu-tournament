@@ -67,6 +67,12 @@ def main():
         action="store_true",
         help="Force fresh web scraping (ignore cached data)",
     )
+    parser.add_argument(
+        "--get-winners",
+        action="store_true",
+        help="Use actual winner names from scraped data in later bracket rounds "
+             "(default: use structural placeholders like 'Winner R1-M1')",
+    )
     args = parser.parse_args()
 
     # Load config
@@ -96,7 +102,7 @@ def main():
         parse_excel_main(config=config, filepath=filepath)
     else:
         parse_web_main(config=config, url=url, full_results=full_results,
-                       rescrape=args.rescrape)
+                       rescrape=args.rescrape, get_winners=args.get_winners)
 
     print()
     print("=" * 60)

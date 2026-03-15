@@ -76,6 +76,8 @@ The tool must be tournament-agnostic: it works with any badminton tournament hos
 | PW-11 | Include a 0.5-second delay between web requests to avoid throttling. |
 | PW-12 | When `--full-results` is enabled, include optional `result`, `duration`, `scheduled_time`, and `court` fields on match entries. |
 | PW-13 | Cache all scraped data (draw list, draw metadata, match data, club list) in the tournament's `scraped/` directory for reuse. |
+| PW-14 | By default, later-round elimination matches (Round 2, QF, SF, Final) must use structural placeholders (`Winner R1-M1`, `Winner QF-M2`, etc.) instead of actual winner names from scraped data. Only Round 1 / pool matches use real player names. |
+| PW-15 | When `--get-winners` is enabled, actual winner names from scraped data are used in later-round matches instead of placeholders. This reveals tournament results in the generated output. |
 
 ### 2.4 Schedule Generation (JSON to Schedule JSON)
 
