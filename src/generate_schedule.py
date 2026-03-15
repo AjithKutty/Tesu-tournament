@@ -473,40 +473,74 @@ class CourtSchedule:
 class PlayerTracker:
     """Tracks player match history for rest-rule enforcement.
 
-    Instead of a single 'available_from' per player, stores the full
-    history of scheduled matches so that rest between any two matches
-    can be computed using the context-dependent rest rules (same division,
-    same category, or cross-division).
+    Stores the full history of scheduled matches (start, end, division,
+    category) so that rest between any two matches can be computed using
+    context-dependent rest rules.
+
+    Rest is enforced bidirectionally: a new match must have enough rest
+    after any earlier match AND before any later match already scheduled.
+    This allows independent matches to be placed in any order — a player
+    can play XD A on Saturday even if their MD A match was already
+    scheduled on Sunday, as long as rest constraints are satisfied in
+    both directions.
     """
 
     def __init__(self, config):
         self.config = config
-        # player_name -> list of (end_minute, div_code, category)
-        # sorted by end_minute ascending
+        # player_name -> list of (start_minute, end_minute, div_code, category)
         self.history = defaultdict(list)
 
-    def earliest_for_match(self, players, new_div_code, new_category):
-        """Get the earliest time when all players can start a match in the given division.
+    def can_play_at(self, players, start_minute, duration, new_div_code, new_category):
+        """Check if all players can play a match at the given time.
 
-        Checks each player's match history and applies the maximum rest
-        rule for each prior match.
+        Verifies rest constraints in both directions:
+        - Forward: enough rest after any earlier match (prior match end + rest <= start)
+        - Backward: enough rest before any later match (start + duration + rest <= later match start)
+        """
+        if not players:
+            return True
+        new_end = start_minute + duration
+        for p in players:
+            for prev_start, prev_end, prev_div, prev_cat in self.history[p]:
+                rest = compute_rest_between(
+                    self.config, prev_div, prev_cat, new_div_code, new_category
+                )
+                if prev_end <= start_minute:
+                    # Prior match ended before this one starts — check forward rest
+                    if prev_end + rest > start_minute:
+                        return False
+                elif new_end <= prev_start:
+                    # This match ends before the prior one starts — check backward rest
+                    if new_end + rest > prev_start:
+                        return False
+                else:
+                    # Overlapping — not allowed
+                    return False
+        return True
+
+    def earliest_for_match(self, players, new_div_code, new_category):
+        """Get the earliest time when all players can start, considering
+        only matches that are scheduled before the candidate time.
+
+        This provides a lower bound for slot searching. The full
+        bidirectional check is done by can_play_at().
         """
         if not players:
             return 0
         earliest = 0
         for p in players:
-            for end_min, prev_div, prev_cat in self.history[p]:
+            for _, prev_end, prev_div, prev_cat in self.history[p]:
                 rest = compute_rest_between(
                     self.config, prev_div, prev_cat, new_div_code, new_category
                 )
-                earliest = max(earliest, end_min + rest)
+                earliest = max(earliest, prev_end + rest)
         return earliest
 
     def update(self, players, match_start, duration, div_code, category):
         """Record a scheduled match for player availability tracking."""
         end_min = match_start + duration
         for p in players:
-            self.history[p].append((end_min, div_code, category))
+            self.history[p].append((match_start, end_min, div_code, category))
 
 
 # ── Court eligibility ────────────────────────────────────────────
@@ -574,24 +608,29 @@ def schedule_matches(matches, match_by_id, config, venue_model):
         m.match_num, m.division_code
     ))
 
-    for match in sorted_matches:
-        # Compute earliest start time
-        earliest = 0
+    # Track matches that can't be scheduled because a prerequisite failed
+    unschedulable = set()
 
-        # Player availability — only for matches with real (known) players
-        # Uses context-dependent rest rules (same div, same cat, cross-div)
-        if match.has_real_players and match.known_players:
-            earliest = max(earliest, player_tracker.earliest_for_match(
-                match.known_players, match.division_code, match.category
-            ))
+    for match in sorted_matches:
+        # If any non-bye prerequisite was unschedulable, this match is too
+        prereq_failed = False
+        for prereq_id in match.prerequisites:
+            if prereq_id in unschedulable:
+                prereq_failed = True
+                break
+        if prereq_failed:
+            unschedulable.add(match.id)
+            unscheduled.append(match)
+            continue
+
+        # Compute earliest start time from hard constraints
+        # (player rest is checked bidirectionally per-slot via can_play_at)
+        earliest = 0
 
         # Prerequisite constraint — feeder matches must finish + minimum rest
         for prereq_id in match.prerequisites:
             if prereq_id in scheduled_end:
                 earliest = max(earliest, scheduled_end[prereq_id] + min_prereq_rest)
-            elif prereq_id not in scheduled:
-                # Prerequisite wasn't scheduled (maybe it was a bye that got skipped)
-                pass
 
         # Day constraint (e.g. SF/Final must be on Sunday)
         if match.day_constraint:
@@ -611,12 +650,12 @@ def schedule_matches(matches, match_by_id, config, venue_model):
             courts = get_eligible_courts(match, slot, config, venue_model)
             for court in courts:
                 if court_sched.can_book(court, slot, match.duration_min, match.overrun_buffer):
-                    # Check player availability for real-player matches
+                    # Check player availability bidirectionally
                     if match.has_real_players and match.known_players:
-                        player_earliest = player_tracker.earliest_for_match(
-                            match.known_players, match.division_code, match.category
-                        )
-                        if player_earliest > slot:
+                        if not player_tracker.can_play_at(
+                            match.known_players, slot, match.duration_min,
+                            match.division_code, match.category
+                        ):
                             continue
 
                     # Book it — blocks duration + overrun_buffer on the court
@@ -634,6 +673,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 break
 
         if not placed:
+            unschedulable.add(match.id)
             unscheduled.append(match)
 
     return scheduled, unscheduled, court_sched, player_tracker
