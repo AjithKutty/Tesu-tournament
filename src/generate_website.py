@@ -19,6 +19,35 @@ from config import (load_config, get_tournament_name, get_tab_config,
                      get_category_order)
 
 
+def _hex_to_rgb(hex_color):
+    """Convert '#RRGGBB' to (r, g, b) tuple."""
+    hex_color = hex_color.lstrip('#')
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+
+def _rgb_to_hex(r, g, b):
+    """Convert (r, g, b) to '#RRGGBB'."""
+    return f'#{int(r):02x}{int(g):02x}{int(b):02x}'
+
+
+def _vary_color(base_hex, index, total):
+    """Generate a color variation from a base hex color.
+
+    Shifts lightness slightly for each division within a category,
+    keeping hue consistent.  index 0 = base color, higher = lighter.
+    """
+    if total <= 1:
+        return base_hex
+    r, g, b = _hex_to_rgb(base_hex)
+    # Shift towards lighter or darker — spread evenly across range
+    # Center on the base, go darker for first half, lighter for second
+    offset = (index - (total - 1) / 2) * (30 / max(total - 1, 1))
+    r = max(0, min(255, r + offset))
+    g = max(0, min(255, g + offset))
+    b = max(0, min(255, b + offset))
+    return _rgb_to_hex(r, g, b)
+
+
 def h(text):
     """HTML-escape text."""
     return escape(str(text)) if text else ""
@@ -453,7 +482,8 @@ def render_players_tab(player_matches, badge_lookup):
         matches = player_matches[name]
         cards = []
         for m in matches:
-            badge = badge_lookup.get(m["category"], "badge-open")
+            badge = badge_lookup.get(m["division"],
+                    badge_lookup.get(m["category"], "badge-open"))
             opp = h(m["opponent"])
             partner_html = ""
             if m.get("partner"):
@@ -501,10 +531,6 @@ CSS = """:root {
     --text: #2d3748;
     --text-light: #718096;
     --border: #e2e8f0;
-    --junior: #38a169;
-    --open: #3182ce;
-    --veterans: #dd6b20;
-    --elite: #805ad5;
     --shadow: 0 2px 8px rgba(0,0,0,0.08);
   }
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -535,10 +561,7 @@ CSS = """:root {
   .division-header .left { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
   .division-header h3 { font-size: 1.05rem; font-weight: 600; }
   .badge { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 20px; font-size: 0.7rem; font-weight: 700; color: white; text-transform: uppercase; letter-spacing: 0.04em; }
-  .badge-junior { background: var(--junior); }
-  .badge-open { background: var(--open); }
-  .badge-veterans { background: var(--veterans); }
-  .badge-elite { background: var(--elite); }
+  /* Badge colors are generated from divisions.yaml config */
   .format-tag { font-size: 0.78rem; color: var(--text-light); background: var(--bg); padding: 0.2rem 0.6rem; border-radius: 6px; }
   .chevron { font-size: 1.2rem; color: var(--text-light); transition: transform 0.3s; }
   .division-card.open .chevron { transform: rotate(180deg); }
@@ -706,7 +729,8 @@ def render_schedule_grid(session_data, badge_lookup):
                 continue  # rowspan from previous row already covers this cell
             elif (t, c) in grid:
                 m = grid[(t, c)]
-                badge = badge_lookup.get(m.get("category", ""), "badge-open")
+                badge = badge_lookup.get(m.get("division", ""),
+                        badge_lookup.get(m.get("category", ""), "badge-open"))
                 div_code = h(m["division"])
                 rnd = h(m.get("round", ""))
                 mnum = m.get("match_num", "")
@@ -774,11 +798,6 @@ def generate_html(config, schedule_lookup=None, all_sessions=None):
     tab_config = get_tab_config(config)
     description = config["tournament"].get("description", "")
 
-    # Build badge lookup from tab config
-    badge_lookup = {}
-    for tab in tab_config:
-        badge_lookup[tab["category"]] = tab["badge_class"]
-
     # Load index
     with open(os.path.join(divisions_dir, "tournament_index.json"), encoding="utf-8") as f:
         index = json.load(f)
@@ -792,6 +811,35 @@ def generate_html(config, schedule_lookup=None, all_sessions=None):
         if cat not in by_category:
             by_category[cat] = []
         by_category[cat].append(entry)
+
+    # Build per-division badge lookup and generate badge CSS
+    # Each division gets its own color, varied from the category base color.
+    # Optional division_colors in divisions.yaml can override specific divisions.
+    division_colors_config = config["divisions"].get("division_colors", {})
+    badge_lookup = {}      # division_code -> badge_class
+    category_badge = {}    # category -> badge_class (fallback)
+    badge_css_lines = []
+
+    for tab in tab_config:
+        cat = tab["category"]
+        base_color = tab.get("badge_color", "#3182ce")
+        category_badge[cat] = tab["badge_class"]
+
+        divs_in_cat = by_category.get(cat, [])
+        for i, entry in enumerate(divs_in_cat):
+            div_code = entry["code"]
+            safe_class = "badge-" + div_code.lower().replace(" ", "-").replace("/", "")
+            badge_lookup[div_code] = safe_class
+
+            # Use explicit override, or auto-vary from base
+            if div_code in division_colors_config:
+                color = division_colors_config[div_code]
+            else:
+                color = _vary_color(base_color, i, len(divs_in_cat))
+
+            badge_css_lines.append(f'  .{safe_class} {{ background: {color}; }}')
+
+    badge_css = "\n".join(badge_css_lines)
 
     # Filter tab config to only categories present in data
     active_tabs = [tab for tab in tab_config if tab["category"] in by_category]
@@ -832,7 +880,8 @@ def generate_html(config, schedule_lookup=None, all_sessions=None):
             filepath = os.path.join(divisions_dir, entry["file"])
             with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
-            cards.append(render_division_card(data, tab["badge_class"], schedule_lookup))
+            div_badge = badge_lookup.get(entry["code"], tab["badge_class"])
+            cards.append(render_division_card(data, div_badge, schedule_lookup))
 
         panel = f"""<div class="tab-panel{active}" id="tab-{tab['tab_id']}">
 <div class="cat-header">
@@ -876,6 +925,7 @@ def generate_html(config, schedule_lookup=None, all_sessions=None):
 <title>{h(tournament_name)}</title>
 <style>
 {CSS}
+{badge_css}
 </style>
 </head>
 <body>
