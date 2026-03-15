@@ -1,6 +1,6 @@
-# Kumpoo Tervasulan Eliitti 2025 — Tournament Website
+# Badminton Tournament Website Generator
 
-Badminton tournament website generator. Reads draw data from either an Excel export or a tournamentsoftware.com URL, generates match schedules, and builds a single-page HTML website.
+Generates match schedules and single-page HTML websites for badminton tournaments. Reads draw data from either an Excel export or a tournamentsoftware.com URL. Each tournament has its own configuration, input, and output directory.
 
 ## Project Structure
 
@@ -12,69 +12,88 @@ Tesu-Tournament/
 │   ├── parse_web.py                 # Web scraper → JSON parser (same output format)
 │   ├── generate_schedule.py         # JSON → schedule JSON
 │   └── generate_website.py          # JSON → HTML website
-├── output/
-│   ├── divisions/                   # Generated JSON files (one per division)
-│   │   ├── tournament_index.json    # Master index of all divisions
-│   │   └── *.json                   # Per-division data files
-│   ├── schedules/                   # Generated schedule JSON files
-│   │   ├── schedule_index.json      # Schedule session index
-│   │   └── *.json                   # Per-session schedule files
-│   └── webpages/
-│       └── index.html               # Generated single-page website
+├── tournaments/
+│   └── <tournament-name>/           # One folder per tournament
+│       ├── config/
+│       │   ├── tournament.yaml      # Name, description, input source
+│       │   ├── venue.yaml           # Days, sessions, courts, end times
+│       │   ├── match_rules.yaml     # Match durations, rest periods per category
+│       │   ├── court_preferences.yaml # Court preferences per category
+│       │   ├── divisions.yaml       # Division → category mapping, tabs, format overrides
+│       │   └── scheduling.yaml      # Priorities, day constraints
+│       ├── input/                   # Input files (Excel workbooks)
+│       ├── scraped/                 # Cached web scrape data
+│       └── output/
+│           ├── divisions/           # Generated division JSON files
+│           ├── schedules/           # Generated schedule JSON files
+│           └── webpages/            # Generated HTML website
 ├── docs/
 │   ├── requirements/
 │   │   ├── requirements.md
 │   │   └── scheduling-rules.md
 │   ├── architecture/
-│   │   └── scheduling-proposal.md
+│   │   ├── scheduling-proposal.md
+│   │   └── tournament-config.md     # Config file architecture and format
 │   └── implementation/
 │       ├── implementation-plan.md
 │       ├── website-schedule-plan.md
 │       └── web-scraper-plan.md
-├── requirements.txt                 # Python deps (openpyxl, requests, beautifulsoup4, lxml)
-├── CLAUDE.md
-└── Draws Kumpoo...XLSX              # Source Excel file from Badminton Finland
+├── requirements.txt                 # Python deps (openpyxl, requests, beautifulsoup4, lxml, pyyaml)
+└── CLAUDE.md
 ```
 
 ## Workflow
 
 ```bash
-# Excel mode (default):
-python src/main.py
-python src/main.py --source excel --file "path/to/draws.xlsx"
+# Run full pipeline for a tournament:
+python src/main.py --tournament tournaments/kumpoo-2025
 
-# Web scraping mode:
-python src/main.py --source web --url "https://badmintonfinland.tournamentsoftware.com/sport/draws.aspx?id=..."
+# Override input source via CLI:
+python src/main.py --tournament tournaments/kumpoo-2025 --source web
+python src/main.py --tournament tournaments/kumpoo-2025 --source web --full-results
 
-# Web scraping with match results, scores, durations:
-python src/main.py --source web --url "..." --full-results
+# Override Excel file path:
+python src/main.py --tournament tournaments/kumpoo-2025 --source excel --file "path/to/draws.xlsx"
 ```
 
 The pipeline:
 ```
-Excel (.XLSX) or Web URL
-        │
-        ▼
+Tournament Config (YAML) ──────────────────────────┐
+        │                                          │
+Excel (.XLSX) or Web URL                           │
+        │                                          │
+        ▼                                          ▼
   parse_tournament.py / parse_web.py  →  output/divisions/*.json
-  generate_schedule.py                →  output/schedules/*.json
-  generate_website.py                 →  output/webpages/index.html
+  generate_schedule.py  ← config      →  output/schedules/*.json
+  generate_website.py   ← config      →  output/webpages/index.html
 ```
 
-Individual scripts can still be run standalone:
-1. `python src/parse_tournament.py` — Reads the Excel file and writes JSON files into `output/divisions/`
-2. `python src/parse_web.py "URL"` — Scrapes tournamentsoftware.com and writes identical JSON files
-3. `python src/generate_schedule.py` — Reads division data and generates schedule into `output/schedules/`
-4. `python src/generate_website.py` — Reads divisions + schedules and generates `output/webpages/index.html`
+Individual scripts can still be run standalone with `--tournament`:
+1. `python src/parse_tournament.py --tournament tournaments/kumpoo-2025`
+2. `python src/parse_web.py --tournament tournaments/kumpoo-2025`
+3. `python src/generate_schedule.py --tournament tournaments/kumpoo-2025`
+4. `python src/generate_website.py --tournament tournaments/kumpoo-2025`
 
 ## Key Conventions
 
-- **Do not hand-edit `output/webpages/index.html`** — it is generated output. Change `src/generate_website.py` instead.
-- **Do not hand-edit `output/divisions/*.json`** — they are generated output. Fix `src/parse_tournament.py` or `src/parse_web.py` instead.
-- **Do not hand-edit `output/schedules/*.json`** — they are generated output. Fix `src/generate_schedule.py` instead.
-- Python 3 with `openpyxl`, `requests`, `beautifulsoup4`, `lxml`. Install via `pip install -r requirements.txt`.
+- **Do not hand-edit files under `tournaments/*/output/`** — they are generated. Change source scripts or config instead.
+- Python 3 with `openpyxl`, `requests`, `beautifulsoup4`, `lxml`, `pyyaml`. Install via `pip install -r requirements.txt`.
 - No template engines or frontend frameworks — pure Python string formatting for HTML generation.
-- Single-page website with 8 tabs: Open A, Open B, Open C, Junior, Veterans, Elite, Clubs, Schedule.
+- Website tabs are derived from categories present in the data and configured in `divisions.yaml`.
 - Both input modes (Excel and web) produce identical JSON output format — downstream pipeline is shared.
+
+## Tournament Configuration
+
+Each tournament is configured via 6 YAML files in `tournaments/<name>/config/`. See `docs/architecture/tournament-config.md` for full specification.
+
+| Config file | Purpose |
+|---|---|
+| `tournament.yaml` | Tournament name, description, input source |
+| `venue.yaml` | Days, sessions, court availability, slot duration |
+| `match_rules.yaml` | Match durations and rest periods per category |
+| `court_preferences.yaml` | Court preferences/restrictions per category |
+| `divisions.yaml` | Event names, level→category mapping, tab display, format overrides |
+| `scheduling.yaml` | Scheduling priorities, day constraints, elite divisions |
 
 ## Web Scraper (parse_web.py)
 
@@ -83,18 +102,16 @@ Scrapes tournament data from tournamentsoftware.com as an alternative to the Exc
 - 0.5-second delay between HTTP requests to avoid throttling
 - Bypasses cookie consent wall via POST to `/cookiewall/Save`
 - Scrapes `draws.aspx` for draw list, `draw.aspx` for format/size, `drawmatches.aspx` for match data, `clubs.aspx` for club list
+- Scraped data is cached in `tournaments/<name>/scraped/` for reuse; `--rescrape` forces fresh fetch
 - Format detection: "Cup-kaavio" = elimination, "Lohko" = round-robin, group draws detected by ` - Group X` suffix
-- Round detection for elimination brackets: uses player recurrence to detect round boundaries (since byes are not listed on the web)
+- Round detection for elimination brackets: uses player recurrence to detect round boundaries
 - Club per player is NOT available from the web (only country code `[FIN]`) — set to `null`
 - Draw positions are inferred from match order in Round 1
 - `--full-results` flag adds optional `result`, `duration`, `scheduled_time`, `court` fields to match entries
 
 ## Excel File Structure
 
-Source: `Draws Kumpoo Tervasulan Eliitti 2025 vain kaaviot.XLSX` (from badmintonfinland.tournamentsoftware.com)
-
-- 32 sheets, one per division draw
-- Sheet naming: `{EVENT} {LEVEL}-{Main Draw|Playoff}` (e.g., `MS C-Main Draw`, `BS U17-Playoff`)
+- Sheets named `{EVENT} {LEVEL}-{Main Draw|Playoff}` (e.g., `MS C-Main Draw`, `BS U17-Playoff`)
 - Column A = draw position, B = status (WDN/SUB), C = club, E = player name
 - **Critical**: Use `str(c.value).strip()` when reading cells — raw `c.value is not None` catches ghost whitespace rows
 
@@ -111,56 +128,54 @@ Source: `Draws Kumpoo Tervasulan Eliitti 2025 vain kaaviot.XLSX` (from badminton
 - Elimination doubles: partner 1 on row *before* the A-numbered row (no A value), partner 2 on the A-numbered row
 - Round-robin doubles: both names in one cell separated by `\n`
 
-## Division Categories
-
-| Category | Tab ID | Events |
-|---|---|---|
-| Open A | opena | MS, MD, WD, XD |
-| Open B | openb | MS, WS, MD, XD |
-| Open C | open | MS, WS, MD, WD, XD |
-| Junior | junior | BS/BD U11, U13, U15, U17 |
-| Veterans | veterans | MS/MD/XD 35+, MS/MD 45+ |
-| Elite | elite | MS/WS/XD V |
-
 ## Schedule Generator (generate_schedule.py)
 
-Generates match schedules respecting court availability, player rest, and round ordering.
+Generates match schedules respecting court availability, player rest, and round ordering. All constraints are read from the tournament's config files.
 
-- **Courts**: Saturday 12 courts (1-12) from 9:00-22:00; Sunday 8 courts (1-8), courts 1-4 until 16:00, courts 5-8 until 18:00
-- **Match durations**: Elite 45 min (blocks two 30-min slots), all others 30 min
-- **Rest periods**: Elite 60 min, all others 30 min
-- **Court preferences**: Elite and Open A prefer courts 5-8; Junior prefers courts 9-12
-- **Sessions**: Saturday Morning/Afternoon/Evening, Sunday Morning/Afternoon
-- **Scheduling algorithm**: Greedy slot assignment sorted by priority (Elite pool → pool → R1 → group/playoff → R2 → QF → SF → Final)
+- **Courts**: Defined in `venue.yaml` — days, court numbers, per-court end times
+- **Match durations**: From `match_rules.yaml` — per category (e.g., Elite 45 min, default 30 min)
+- **Rest periods**: From `match_rules.yaml` — per category (e.g., Elite 60 min, default 30 min)
+- **Court preferences**: From `court_preferences.yaml` — required/preferred/fallback/last-resort per category
+- **Sessions**: From `venue.yaml` — named time blocks within each day
+- **Scheduling priorities**: From `scheduling.yaml` — priority ordering and day constraints
+- **Scheduling algorithm**: Greedy slot assignment sorted by priority
 - **Pool round parallelism**: Round-robin matches use graph coloring so independent matches can run simultaneously
-- **Worst-case rest buffering**: Later-round matches trace prerequisites back to R1 to find all possible players; scheduling guarantees rest even for worst-case bracket outcomes
+- **Worst-case rest buffering**: Later-round matches trace prerequisites back to R1; scheduling guarantees rest for worst-case bracket outcomes
 - **Bye matches**: Loaded but not scheduled (no court time needed)
-- **Sunday rule**: Semifinals and Finals must be on Sunday
 - **Match IDs**: Format `"{div_code}:{round_name}:M{num}"` used for prerequisite tracking
 
 ## Website Generator (generate_website.py)
 
 Generates a self-contained single-page HTML website with inline CSS and vanilla JavaScript.
 
+- **Tournament name**: Read from `tournament.yaml` for title, header, and footer
+- **Tab structure**: Derived from categories in data + tab order from `divisions.yaml`
 - **Schedule cross-reference**: Lookup keyed by `(division_code, round_name, match_num)` → time/court/date annotation on match cards
 - **Bracket rendering**: Tree-style CSS connectors using `::before`/`::after` pseudo-elements (not SVG)
 - **Collapsible cards**: Division cards toggle via `.open` CSS class
-- **Schedule grid**: Time rows × court columns; 45-min matches use `rowspan="2"`
+- **Schedule grid**: Time rows × court columns; multi-slot matches use appropriate `rowspan`
 - **Responsive**: Mobile breakpoint at 600px with horizontal scroll for tables and brackets
 
 ## Testing Changes
 
-After modifying any script, run the full pipeline with both input modes:
+After modifying any script, run the full pipeline:
 ```bash
-python src/main.py                          # Excel mode
-python src/main.py --source web --url "..."  # Web mode
+python src/main.py --tournament tournaments/kumpoo-2025
+python src/main.py --tournament tournaments/kumpoo-2025 --source web
 ```
-Then open `output/webpages/index.html` in a browser and verify:
-- All 8 tabs work (Open A/B/C, Junior, Veterans, Elite, Clubs, Schedule)
+Then open `tournaments/kumpoo-2025/output/webpages/index.html` in a browser and verify:
+- All category tabs present in the data work correctly
 - Elimination divisions show full bracket (R1 through Final) with tree-style connectors
 - Group+playoff divisions show groups + playoff bracket
 - Round-robin divisions show VS match cards
 - Schedule annotations (time + court) on match cards
 - Schedule tab shows session sub-tabs with time × court grids
-- 45-min Elite matches span two rows in schedule grid
+- Multi-slot matches (e.g., 45-min Elite) span correct number of rows in schedule grid
 - No "Bye" entries in player lists
+
+## Creating a New Tournament
+
+1. Create `tournaments/<name>/` with subdirectories: `config/`, `input/`, `scraped/`, `output/`
+2. Copy and modify the 6 YAML config files from an existing tournament
+3. Place input Excel file in `input/` (or configure web URL in `tournament.yaml`)
+4. Run: `python src/main.py --tournament tournaments/<name>`

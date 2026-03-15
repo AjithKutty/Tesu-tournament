@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 .claude/
 output/
+tournaments/*/output/
+tournaments/*/scraped/
+tournaments/*/input/*.XLSX
+tournaments/*/input/*.xlsx

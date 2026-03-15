@@ -1,0 +1,14 @@
+categories:
+  Elite:
+    required_courts: [5, 6, 7, 8]
+  Open A:
+    preferred_courts: [5, 6, 7, 8]
+    fallback_courts: [1, 2, 3, 4]
+
+  Junior:
+    required_courts: [9, 10, 11, 12]
+
+default:
+  preferred_courts: [5, 6, 7, 8]
+  fallback_courts: [1, 2, 3, 4]
+#  last_resort_courts: [9, 10, 11, 12]

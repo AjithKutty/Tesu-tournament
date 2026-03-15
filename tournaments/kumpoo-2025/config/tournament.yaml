@@ -1,0 +1,8 @@
+name: "Kumpoo Tervasulan Eliitti 2025"
+description: "Badminton tournament organized by Tervasulka"
+
+input:
+  source: excel
+  excel_file: "Draws Kumpoo Tervasulan Eliitti 2025 vain kaaviot.XLSX"
+  web_url: "https://badmintonfinland.tournamentsoftware.com/sport/draws.aspx?id=48aae77a-2b2d-489f-863c-42a62af6d7bd"
+  full_results: false

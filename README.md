@@ -1,16 +1,19 @@
-# Kumpoo Tervasulan Eliitti 2025 — Tournament Website
+# Badminton Tournament Website Generator
 
-A badminton tournament website generator that reads draw data from either an Excel export or a [tournamentsoftware.com](https://tournamentsoftware.com) URL, generates match schedules, and builds a self-contained single-page HTML website.
+A configurable badminton tournament website generator that reads draw data from either an Excel export or a [tournamentsoftware.com](https://tournamentsoftware.com) URL, generates match schedules, and builds a self-contained single-page HTML website.
 
-Built for the **Kumpoo Tervasulan Eliitti 2025** tournament organized by [Tervasulka badminton club](https://tervasulka.fi/).
+Each tournament has its own directory with YAML configuration files defining venue, courts, match rules, and division categories — no code changes needed to set up a new tournament.
 
 ## Features
 
+- **Multi-tournament support**: Each tournament gets its own config, input, and output directory
+- **YAML configuration**: Venue, courts, match rules, court preferences, divisions, and scheduling priorities are all configurable per tournament
 - **Dual input modes**: Parse draws from an Excel workbook (Badminton Finland export) or scrape directly from tournamentsoftware.com
-- **Automatic schedule generation**: Greedy scheduling algorithm with court preferences, rest periods, round ordering, and worst-case rest buffering
-- **Single-page website**: 8 tabbed sections (Open A/B/C, Junior, Veterans, Elite, Clubs, Schedule) with collapsible division cards
+- **Scrape caching**: Web-scraped data is cached locally to avoid redundant HTTP requests
+- **Automatic schedule generation**: Greedy scheduling algorithm with configurable court preferences, rest periods, round ordering, and worst-case rest buffering
+- **Single-page website**: Tabbed sections derived from tournament divisions, with collapsible division cards
 - **Bracket visualization**: Tree-style elimination brackets with CSS connectors
-- **Schedule grid**: Time x court grid with session sub-tabs (Saturday Morning/Afternoon/Evening, Sunday Morning/Afternoon)
+- **Schedule grid**: Time x court grid with session sub-tabs
 - **Self-contained output**: Single HTML file with inline CSS and vanilla JavaScript — no external dependencies
 
 ## Prerequisites
@@ -41,7 +44,19 @@ Built for the **Kumpoo Tervasulan Eliitti 2025** tournament organized by [Tervas
    pip install -r requirements.txt
    ```
 
-   This installs: `openpyxl`, `requests`, `beautifulsoup4`, `lxml`.
+   This installs: `openpyxl`, `requests`, `beautifulsoup4`, `lxml`, `pyyaml`.
+
+## Quick Start
+
+```bash
+# Run the full pipeline for an existing tournament:
+python src/main.py --tournament tournaments/kumpoo-2025
+
+# View the generated website:
+open tournaments/kumpoo-2025/output/webpages/index.html       # macOS
+start tournaments/kumpoo-2025/output/webpages/index.html      # Windows
+xdg-open tournaments/kumpoo-2025/output/webpages/index.html   # Linux
+```
 
 ## Usage
 
@@ -50,17 +65,17 @@ Built for the **Kumpoo Tervasulan Eliitti 2025** tournament organized by [Tervas
 Run all three steps (parse, schedule, generate website) in one command:
 
 ```bash
-# From Excel file (default — looks for the .xlsx file in the project root):
-python src/main.py
+# Using tournament config defaults (input source from tournament.yaml):
+python src/main.py --tournament tournaments/kumpoo-2025
 
-# From Excel file at a custom path:
-python src/main.py --source excel --file "path/to/draws.xlsx"
+# Override to use Excel input:
+python src/main.py --tournament tournaments/kumpoo-2025 --source excel --file "path/to/draws.xlsx"
 
-# From tournamentsoftware.com URL:
-python src/main.py --source web --url "https://badmintonfinland.tournamentsoftware.com/sport/draws.aspx?id=..."
+# Override to use web scraping:
+python src/main.py --tournament tournaments/kumpoo-2025 --source web --url "https://badmintonfinland.tournamentsoftware.com/sport/draws.aspx?id=..."
 
-# From web with match results, scores, and durations:
-python src/main.py --source web --url "..." --full-results
+# Web scraping with match results, scores, and durations:
+python src/main.py --tournament tournaments/kumpoo-2025 --source web --full-results
 ```
 
 ### Individual scripts
@@ -69,50 +84,97 @@ Each pipeline stage can be run independently:
 
 ```bash
 # 1. Parse Excel → JSON
-python src/parse_tournament.py
+python src/parse_tournament.py --tournament tournaments/kumpoo-2025
 
 # 1. (Alternative) Scrape web → JSON
-python src/parse_web.py "https://badmintonfinland.tournamentsoftware.com/sport/draws.aspx?id=..."
+python src/parse_web.py --tournament tournaments/kumpoo-2025
 
 # 2. Generate schedule from division JSON
-python src/generate_schedule.py
+python src/generate_schedule.py --tournament tournaments/kumpoo-2025
 
 # 3. Generate website from divisions + schedule JSON
-python src/generate_website.py
-```
-
-### Viewing the output
-
-After running the pipeline, open the generated website in a browser:
-
-```bash
-# Linux/macOS
-open output/webpages/index.html
-
-# Windows
-start output/webpages/index.html
+python src/generate_website.py --tournament tournaments/kumpoo-2025
 ```
 
 ## Pipeline
 
 ```
-Excel (.XLSX) or Web URL
-        │
-        ▼
+Tournament Config (YAML) ──────────────────────────┐
+        │                                          │
+Excel (.XLSX) or Web URL                           │
+        │                                          │
+        ▼                                          ▼
   parse_tournament.py / parse_web.py  →  output/divisions/*.json
-  generate_schedule.py                →  output/schedules/*.json
-  generate_website.py                 →  output/webpages/index.html
+  generate_schedule.py  ← config      →  output/schedules/*.json
+  generate_website.py   ← config      →  output/webpages/index.html
 ```
 
-## Output
+## Tournament Directory Structure
 
-All generated files go into `output/` (git-ignored):
+Each tournament lives in its own folder under `tournaments/`:
 
-| Directory | Contents |
-|-----------|----------|
-| `output/divisions/` | One JSON file per division draw + `tournament_index.json` master index |
-| `output/schedules/` | One JSON file per session + `schedule_index.json` session index |
-| `output/webpages/` | `index.html` — the final single-page website |
+```
+tournaments/kumpoo-2025/
+├── config/
+│   ├── tournament.yaml          # Name, description, input source
+│   ├── venue.yaml               # Days, sessions, court availability
+│   ├── match_rules.yaml         # Match durations and rest periods per category
+│   ├── court_preferences.yaml   # Court preferences/restrictions per category
+│   ├── divisions.yaml           # Division → category mapping, tab styling, format overrides
+│   └── scheduling.yaml          # Priorities, day constraints
+├── input/                       # Input files (Excel workbooks)
+├── scraped/                     # Cached web scrape data
+└── output/                      # Generated files (git-ignored)
+    ├── divisions/               # One JSON per division + tournament_index.json
+    ├── schedules/               # One JSON per session + schedule_index.json
+    └── webpages/                # index.html — the final single-page website
+```
+
+## Configuration
+
+Tournament behavior is controlled by 6 YAML config files. See `docs/architecture/tournament-config.md` for the full specification.
+
+| Config file | Purpose | Key settings |
+|---|---|---|
+| `tournament.yaml` | Tournament identity | Name, description, default input source |
+| `venue.yaml` | Venue and schedule | Days, start/end times, court groups, session boundaries, slot duration |
+| `match_rules.yaml` | Match timing | Duration and rest period per category (e.g., Elite: 45 min match, 60 min rest) |
+| `court_preferences.yaml` | Court assignment | Required/preferred/fallback courts per category |
+| `divisions.yaml` | Division mapping | Event names, level→category mapping, website tab order and styling, format overrides |
+| `scheduling.yaml` | Scheduling logic | Priority ordering, round-priority mapping, day constraints (e.g., SF/Finals on Sunday) |
+
+## Creating a New Tournament
+
+1. Create the tournament directory structure:
+
+   ```bash
+   mkdir -p tournaments/my-tournament/config
+   mkdir -p tournaments/my-tournament/input
+   mkdir -p tournaments/my-tournament/scraped
+   mkdir -p tournaments/my-tournament/output
+   ```
+
+2. Copy config files from an existing tournament and modify them:
+
+   ```bash
+   cp tournaments/kumpoo-2025/config/*.yaml tournaments/my-tournament/config/
+   ```
+
+3. Edit the config files for your tournament:
+   - `tournament.yaml` — set the tournament name and input source
+   - `venue.yaml` — define your days, courts, and sessions
+   - `match_rules.yaml` — set match durations and rest periods
+   - `court_preferences.yaml` — set court preferences per category
+   - `divisions.yaml` — define your event names, categories, and website tabs
+   - `scheduling.yaml` — set priorities and day constraints
+
+4. Place input files (Excel workbook) in the `input/` directory, or configure the web URL in `tournament.yaml`.
+
+5. Run the pipeline:
+
+   ```bash
+   python src/main.py --tournament tournaments/my-tournament
+   ```
 
 ## Project Structure
 
@@ -124,53 +186,34 @@ Tesu-Tournament/
 │   ├── parse_web.py             # Web scraper → JSON parser
 │   ├── generate_schedule.py     # JSON → schedule JSON
 │   └── generate_website.py      # JSON → single-page HTML
-├── output/                      # Generated files (git-ignored)
+├── tournaments/                 # One folder per tournament (config + input + output)
 ├── docs/
 │   ├── requirements/            # Functional & scheduling requirements
-│   ├── architecture/            # Scheduling algorithm design
+│   ├── architecture/            # Config architecture, scheduling algorithm design
 │   └── implementation/          # Implementation plans
 ├── requirements.txt
-├── CLAUDE.md                    # AI assistant project instructions
-└── *.XLSX                       # Source Excel file (Badminton Finland export)
+└── CLAUDE.md                    # AI assistant project instructions
 ```
 
 ## Input Formats
 
 ### Excel mode
 
-Expects an `.xlsx` workbook exported from badmintonfinland.tournamentsoftware.com with one sheet per division draw. Supports three draw formats:
+Expects an `.xlsx` workbook exported from tournamentsoftware.com with one sheet per division draw. Supports three draw formats:
 
 - **Elimination bracket** — standard knockout draws (detected by "Round 1" header)
 - **Round-robin** — all-vs-all pools (detected by numbered column headers)
 - **Group + Playoff** — group stages followed by a knockout bracket
 
+Format detection is automatic. Per-division overrides can be specified in `divisions.yaml`.
+
 ### Web scraping mode
 
-Scrapes tournament data directly from tournamentsoftware.com. Handles cookie consent walls automatically. Note: club-per-player data is not available from the web (only country codes).
+Scrapes tournament data directly from tournamentsoftware.com. Handles cookie consent walls automatically. Scraped data is cached in the tournament's `scraped/` directory.
+
+Note: club-per-player data is not available from the web (only country codes).
 
 The `--full-results` flag additionally scrapes match results, scores, durations, scheduled times, and court assignments.
-
-## Scheduling Rules
-
-The schedule generator respects tournament-specific constraints:
-
-- **Saturday**: 12 courts (1-12), 9:00-22:00
-- **Sunday**: 8 courts (1-8); courts 1-4 until 16:00, courts 5-8 until 18:00
-- **Match duration**: 30 minutes (standard), 45 minutes (Elite)
-- **Rest periods**: 30 minutes (standard), 60 minutes (Elite)
-- **Court preferences**: Elite and Open A on courts 5-8; Junior on courts 9-12
-- **Semifinals and Finals**: Scheduled on Sunday only
-
-## Division Categories
-
-| Category | Website Tab | Events |
-|----------|-------------|--------|
-| Open A | Open A | MS, MD, WD, XD |
-| Open B | Open B | MS, WS, MD, XD |
-| Open C | Open C | MS, WS, MD, WD, XD |
-| Junior | Junior | BS/BD U11, U13, U15, U17 |
-| Veterans | Veterans | MS/MD/XD 35+, MS/MD 45+ |
-| Elite | Elite | MS/WS/XD V |
 
 ## License
 

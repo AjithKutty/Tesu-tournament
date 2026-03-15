@@ -1,0 +1,26 @@
+# Priority levels (lower number = scheduled first)
+priorities:
+  elite_pool: 5
+  pool: 10
+  round_1: 20
+  group_playoff: 30
+  round_2: 40
+  quarter_final: 50
+  semi_final: 60
+  final: 70
+
+# Which round names map to which priority key
+round_priority_map:
+  "Round 1": round_1
+  "Round 2": round_2
+  "Quarter-Final": quarter_final
+  "Semi-Final": semi_final
+  "Final": final
+
+# Division codes that get elite_pool priority for their pool matches
+elite_divisions: ["MS V", "WS V", "XD V"]
+
+# Rounds that must be scheduled on a specific day
+day_constraints:
+  - rounds: ["Semi-Final", "Final"]
+    day: "Sunday"

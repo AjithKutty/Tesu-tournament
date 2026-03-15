@@ -1,11 +1,12 @@
 """
-Parse the Kumpoo Tervasulan Eliitti 2025 tournament Excel file
-and output structured JSON data — one file per division/sheet.
+Parse a tournament Excel file and output structured JSON data —
+one file per division/sheet.
 
 Usage:
-    python src/parse_tournament.py
+    python src/parse_tournament.py                           # default tournament
+    python src/parse_tournament.py --tournament path/to/dir  # specific tournament
 
-Reads:  Draws Kumpoo Tervasulan Eliitti 2025 vain kaaviot.XLSX
+Reads:  Excel file specified in tournament config
 Writes: output/divisions/<SheetName>.json  (one per sheet)
         output/divisions/tournament_index.json  (summary index)
 """
@@ -13,41 +14,13 @@ Writes: output/divisions/<SheetName>.json  (one per sheet)
 import json
 import re
 import os
+import argparse
 import openpyxl
+from config import (load_config, get_tournament_name, get_event_names,
+                     get_level_categories, get_doubles_events,
+                     get_category_order, get_format_overrides)
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-EXCEL_FILE = os.path.join(
-    BASE_DIR,
-    "Draws Kumpoo Tervasulan Eliitti 2025 vain kaaviot.XLSX",
-)
-OUTPUT_DIR = os.path.join(BASE_DIR, "output", "divisions")
-
-TOURNAMENT_NAME = "Kumpoo Tervasulan Eliitti 2025"
-
-# ── Mapping helpers ──────────────────────────────────────────────
-
-EVENT_NAMES = {
-    "MS": "Men's Singles",
-    "WS": "Women's Singles",
-    "MD": "Men's Doubles",
-    "WD": "Women's Doubles",
-    "XD": "Mixed Doubles",
-    "BS": "Boys' Singles",
-    "BD": "Boys' Doubles",
-}
-
-LEVEL_CATEGORY = {
-    "A": "Open A",
-    "B": "Open B",
-    "C": "Open C",
-    "U11": "Junior",
-    "U13": "Junior",
-    "U15": "Junior",
-    "U17": "Junior",
-    "35": "Veterans",
-    "45": "Veterans",
-    "V": "Elite",
-}
+# ── Format detection constants (not tournament-specific) ─────────
 
 ROUND_NAMES = {
     "Round 1": "Round 1",
@@ -58,7 +31,7 @@ ROUND_NAMES = {
 }
 
 
-def parse_sheet_name(name):
+def parse_sheet_name(name, event_names, level_categories, doubles_events):
     """Parse sheet name like 'MS C-Main Draw' or 'BS U17-Playoff'."""
     m = re.match(r"^([A-Z]{2})\s+(.+?)-(Main Draw|Playoff)$", name)
     if not m:
@@ -66,15 +39,15 @@ def parse_sheet_name(name):
     event_code = m.group(1)
     level = m.group(2)
     draw_type = m.group(3).lower().replace(" ", "_")
-    category = LEVEL_CATEGORY.get(level, "Other")
-    full_name = EVENT_NAMES.get(event_code, event_code)
+    category = level_categories.get(level, "Other")
+    full_name = event_names.get(event_code, event_code)
     if level in ("35", "45"):
         full_name += f" {level}+"
     elif level == "V":
         full_name += " Elite"
     else:
         full_name += f" {level}"
-    is_doubles = event_code in ("MD", "WD", "XD", "BD")
+    is_doubles = event_code in doubles_events
     return {
         "event_code": event_code,
         "level": level,
@@ -516,23 +489,35 @@ def collect_clubs(players, is_doubles):
 
 # ── Main processing ──────────────────────────────────────────────
 
-def process_workbook(filepath):
+def process_workbook(filepath, config):
     wb = openpyxl.load_workbook(filepath, data_only=True)
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    output_dir = config["paths"]["divisions_dir"]
+    tournament_name = get_tournament_name(config)
+    event_names = get_event_names(config)
+    level_categories = get_level_categories(config)
+    doubles_events = get_doubles_events(config)
+    format_overrides = get_format_overrides(config)
+
+    os.makedirs(output_dir, exist_ok=True)
 
     # First pass: process all sheets and collect data
     sheet_data = {}
     all_clubs = set()
 
     for sheet_name in wb.sheetnames:
-        info = parse_sheet_name(sheet_name)
+        info = parse_sheet_name(sheet_name, event_names, level_categories, doubles_events)
         if not info:
             continue
 
         ws = wb[sheet_name]
         rows = read_sheet_rows(ws)
         fmt = detect_format(rows)
+
+        # Apply format overrides from config
+        div_code = info["code"]
+        if div_code in format_overrides:
+            fmt = format_overrides[div_code]
 
         sheet_data[sheet_name] = {
             "info": info,
@@ -558,7 +543,7 @@ def process_workbook(filepath):
         # Write standalone playoff JSON
         filename = sheet_to_filename(sheet_name)
         division_json = {
-            "tournament": TOURNAMENT_NAME,
+            "tournament": tournament_name,
             "name": f"{info['full_name']} Playoff",
             "code": info["code"],
             "category": info["category"],
@@ -576,7 +561,7 @@ def process_workbook(filepath):
             division_json["drawSize"] = 0
             division_json["rounds"] = []
 
-        outpath = os.path.join(OUTPUT_DIR, filename)
+        outpath = os.path.join(output_dir, filename)
         with open(outpath, "w", encoding="utf-8") as f:
             json.dump(division_json, f, indent=2, ensure_ascii=False)
 
@@ -601,7 +586,7 @@ def process_workbook(filepath):
         is_doubles = info["is_doubles"]
 
         division_json = {
-            "tournament": TOURNAMENT_NAME,
+            "tournament": tournament_name,
             "name": info["full_name"],
             "code": info["code"],
             "category": info["category"],
@@ -649,7 +634,7 @@ def process_workbook(filepath):
         division_json["clubs"] = sorted(div_clubs)
         all_clubs |= div_clubs
 
-        outpath = os.path.join(OUTPUT_DIR, filename)
+        outpath = os.path.join(output_dir, filename)
         with open(outpath, "w", encoding="utf-8") as f:
             json.dump(division_json, f, indent=2, ensure_ascii=False)
 
@@ -663,7 +648,7 @@ def process_workbook(filepath):
         })
 
     # Write tournament index
-    cat_order = ["Open A", "Open B", "Open C", "Junior", "Veterans", "Elite"]
+    cat_order = get_category_order(config)
     # Sort index by category order, then by code
     def sort_key(e):
         cat_idx = cat_order.index(e["category"]) if e["category"] in cat_order else 99
@@ -672,25 +657,48 @@ def process_workbook(filepath):
     index_entries.sort(key=sort_key)
 
     index_json = {
-        "tournament": TOURNAMENT_NAME,
+        "tournament": tournament_name,
         "total_divisions": len(index_entries),
         "clubs": sorted(all_clubs),
         "divisions": index_entries,
     }
 
-    index_path = os.path.join(OUTPUT_DIR, "tournament_index.json")
+    index_path = os.path.join(output_dir, "tournament_index.json")
     with open(index_path, "w", encoding="utf-8") as f:
         json.dump(index_json, f, indent=2, ensure_ascii=False)
 
     return index_json, len(index_entries)
 
 
-def main(filepath=None):
-    filepath = filepath or EXCEL_FILE
-    print(f"Reading: {filepath}")
-    print(f"Output:  {OUTPUT_DIR}/\n")
+def main(config=None, filepath=None):
+    if config is None:
+        parser = argparse.ArgumentParser(description="Parse tournament Excel file")
+        parser.add_argument("--tournament", default=".",
+                            help="Path to tournament directory (default: current dir)")
+        parser.add_argument("--file", default=None,
+                            help="Path to Excel file (overrides config)")
+        args = parser.parse_args()
+        config = load_config(args.tournament)
+        if args.file:
+            filepath = args.file
 
-    index, count = process_workbook(filepath)
+    if filepath is None:
+        # Look for Excel files in the input directory
+        input_dir = config["paths"]["input_dir"]
+        if os.path.isdir(input_dir):
+            xlsx_files = [f for f in os.listdir(input_dir) if f.endswith((".xlsx", ".XLSX"))]
+            if xlsx_files:
+                filepath = os.path.join(input_dir, xlsx_files[0])
+
+    if filepath is None:
+        print("Error: No Excel file specified and none found in input directory.")
+        return None, 0
+
+    output_dir = config["paths"]["divisions_dir"]
+    print(f"Reading: {filepath}")
+    print(f"Output:  {output_dir}/\n")
+
+    index, count = process_workbook(filepath, config)
 
     print(f"Generated {count} JSON files + tournament_index.json")
     print(f"Total clubs: {len(index['clubs'])}\n")
@@ -701,7 +709,8 @@ def main(filepath=None):
     for d in index["divisions"]:
         by_cat[d["category"]].append(d)
 
-    for cat in ["Open A", "Open B", "Open C", "Junior", "Veterans", "Elite"]:
+    cat_order = get_category_order(config)
+    for cat in cat_order:
         divs = by_cat.get(cat, [])
         if divs:
             print(f"  {cat}: {len(divs)} files")
@@ -710,7 +719,9 @@ def main(filepath=None):
                 draw_type = " (playoff)" if d["draw_type"] == "playoff" else ""
                 print(f"    {d['file']:40s} {tag:20s}{draw_type}")
 
-    print(f"\nAll files written to: {OUTPUT_DIR}/")
+    print(f"\nAll files written to: {output_dir}/")
+
+    return index, count
 
 
 if __name__ == "__main__":

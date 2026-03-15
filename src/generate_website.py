@@ -3,47 +3,20 @@ Generate the tournament website from JSON division and schedule files.
 
 Usage:
     python generate_website.py
+    python generate_website.py --tournament path/to/tournament
 
 Reads:  divisions/tournament_index.json + divisions/*.json
         schedules/schedule_index.json + schedules/*.json
-Writes: index.html, schedule.html
+Writes: index.html
 """
 
+import argparse
 import json
 import os
 from html import escape
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DIVISIONS_DIR = os.path.join(BASE_DIR, "output", "divisions")
-SCHEDULES_DIR = os.path.join(BASE_DIR, "output", "schedules")
-OUTPUT_FILE = os.path.join(BASE_DIR, "output", "webpages", "index.html")
-SCHEDULE_OUTPUT = os.path.join(BASE_DIR, "output", "webpages", "schedule.html")  # legacy, no longer generated
-
-CATEGORY_BADGE = {
-    "Open A": "badge-open",
-    "Open B": "badge-open",
-    "Open C": "badge-open",
-    "Junior": "badge-junior",
-    "Veterans": "badge-veterans",
-    "Elite": "badge-elite",
-}
-
-# ── Category configuration ───────────────────────────────────────
-
-CATEGORIES = [
-    {"key": "Open A", "tab_id": "opena", "badge": "badge-open", "label": "Open A Division",
-     "desc": "Men's Singles, Men's Doubles, Women's Doubles, Mixed Doubles"},
-    {"key": "Open B", "tab_id": "openb", "badge": "badge-open", "label": "Open B Division",
-     "desc": "Men's Singles, Women's Singles, Men's Doubles, Mixed Doubles"},
-    {"key": "Open C", "tab_id": "open", "badge": "badge-open", "label": "Open C Division",
-     "desc": "Men's Singles, Women's Singles, Men's Doubles, Women's Doubles, Mixed Doubles"},
-    {"key": "Junior", "tab_id": "junior", "badge": "badge-junior", "label": "Junior Division",
-     "desc": "Boys' Singles & Doubles — U11, U13, U15, U17"},
-    {"key": "Veterans", "tab_id": "veterans", "badge": "badge-veterans", "label": "Veterans Division",
-     "desc": "Men's Singles & Doubles, Mixed Doubles — 35+, 45+"},
-    {"key": "Elite", "tab_id": "elite", "badge": "badge-elite", "label": "Elite Division",
-     "desc": "Men's Singles, Women's Singles, Mixed Doubles"},
-]
+from config import (load_config, get_tournament_name, get_tab_config,
+                     get_category_order)
 
 
 def h(text):
@@ -84,9 +57,9 @@ def count_players(data):
 
 # ── Schedule data loader ──────────────────────────────────────────
 
-def load_schedule_data():
+def load_schedule_data(schedules_dir):
     """Load schedule files and build a lookup dict for cross-referencing."""
-    idx_path = os.path.join(SCHEDULES_DIR, "schedule_index.json")
+    idx_path = os.path.join(schedules_dir, "schedule_index.json")
     if not os.path.exists(idx_path):
         return {}, []
 
@@ -96,7 +69,7 @@ def load_schedule_data():
     lookup = {}
     all_sessions = []
     for sess_info in idx["sessions"]:
-        sess_path = os.path.join(SCHEDULES_DIR, sess_info["file"])
+        sess_path = os.path.join(schedules_dir, sess_info["file"])
         if not os.path.exists(sess_path):
             continue
         with open(sess_path, encoding="utf-8") as f:
@@ -373,7 +346,7 @@ def render_clubs_tab(clubs):
 
     return f"""<div class="cat-header">
 <h2>Participating Clubs</h2>
-<p>{len(clubs)} clubs from Finland and abroad</p>
+<p>{len(clubs)} clubs</p>
 </div>
 <div class="clubs-grid">
 {"".join(cards)}
@@ -545,8 +518,8 @@ def time_slots_range(start_str, end_str):
     return slots
 
 
-def render_schedule_grid(session_data):
-    """Render a time × court grid table for one session."""
+def render_schedule_grid(session_data, badge_lookup):
+    """Render a time x court grid table for one session."""
     matches = session_data.get("matches", [])
     if not matches:
         return '<p style="color: var(--text-light); padding: 1rem;">No matches in this session.</p>'
@@ -578,7 +551,7 @@ def render_schedule_grid(session_data):
                 continue  # rowspan from previous row already covers this cell
             elif (t, c) in grid:
                 m = grid[(t, c)]
-                badge = CATEGORY_BADGE.get(m.get("category", ""), "badge-open")
+                badge = badge_lookup.get(m.get("category", ""), "badge-open")
                 div_code = h(m["division"])
                 rnd = h(m.get("round", ""))
                 mnum = m.get("match_num", "")
@@ -605,7 +578,7 @@ def render_schedule_grid(session_data):
 </div>"""
 
 
-def render_schedule_panel(all_sessions):
+def render_schedule_panel(all_sessions, badge_lookup):
     """Render the Schedule tab panel content with session sub-tabs and grids."""
     if not all_sessions:
         return '<p style="color: var(--text-light); padding: 1rem;">No schedule data available.</p>'
@@ -625,14 +598,14 @@ def render_schedule_panel(all_sessions):
         tab_buttons.append(
             f'<button class="sched-tab-btn{active}" data-session="{sess_id}">{label} ({count})</button>'
         )
-        grid = render_schedule_grid(sess)
+        grid = render_schedule_grid(sess, badge_lookup)
         tab_panels.append(f'<div class="sched-panel{active}" id="sched-{sess_id}">{grid}</div>')
 
     total = sum(len(s.get("matches", [])) for s in all_sessions)
 
     return f"""<div class="cat-header">
 <h2>Match Schedule</h2>
-<p>{total} matches across {len(tab_ids)} sessions &middot; 12 courts (Sat) &middot; 8 courts (Sun)</p>
+<p>{total} matches across {len(tab_ids)} sessions</p>
 </div>
 <div class="sched-tabs">
 {"".join(tab_buttons)}
@@ -640,9 +613,19 @@ def render_schedule_panel(all_sessions):
 {"".join(tab_panels)}"""
 
 
-def generate_html(schedule_lookup=None, all_sessions=None):
+def generate_html(config, schedule_lookup=None, all_sessions=None):
+    divisions_dir = config["paths"]["divisions_dir"]
+    tournament_name = get_tournament_name(config)
+    tab_config = get_tab_config(config)
+    description = config["tournament"].get("description", "")
+
+    # Build badge lookup from tab config
+    badge_lookup = {}
+    for tab in tab_config:
+        badge_lookup[tab["category"]] = tab["badge_class"]
+
     # Load index
-    with open(os.path.join(DIVISIONS_DIR, "tournament_index.json"), encoding="utf-8") as f:
+    with open(os.path.join(divisions_dir, "tournament_index.json"), encoding="utf-8") as f:
         index = json.load(f)
 
     # Group main_draw divisions by category
@@ -655,13 +638,16 @@ def generate_html(schedule_lookup=None, all_sessions=None):
             by_category[cat] = []
         by_category[cat].append(entry)
 
+    # Filter tab config to only categories present in data
+    active_tabs = [tab for tab in tab_config if tab["category"] in by_category]
+
     # Count total players
     total_players = 0
     total_main_divisions = 0
     for cat_entries in by_category.values():
         for entry in cat_entries:
             total_main_divisions += 1
-            filepath = os.path.join(DIVISIONS_DIR, entry["file"])
+            filepath = os.path.join(divisions_dir, entry["file"])
             with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
             total_players += count_players(data)
@@ -670,10 +656,10 @@ def generate_html(schedule_lookup=None, all_sessions=None):
 
     # Build tabs
     tab_buttons = []
-    for cat_cfg in CATEGORIES:
-        active = " active" if cat_cfg == CATEGORIES[0] else ""
+    for tab in active_tabs:
+        active = " active" if tab == active_tabs[0] else ""
         tab_buttons.append(
-            f'<button class="tab-btn{active}" data-tab="{cat_cfg["tab_id"]}">{cat_cfg["key"]}</button>'
+            f'<button class="tab-btn{active}" data-tab="{tab["tab_id"]}">{tab["category"]}</button>'
         )
     tab_buttons.append('<button class="tab-btn" data-tab="clubs">Clubs</button>')
     if all_sessions:
@@ -681,21 +667,20 @@ def generate_html(schedule_lookup=None, all_sessions=None):
 
     # Build tab panels
     tab_panels = []
-    for i, cat_cfg in enumerate(CATEGORIES):
+    for i, tab in enumerate(active_tabs):
         active = " active" if i == 0 else ""
-        entries = by_category.get(cat_cfg["key"], [])
+        entries = by_category.get(tab["category"], [])
 
         cards = []
         for entry in entries:
-            filepath = os.path.join(DIVISIONS_DIR, entry["file"])
+            filepath = os.path.join(divisions_dir, entry["file"])
             with open(filepath, encoding="utf-8") as f:
                 data = json.load(f)
-            cards.append(render_division_card(data, cat_cfg["badge"], schedule_lookup))
+            cards.append(render_division_card(data, tab["badge_class"], schedule_lookup))
 
-        panel = f"""<div class="tab-panel{active}" id="tab-{cat_cfg['tab_id']}">
+        panel = f"""<div class="tab-panel{active}" id="tab-{tab['tab_id']}">
 <div class="cat-header">
-<h2>{h(cat_cfg['label'])}</h2>
-<p>{h(cat_cfg['desc'])}</p>
+<h2>{h(tab['category'])}</h2>
 </div>
 {"".join(cards)}
 </div>"""
@@ -709,8 +694,15 @@ def generate_html(schedule_lookup=None, all_sessions=None):
     # Schedule tab
     if all_sessions:
         tab_panels.append(f"""<div class="tab-panel" id="tab-schedule">
-{render_schedule_panel(all_sessions)}
+{render_schedule_panel(all_sessions, badge_lookup)}
 </div>""")
+
+    # Hero meta line: use description from config if available
+    meta_html = ""
+    if description:
+        meta_html = f"""<div class="meta">
+<span>{h(description)}</span>
+</div>"""
 
     # Assemble full page
     html = f"""<!DOCTYPE html>
@@ -718,7 +710,7 @@ def generate_html(schedule_lookup=None, all_sessions=None):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kumpoo Tervasulan Eliitti 2025</title>
+<title>{h(tournament_name)}</title>
 <style>
 {CSS}
 </style>
@@ -727,19 +719,16 @@ def generate_html(schedule_lookup=None, all_sessions=None):
 
 <div class="hero">
 <span class="shuttlecock">&#127992;</span>
-<h1>Kumpoo Tervasulan Eliitti 2025</h1>
+<h1>{h(tournament_name)}</h1>
 <p class="subtitle">Badminton Tournament</p>
-<div class="meta">
-<span>Hosted by TeSu (Tervasulka)</span>
-<span>badmintonfinland.tournamentsoftware.com</span>
-</div>
+{meta_html}
 </div>
 
 <div class="stats-bar">
 <div class="stat"><div class="num">{total_main_divisions}</div><div class="label">Divisions</div></div>
 <div class="stat"><div class="num">{len(clubs)}</div><div class="label">Clubs</div></div>
 <div class="stat"><div class="num">{total_players}+</div><div class="label">Players</div></div>
-<div class="stat"><div class="num">{len(CATEGORIES)}</div><div class="label">Categories</div></div>
+<div class="stat"><div class="num">{len(active_tabs)}</div><div class="label">Categories</div></div>
 </div>
 
 <div class="tabs-wrapper">
@@ -755,7 +744,7 @@ def generate_html(schedule_lookup=None, all_sessions=None):
 </div>
 
 <div class="footer">
-Kumpoo Tervasulan Eliitti 2025 &middot; Data from Badminton Finland Tournament Planner
+{h(tournament_name)} &middot; Data from Badminton Finland Tournament Planner
 </div>
 
 <script>
@@ -767,20 +756,39 @@ Kumpoo Tervasulan Eliitti 2025 &middot; Data from Badminton Finland Tournament P
     return html
 
 
-def main():
-    print(f"Reading JSON files from: {DIVISIONS_DIR}/")
+def main(config=None):
+    if config is None:
+        parser = argparse.ArgumentParser(description="Generate tournament website")
+        parser.add_argument("--tournament", default=None,
+                            help="Path to tournament directory (default: auto-detect)")
+        args = parser.parse_args()
+
+        if args.tournament:
+            tournament_dir = args.tournament
+        else:
+            # Default: look for tournament dir relative to project root
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            tournament_dir = base_dir
+
+        config = load_config(tournament_dir)
+
+    divisions_dir = config["paths"]["divisions_dir"]
+    schedules_dir = config["paths"]["schedules_dir"]
+    output_file = os.path.join(config["paths"]["webpages_dir"], "index.html")
+
+    print(f"Reading JSON files from: {divisions_dir}/")
 
     # Load schedule data for cross-referencing
-    schedule_lookup, all_sessions = load_schedule_data()
+    schedule_lookup, all_sessions = load_schedule_data(schedules_dir)
     if schedule_lookup:
         print(f"Loaded schedule: {len(schedule_lookup)} matches from {len(all_sessions)} sessions")
 
     # Generate index.html (single page with all tabs including schedule)
-    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
-    html = generate_html(schedule_lookup, all_sessions)
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    html = generate_html(config, schedule_lookup, all_sessions)
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"Generated: {OUTPUT_FILE} ({len(html):,} bytes)")
+    print(f"Generated: {output_file} ({len(html):,} bytes)")
 
 
 if __name__ == "__main__":

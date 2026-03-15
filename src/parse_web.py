@@ -9,6 +9,12 @@ Usage:
     # With match results:
     python src/parse_web.py --full-results "https://..."
 
+    # With tournament config:
+    python src/parse_web.py --tournament path/to/tournament
+
+    # Force re-scrape (ignore cache):
+    python src/parse_web.py --tournament path/to/tournament --rescrape
+
 Writes: output/divisions/<DivisionCode>.json  (one per division)
         output/divisions/tournament_index.json
 """
@@ -24,35 +30,43 @@ import math
 import requests
 from bs4 import BeautifulSoup
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUTPUT_DIR = os.path.join(BASE_DIR, "output", "divisions")
+from config import (load_config, get_tournament_name, get_event_names,
+                     get_level_categories, get_doubles_events,
+                     get_category_order, get_format_overrides)
 
 REQUEST_DELAY = 0.5  # seconds between requests
 
-# ── Mapping helpers (mirrored from parse_tournament.py) ─────────
-
-EVENT_NAMES = {
-    "MS": "Men's Singles",
-    "WS": "Women's Singles",
-    "MD": "Men's Doubles",
-    "WD": "Women's Doubles",
-    "XD": "Mixed Doubles",
-    "BS": "Boys' Singles",
-    "BD": "Boys' Doubles",
+ABBREV_MAP = {
+    "Round 1": "R1",
+    "Round 2": "R2",
+    "Quarter-Final": "QF",
+    "Semi-Final": "SF",
+    "Final": "F",
 }
 
-LEVEL_CATEGORY = {
-    "A": "Open A",
-    "B": "Open B",
-    "C": "Open C",
-    "U11": "Junior",
-    "U13": "Junior",
-    "U15": "Junior",
-    "U17": "Junior",
-    "35": "Veterans",
-    "45": "Veterans",
-    "V": "Elite",
-}
+
+# ── Scrape caching helpers ────────────────────────────────────
+
+def _cache_path(scraped_dir, filename):
+    return os.path.join(scraped_dir, filename)
+
+
+def _load_cache(scraped_dir, filename):
+    path = _cache_path(scraped_dir, filename)
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+
+def _save_cache(scraped_dir, filename, data):
+    os.makedirs(scraped_dir, exist_ok=True)
+    path = _cache_path(scraped_dir, filename)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+# ── Mapping helpers ──────────────────────────────────────────
 
 
 def extract_seed(name):
@@ -96,15 +110,6 @@ def round_names_for_size(draw_size):
         else:
             names.append(f"Round {i + 1}")
     return names
-
-
-ABBREV_MAP = {
-    "Round 1": "R1",
-    "Round 2": "R2",
-    "Quarter-Final": "QF",
-    "Semi-Final": "SF",
-    "Final": "F",
-}
 
 
 # ── Web scraping functions ──────────────────────────────────────
@@ -573,7 +578,7 @@ def fetch_clubs(session, base_url, tournament_id):
 
 # ── Division name parsing ───────────────────────────────────────
 
-def parse_draw_name(name):
+def parse_draw_name(name, event_names, level_categories, doubles_events):
     """Parse web draw name like 'MS A', 'BS U17', 'XD 35' into metadata dict."""
     m = re.match(r"^([A-Z]{2})\s+(.+)$", name)
     if not m:
@@ -582,13 +587,13 @@ def parse_draw_name(name):
     event_code = m.group(1)
     level = m.group(2).strip()
 
-    if event_code not in EVENT_NAMES:
+    if event_code not in event_names:
         return None
-    if level not in LEVEL_CATEGORY:
+    if level not in level_categories:
         return None
 
-    category = LEVEL_CATEGORY[level]
-    full_name = EVENT_NAMES[event_code]
+    category = level_categories[level]
+    full_name = event_names[event_code]
 
     if level in ("35", "45"):
         full_name += f" {level}+"
@@ -597,7 +602,7 @@ def parse_draw_name(name):
     else:
         full_name += f" {level}"
 
-    is_doubles = event_code in ("MD", "WD", "XD", "BD")
+    is_doubles = event_code in doubles_events
 
     return {
         "event_code": event_code,
@@ -933,13 +938,21 @@ def build_playoff_bracket(draw_size, rnd_names=None):
 
 # ── Main orchestration ──────────────────────────────────────────
 
-def process_tournament(url, full_results=False):
+def process_tournament(url, config, full_results=False, rescrape=False):
     """
     Scrape a tournament from tournamentsoftware.com and write division JSON files.
 
     Returns (index_json, file_count).
     """
     base_url, tournament_id = parse_url(url)
+
+    # Extract config mappings
+    event_names = get_event_names(config)
+    level_categories = get_level_categories(config)
+    doubles_events = get_doubles_events(config)
+    cat_order = get_category_order(config)
+    output_dir = config["paths"]["divisions_dir"]
+    scraped_dir = config["paths"]["scraped_dir"]
 
     session = requests.Session()
     session.headers.update({
@@ -952,25 +965,49 @@ def process_tournament(url, full_results=False):
     print("Bypassing cookie wall...")
     bypass_cookiewall(session, base_url, target_path)
 
-    # Get tournament name
-    tournament_name = extract_tournament_name(session, base_url, tournament_id)
-    print(f"Tournament: {tournament_name}")
+    # Get tournament name — use config if available, else scrape
+    config_name = get_tournament_name(config)
+    if config_name and config_name != "Tournament":
+        tournament_name = config_name
+        print(f"Tournament: {tournament_name} (from config)")
+    else:
+        # Check cache first
+        cached_info = None if rescrape else _load_cache(scraped_dir, "tournament_info.json")
+        if cached_info:
+            tournament_name = cached_info.get("name", "Unknown Tournament")
+            print(f"Tournament: {tournament_name} (from cache)")
+        else:
+            tournament_name = extract_tournament_name(session, base_url, tournament_id)
+            _save_cache(scraped_dir, "tournament_info.json", {"name": tournament_name})
+            print(f"Tournament: {tournament_name}")
 
-    # Fetch draw list
+    # Fetch draw list (with caching)
     print("Fetching draw list...")
-    draw_list = fetch_draw_list(session, base_url, tournament_id)
-    print(f"Found {len(draw_list)} draws")
+    cached_draw_list = None if rescrape else _load_cache(scraped_dir, "draw_list.json")
+    if cached_draw_list is not None:
+        draw_list = cached_draw_list
+        print(f"Found {len(draw_list)} draws (from cache)")
+    else:
+        draw_list = fetch_draw_list(session, base_url, tournament_id)
+        _save_cache(scraped_dir, "draw_list.json", draw_list)
+        print(f"Found {len(draw_list)} draws")
 
     # Group into divisions
     divisions = group_draws_by_division(draw_list)
     print(f"Grouped into {len(divisions)} divisions")
 
-    # Fetch clubs
+    # Fetch clubs (with caching)
     print("Fetching club list...")
-    club_names = fetch_clubs(session, base_url, tournament_id)
-    print(f"Found {len(club_names)} clubs")
+    cached_clubs = None if rescrape else _load_cache(scraped_dir, "clubs.json")
+    if cached_clubs is not None:
+        club_names = cached_clubs
+        print(f"Found {len(club_names)} clubs (from cache)")
+    else:
+        club_names = fetch_clubs(session, base_url, tournament_id)
+        _save_cache(scraped_dir, "clubs.json", club_names)
+        print(f"Found {len(club_names)} clubs")
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
 
     index_entries = []
     all_clubs = set(club_names)
@@ -978,7 +1015,7 @@ def process_tournament(url, full_results=False):
 
     # Process each division
     for div_name, div_info in sorted(divisions.items()):
-        info = parse_draw_name(div_name)
+        info = parse_draw_name(div_name, event_names, level_categories, doubles_events)
         if not info:
             print(f"  Skipping unrecognized draw: {div_name}")
             continue
@@ -989,15 +1026,18 @@ def process_tournament(url, full_results=False):
             files_written += _process_group_playoff(
                 session, base_url, tournament_id, tournament_name,
                 info, div_info, full_results, index_entries,
+                output_dir, scraped_dir, rescrape,
             )
         else:
             files_written += _process_standalone(
                 session, base_url, tournament_id, tournament_name,
                 info, div_info["draw"], full_results, index_entries,
+                output_dir, scraped_dir, rescrape,
             )
 
     # Write tournament index
-    cat_order = ["Open A", "Open B", "Open C", "Junior", "Veterans", "Elite"]
+    if not cat_order:
+        cat_order = ["Open A", "Open B", "Open C", "Junior", "Veterans", "Elite"]
 
     def sort_key(e):
         cat_idx = cat_order.index(e["category"]) if e["category"] in cat_order else 99
@@ -1012,7 +1052,7 @@ def process_tournament(url, full_results=False):
         "divisions": index_entries,
     }
 
-    index_path = os.path.join(OUTPUT_DIR, "tournament_index.json")
+    index_path = os.path.join(output_dir, "tournament_index.json")
     with open(index_path, "w", encoding="utf-8") as f:
         json.dump(index_json, f, indent=2, ensure_ascii=False)
 
@@ -1020,17 +1060,47 @@ def process_tournament(url, full_results=False):
     return index_json, len(index_entries)
 
 
+def _fetch_draw_meta_cached(session, base_url, tournament_id, draw_num,
+                             scraped_dir, rescrape):
+    """Fetch draw meta with caching support."""
+    cache_file = f"draw_meta_{draw_num}.json"
+    if not rescrape:
+        cached = _load_cache(scraped_dir, cache_file)
+        if cached is not None:
+            return cached
+    meta = fetch_draw_meta(session, base_url, tournament_id, draw_num)
+    _save_cache(scraped_dir, cache_file, meta)
+    return meta
+
+
+def _fetch_draw_matches_cached(session, base_url, tournament_id, draw_num,
+                                is_doubles, scraped_dir, rescrape):
+    """Fetch draw matches with caching support."""
+    cache_file = f"draw_matches_{draw_num}.json"
+    if not rescrape:
+        cached = _load_cache(scraped_dir, cache_file)
+        if cached is not None:
+            return cached
+    matches = fetch_draw_matches(session, base_url, tournament_id, draw_num, is_doubles)
+    _save_cache(scraped_dir, cache_file, matches)
+    return matches
+
+
 def _process_standalone(
     session, base_url, tournament_id, tournament_name,
     info, draw, full_results, index_entries,
+    output_dir, scraped_dir, rescrape,
 ):
     """Process a standalone elimination or round-robin division."""
     draw_num = draw["draw_num"]
 
-    # Fetch metadata and matches
-    meta = fetch_draw_meta(session, base_url, tournament_id, draw_num)
-    matches = fetch_draw_matches(
-        session, base_url, tournament_id, draw_num, info["is_doubles"]
+    # Fetch metadata and matches (with caching)
+    meta = _fetch_draw_meta_cached(
+        session, base_url, tournament_id, draw_num, scraped_dir, rescrape
+    )
+    matches = _fetch_draw_matches_cached(
+        session, base_url, tournament_id, draw_num, info["is_doubles"],
+        scraped_dir, rescrape,
     )
 
     # Detect format from draw.aspx metadata
@@ -1074,7 +1144,7 @@ def _process_standalone(
 
     division_json["clubs"] = []
 
-    outpath = os.path.join(OUTPUT_DIR, filename)
+    outpath = os.path.join(output_dir, filename)
     with open(outpath, "w", encoding="utf-8") as f:
         json.dump(division_json, f, indent=2, ensure_ascii=False)
 
@@ -1093,6 +1163,7 @@ def _process_standalone(
 def _process_group_playoff(
     session, base_url, tournament_id, tournament_name,
     info, div_info, full_results, index_entries,
+    output_dir, scraped_dir, rescrape,
 ):
     """Process a group+playoff division."""
     files_written = 0
@@ -1102,8 +1173,9 @@ def _process_group_playoff(
     for group_draw in div_info["groups"]:
         draw_num = group_draw["draw_num"]
         letter = group_draw["letter"]
-        matches = fetch_draw_matches(
-            session, base_url, tournament_id, draw_num, info["is_doubles"]
+        matches = _fetch_draw_matches_cached(
+            session, base_url, tournament_id, draw_num, info["is_doubles"],
+            scraped_dir, rescrape,
         )
         players, rr_matches = build_roundrobin_division(
             matches, info["is_doubles"], full_results
@@ -1120,16 +1192,18 @@ def _process_group_playoff(
 
     if div_info.get("playoff"):
         playoff_draw = div_info["playoff"]
-        playoff_meta = fetch_draw_meta(
-            session, base_url, tournament_id, playoff_draw["draw_num"]
+        playoff_meta = _fetch_draw_meta_cached(
+            session, base_url, tournament_id, playoff_draw["draw_num"],
+            scraped_dir, rescrape,
         )
         playoff_draw_size = playoff_meta.get("draw_size", 0)
 
         if playoff_draw_size == 0:
             # Infer from match count on the playoff drawmatches page
-            playoff_matches = fetch_draw_matches(
+            playoff_matches = _fetch_draw_matches_cached(
                 session, base_url, tournament_id,
                 playoff_draw["draw_num"], info["is_doubles"],
+                scraped_dir, rescrape,
             )
             playoff_draw_size = len(playoff_matches) + 1
             playoff_draw_size = 2 ** math.ceil(
@@ -1157,7 +1231,7 @@ def _process_group_playoff(
             playoff_json["drawSize"] = 0
             playoff_json["rounds"] = []
 
-        outpath = os.path.join(OUTPUT_DIR, playoff_filename)
+        outpath = os.path.join(output_dir, playoff_filename)
         with open(outpath, "w", encoding="utf-8") as f:
             json.dump(playoff_json, f, indent=2, ensure_ascii=False)
 
@@ -1191,7 +1265,7 @@ def _process_group_playoff(
 
     division_json["clubs"] = []
 
-    outpath = os.path.join(OUTPUT_DIR, filename)
+    outpath = os.path.join(output_dir, filename)
     with open(outpath, "w", encoding="utf-8") as f:
         json.dump(division_json, f, indent=2, ensure_ascii=False)
 
@@ -1210,26 +1284,65 @@ def _process_group_playoff(
 
 # ── Entry point ─────────────────────────────────────────────────
 
-def main(url=None, full_results=False):
-    if url is None:
+def main(config=None, url=None, full_results=False, rescrape=False):
+    if config is None and url is None:
         parser = argparse.ArgumentParser(
             description="Scrape tournament data from tournamentsoftware.com"
         )
-        parser.add_argument("url", help="Tournament draws page URL")
+        parser.add_argument("url", nargs="?", default=None,
+                            help="Tournament draws page URL")
+        parser.add_argument(
+            "--tournament",
+            help="Path to tournament directory (loads config)",
+        )
         parser.add_argument(
             "--full-results",
             action="store_true",
             help="Include match results, scores, and durations",
         )
+        parser.add_argument(
+            "--rescrape",
+            action="store_true",
+            help="Force re-scraping, ignore cached data",
+        )
         args = parser.parse_args()
-        url = args.url
         full_results = args.full_results
+        rescrape = args.rescrape
+
+        if args.tournament:
+            config = load_config(args.tournament)
+            url = args.url or config["tournament"].get("url")
+        else:
+            url = args.url
+            if not url:
+                parser.error("URL is required when --tournament is not provided")
+
+    # If config was provided but no URL, get from config
+    if config is not None and url is None:
+        url = config["tournament"].get("url")
+        if not url:
+            raise ValueError("No URL provided and none found in config")
+
+    # If no config provided, build a minimal fallback config
+    if config is None:
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        config = {
+            "tournament": {"name": "Tournament"},
+            "divisions": {},
+            "paths": {
+                "divisions_dir": os.path.join(base_dir, "output", "divisions"),
+                "scraped_dir": os.path.join(base_dir, "scraped"),
+            },
+        }
+
+    output_dir = config["paths"]["divisions_dir"]
 
     print(f"Scraping: {url}")
     print(f"Full results: {full_results}")
-    print(f"Output:  {OUTPUT_DIR}/\n")
+    print(f"Rescrape: {rescrape}")
+    print(f"Output:  {output_dir}/\n")
 
-    index, count = process_tournament(url, full_results)
+    index, count = process_tournament(url, config, full_results, rescrape)
 
     print(f"\nGenerated {count} division JSON files + tournament_index.json")
     print(f"Total clubs: {len(index['clubs'])}\n")
@@ -1240,7 +1353,11 @@ def main(url=None, full_results=False):
     for d in index["divisions"]:
         by_cat[d["category"]].append(d)
 
-    for cat in ["Open A", "Open B", "Open C", "Junior", "Veterans", "Elite"]:
+    cat_order = get_category_order(config)
+    if not cat_order:
+        cat_order = ["Open A", "Open B", "Open C", "Junior", "Veterans", "Elite"]
+
+    for cat in cat_order:
         divs = by_cat.get(cat, [])
         if divs:
             print(f"  {cat}: {len(divs)} files")
@@ -1249,7 +1366,7 @@ def main(url=None, full_results=False):
                 draw_type = " (playoff)" if d["draw_type"] == "playoff" else ""
                 print(f"    {d['file']:40s} {tag:20s}{draw_type}")
 
-    print(f"\nAll files written to: {OUTPUT_DIR}/")
+    print(f"\nAll files written to: {output_dir}/")
 
 
 if __name__ == "__main__":

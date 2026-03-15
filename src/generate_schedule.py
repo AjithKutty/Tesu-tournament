@@ -3,6 +3,7 @@ Generate match schedules from division JSON files.
 
 Usage:
     python generate_schedule.py
+    python generate_schedule.py --tournament path/to/tournament
 
 Reads:  divisions/tournament_index.json + divisions/*.json
 Writes: schedules/Saturday_Morning.json, Saturday_Afternoon.json,
@@ -10,74 +11,22 @@ Writes: schedules/Saturday_Morning.json, Saturday_Afternoon.json,
         schedules/schedule_index.json
 """
 
+import argparse
 import json
 import os
 import re
 from collections import defaultdict
 from datetime import date
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DIVISIONS_DIR = os.path.join(BASE_DIR, "output", "divisions")
-SCHEDULES_DIR = os.path.join(BASE_DIR, "output", "schedules")
-
-TOURNAMENT_NAME = "Kumpoo Tervasulan Eliitti 2025"
-
-# ── Time model ───────────────────────────────────────────────────
-# Minutes from Saturday 9:00
-# Saturday: 0 (9:00) to 780 (22:00)
-# Sunday:   1440 (9:00) to 1980 (18:00)
-
-SAT_START = 0       # Saturday 9:00
-SAT_END = 780       # Saturday 22:00
-SUN_START = 1440    # Sunday 9:00
-SUN_COURTS_14_END = 1860   # Sunday 16:00 (courts 1-4)
-SUN_COURTS_58_END = 1980   # Sunday 18:00 (courts 5-8)
-
-SLOT_DURATION = 30  # minutes per slot
-
-# Session boundaries (in minutes)
-SESSIONS = [
-    {"name": "Saturday Morning",   "file": "Saturday_Morning.json",   "date": "Saturday", "start": 0,    "end": 240,  "start_time": "09:00", "end_time": "13:00"},
-    {"name": "Saturday Afternoon", "file": "Saturday_Afternoon.json", "date": "Saturday", "start": 240,  "end": 540,  "start_time": "13:00", "end_time": "18:00"},
-    {"name": "Saturday Evening",   "file": "Saturday_Evening.json",   "date": "Saturday", "start": 540,  "end": 780,  "start_time": "18:00", "end_time": "22:00"},
-    {"name": "Sunday Morning",     "file": "Sunday_Morning.json",     "date": "Sunday",   "start": 1440, "end": 1680, "start_time": "09:00", "end_time": "13:00"},
-    {"name": "Sunday Afternoon",   "file": "Sunday_Afternoon.json",   "date": "Sunday",   "start": 1680, "end": 1980, "start_time": "13:00", "end_time": "18:00"},
-]
-
-# Priority levels
-PRIORITY_ELITE_POOL = 5   # Elite round-robins first (long rest = cascading risk)
-PRIORITY_POOL = 10
-PRIORITY_R1 = 20
-PRIORITY_GROUP_PLAYOFF = 30
-PRIORITY_R2 = 40
-PRIORITY_QF = 50
-PRIORITY_SF = 60
-PRIORITY_FINAL = 70
-
-ROUND_PRIORITY = {
-    "Round 1": PRIORITY_R1,
-    "Round 2": PRIORITY_R2,
-    "Quarter-Final": PRIORITY_QF,
-    "Semi-Final": PRIORITY_SF,
-    "Final": PRIORITY_FINAL,
-}
-
-ELITE_DIVISIONS = {"MS V", "WS V", "XD V"}
-OPEN_A_DIVISIONS = {"MS A", "MD A", "WD A", "XD A"}
-JUNIOR_CATEGORIES = {"Junior"}
+from config import (load_config, get_tournament_name, get_priorities,
+                    get_round_priority_map, get_elite_divisions,
+                    get_day_constraints, get_match_duration,
+                    get_rest_period, get_court_preference,
+                    get_slot_duration, build_venue_model,
+                    minute_to_display as config_minute_to_display)
 
 
 # ── Helper functions ─────────────────────────────────────────────
-
-def minute_to_display(m):
-    """Convert minute offset to (day, 'HH:MM')."""
-    if m >= SUN_START:
-        h, mm = divmod(m - SUN_START, 60)
-        return "Sunday", f"{h + 9:02d}:{mm:02d}"
-    else:
-        h, mm = divmod(m, 60)
-        return "Saturday", f"{h + 9:02d}:{mm:02d}"
-
 
 def extract_player_names(player_str):
     """Extract individual player names from a match player string.
@@ -128,7 +77,7 @@ def parse_winner_ref(player_str):
 class Match:
     def __init__(self, match_id, div_code, div_name, category, round_name,
                  match_num, player1, player2, known_players, duration_min,
-                 rest_min, priority, is_sf_or_final, prerequisites, is_elite):
+                 rest_min, priority, day_constraint, prerequisites, is_elite):
         self.id = match_id
         self.division_code = div_code
         self.division_name = div_name
@@ -141,7 +90,7 @@ class Match:
         self.duration_min = duration_min
         self.rest_min = rest_min
         self.priority = priority
-        self.is_sf_or_final = is_sf_or_final
+        self.day_constraint = day_constraint  # required day name (e.g. "Sunday") or None
         self.prerequisites = prerequisites
         self.is_elite = is_elite
         self.pool_round = 0  # scheduling round within a RR pool (0-based)
@@ -151,10 +100,34 @@ class Match:
         )
 
 
-def load_all_matches():
+def _build_day_constraint_set(config):
+    """Build a set of round names that have day constraints, mapped to their required day.
+    Returns dict: round_name -> day_name."""
+    constraints = get_day_constraints(config)
+    result = {}
+    for constraint in constraints:
+        day_name = constraint.get("day")
+        for round_name in constraint.get("rounds", []):
+            result[round_name] = day_name
+    return result
+
+
+def load_all_matches(config):
     """Load all schedulable matches from division JSON files."""
-    with open(os.path.join(DIVISIONS_DIR, "tournament_index.json"), encoding="utf-8") as f:
+    divisions_dir = config["paths"]["divisions_dir"]
+
+    with open(os.path.join(divisions_dir, "tournament_index.json"), encoding="utf-8") as f:
         index = json.load(f)
+
+    elite_divisions = get_elite_divisions(config)
+    priorities = get_priorities(config)
+    round_priority_map = get_round_priority_map(config)
+    day_constraint_map = _build_day_constraint_set(config)
+
+    # Build resolved priority map: round_name -> numeric priority
+    resolved_round_priority = {}
+    for round_name, priority_key in round_priority_map.items():
+        resolved_round_priority[round_name] = priorities.get(priority_key, priorities.get("round_1", 20))
 
     all_matches = []
     # Store match data by ID for back-tracing player names
@@ -164,7 +137,7 @@ def load_all_matches():
         if entry["draw_type"] != "main_draw":
             continue
 
-        filepath = os.path.join(DIVISIONS_DIR, entry["file"])
+        filepath = os.path.join(divisions_dir, entry["file"])
         with open(filepath, encoding="utf-8") as f:
             data = json.load(f)
 
@@ -172,30 +145,27 @@ def load_all_matches():
         div_name = data["name"]
         category = data["category"]
         fmt = data["format"]
-        is_elite = div_code in ELITE_DIVISIONS
-        duration = 45 if is_elite else 30
-        rest = 60 if is_elite else 30
+        is_elite = div_code in elite_divisions
+        duration = get_match_duration(config, category)
+        rest = get_rest_period(config, category)
+
+        loader_args = (data, div_code, div_name, category, is_elite, duration, rest,
+                       resolved_round_priority, priorities, day_constraint_map)
 
         if fmt == "elimination":
-            matches = _load_elimination_matches(
-                data, div_code, div_name, category, is_elite, duration, rest
-            )
+            matches = _load_elimination_matches(*loader_args)
             all_matches.extend(matches)
             for m in matches:
                 match_by_id[m.id] = m
 
         elif fmt == "round_robin":
-            matches = _load_roundrobin_matches(
-                data, div_code, div_name, category, is_elite, duration, rest
-            )
+            matches = _load_roundrobin_matches(*loader_args)
             all_matches.extend(matches)
             for m in matches:
                 match_by_id[m.id] = m
 
         elif fmt == "group_playoff":
-            matches = _load_group_playoff_matches(
-                data, div_code, div_name, category, is_elite, duration, rest
-            )
+            matches = _load_group_playoff_matches(*loader_args)
             all_matches.extend(matches)
             for m in matches:
                 match_by_id[m.id] = m
@@ -206,7 +176,8 @@ def load_all_matches():
     return all_matches, match_by_id
 
 
-def _load_elimination_matches(data, div_code, div_name, category, is_elite, duration, rest):
+def _load_elimination_matches(data, div_code, div_name, category, is_elite, duration, rest,
+                              resolved_round_priority, priorities, day_constraint_map):
     matches = []
     rounds = data.get("rounds", [])
 
@@ -215,8 +186,8 @@ def _load_elimination_matches(data, div_code, div_name, category, is_elite, dura
 
     for rnd in rounds:
         round_name = rnd["name"]
-        priority = ROUND_PRIORITY.get(round_name, PRIORITY_R1)
-        is_sf_final = round_name in ("Semi-Final", "Final")
+        priority = resolved_round_priority.get(round_name, priorities.get("round_1", 20))
+        day_constraint = day_constraint_map.get(round_name)
 
         for m in rnd["matches"]:
             match_id = make_match_id(div_code, round_name, m["match"])
@@ -250,7 +221,7 @@ def _load_elimination_matches(data, div_code, div_name, category, is_elite, dura
                 round_name=round_name, match_num=m["match"],
                 player1=p1, player2=p2, known_players=known,
                 duration_min=duration, rest_min=rest,
-                priority=priority, is_sf_or_final=is_sf_final,
+                priority=priority, day_constraint=day_constraint,
                 prerequisites=prereqs, is_elite=is_elite,
             )
             matches.append(match)
@@ -285,7 +256,8 @@ def _compute_pool_rounds(matches):
         m.pool_round = rounds.get(i, 0)
 
 
-def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, duration, rest):
+def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, duration, rest,
+                             resolved_round_priority, priorities, day_constraint_map):
     matches = []
     for m in data.get("matches", []):
         match_id = make_match_id(div_code, "Pool", m["match"])
@@ -293,14 +265,14 @@ def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, durat
         p2 = m.get("player2", "")
         known = extract_player_names(p1) + extract_player_names(p2)
 
-        pool_priority = PRIORITY_ELITE_POOL if is_elite else PRIORITY_POOL
+        pool_priority = priorities.get("elite_pool", 5) if is_elite else priorities.get("pool", 10)
         match = Match(
             match_id=match_id,
             div_code=div_code, div_name=div_name, category=category,
             round_name="Pool", match_num=m["match"],
             player1=p1, player2=p2, known_players=known,
             duration_min=duration, rest_min=rest,
-            priority=pool_priority, is_sf_or_final=False,
+            priority=pool_priority, day_constraint=None,
             prerequisites=[], is_elite=is_elite,
         )
         matches.append(match)
@@ -310,7 +282,8 @@ def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, durat
     return matches
 
 
-def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, duration, rest):
+def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, duration, rest,
+                                resolved_round_priority, priorities, day_constraint_map):
     matches = []
     group_match_ids = []
 
@@ -329,7 +302,7 @@ def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, du
                 round_name=f"{group_name} Pool", match_num=m["match"],
                 player1=p1, player2=p2, known_players=known,
                 duration_min=duration, rest_min=rest,
-                priority=PRIORITY_POOL, is_sf_or_final=False,
+                priority=priorities.get("pool", 10), day_constraint=None,
                 prerequisites=[], is_elite=is_elite,
             )
             matches.append(match)
@@ -343,9 +316,9 @@ def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, du
 
         for rnd in playoff["rounds"]:
             round_name = rnd["name"]
-            priority = ROUND_PRIORITY.get(round_name, PRIORITY_GROUP_PLAYOFF)
-            priority = max(priority, PRIORITY_GROUP_PLAYOFF)
-            is_sf_final = round_name in ("Semi-Final", "Final")
+            priority = resolved_round_priority.get(round_name, priorities.get("group_playoff", 30))
+            priority = max(priority, priorities.get("group_playoff", 30))
+            day_constraint = day_constraint_map.get(round_name)
 
             for m in rnd["matches"]:
                 match_id = make_match_id(div_code, f"Playoff {round_name}", m["match"])
@@ -375,7 +348,7 @@ def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, du
                     round_name=f"Playoff {round_name}", match_num=m["match"],
                     player1=p1, player2=p2, known_players=known,
                     duration_min=duration, rest_min=rest,
-                    priority=priority, is_sf_or_final=is_sf_final,
+                    priority=priority, day_constraint=day_constraint,
                     prerequisites=prereqs, is_elite=is_elite,
                 )
                 matches.append(match)
@@ -420,7 +393,8 @@ def _resolve_known_players(all_matches, match_by_id):
 # ── Court schedule ───────────────────────────────────────────────
 
 class CourtSchedule:
-    def __init__(self):
+    def __init__(self, venue_model):
+        self.venue_model = venue_model
         self.booked = {}  # (court, minute) -> match_id
 
     def is_available(self, court, minute):
@@ -431,29 +405,24 @@ class CourtSchedule:
 
     def _court_exists(self, court, minute):
         """Check if a court is operational at this time."""
-        if minute < SUN_START:
-            # Saturday
-            return 1 <= court <= 12 and 0 <= minute < SAT_END
-        else:
-            # Sunday
-            if 1 <= court <= 4:
-                return SUN_START <= minute < SUN_COURTS_14_END
-            elif 5 <= court <= 8:
-                return SUN_START <= minute < SUN_COURTS_58_END
-            else:
-                return False  # courts 9-12 not available Sunday
+        for crt, start, end in self.venue_model["court_windows"]:
+            if crt == court and start <= minute < end:
+                return True
+        return False
 
     def book(self, court, minute, match_id, duration_min):
         """Book a court for a match. 45-min matches block 2 slots."""
-        slots_needed = (duration_min + SLOT_DURATION - 1) // SLOT_DURATION
+        slot_duration = self.venue_model["slot_duration"]
+        slots_needed = (duration_min + slot_duration - 1) // slot_duration
         for i in range(slots_needed):
-            self.booked[(court, minute + i * SLOT_DURATION)] = match_id
+            self.booked[(court, minute + i * slot_duration)] = match_id
 
     def can_book(self, court, minute, duration_min):
         """Check if a court can be booked for the full duration."""
-        slots_needed = (duration_min + SLOT_DURATION - 1) // SLOT_DURATION
+        slot_duration = self.venue_model["slot_duration"]
+        slots_needed = (duration_min + slot_duration - 1) // slot_duration
         for i in range(slots_needed):
-            t = minute + i * SLOT_DURATION
+            t = minute + i * slot_duration
             if not self.is_available(court, t):
                 return False
         return True
@@ -478,64 +447,48 @@ class PlayerTracker:
 
 # ── Court eligibility ────────────────────────────────────────────
 
-def get_eligible_courts(match, time_minute):
+def get_eligible_courts(match, time_minute, config, venue_model):
     """Get ordered list of courts to try for a match at a given time."""
-    is_sunday = time_minute >= SUN_START
-    div_code = match.division_code
     category = match.category
+    pref = get_court_preference(config, category)
 
-    if div_code in ELITE_DIVISIONS:
-        return [5, 6, 7, 8]
+    # Build ordered court list from preference chain
+    ordered = []
+    for key in ("required_courts", "preferred_courts", "fallback_courts", "last_resort_courts"):
+        courts = pref.get(key)
+        if courts:
+            for c in courts:
+                if c not in ordered:
+                    ordered.append(c)
 
-    if div_code in OPEN_A_DIVISIONS:
-        if is_sunday:
-            return [5, 6, 7, 8, 1, 2, 3, 4]
-        else:
-            return [5, 6, 7, 8, 1, 2, 3, 4, 9, 10, 11, 12]
+    # If required_courts is set, only use those (no fallback)
+    if pref.get("required_courts"):
+        ordered = list(pref["required_courts"])
 
-    if category in JUNIOR_CATEGORIES:
-        if is_sunday:
-            return [1, 2, 3, 4, 5, 6, 7, 8]
-        else:
-            return [9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8]
+    # Filter out courts not available at this time
+    available = []
+    for court in ordered:
+        for crt, start, end in venue_model["court_windows"]:
+            if crt == court and start <= time_minute < end:
+                available.append(court)
+                break
 
-    # Open B, C, Veterans
-    if is_sunday:
-        return [1, 2, 3, 4, 5, 6, 7, 8]
-    else:
-        return [1, 2, 3, 4, 9, 10, 11, 12, 5, 6, 7, 8]
-
-
-# ── All available time slots in order ────────────────────────────
-
-def generate_all_slots():
-    """Generate all 30-min time slots in chronological order."""
-    slots = []
-    # Saturday: 0 to 750 (9:00 to 21:30)
-    t = 0
-    while t < SAT_END:
-        slots.append(t)
-        t += SLOT_DURATION
-    # Sunday: 1440 to max end
-    t = SUN_START
-    while t < SUN_COURTS_58_END:
-        slots.append(t)
-        t += SLOT_DURATION
-    return slots
-
-
-ALL_SLOTS = generate_all_slots()
+    return available
 
 
 # ── Scheduling algorithm ─────────────────────────────────────────
 
-def schedule_matches(matches, match_by_id):
+def schedule_matches(matches, match_by_id, config, venue_model):
     """Main scheduling loop. Returns (scheduled_dict, unscheduled_list)."""
-    court_sched = CourtSchedule()
+    court_sched = CourtSchedule(venue_model)
     player_tracker = PlayerTracker()
     scheduled = {}       # match_id -> (court, minute)
     scheduled_end = {}   # match_id -> end minute
     unscheduled = []
+
+    all_slots = venue_model["all_slots"]
+    slot_duration = venue_model["slot_duration"]
+    day_start_minutes = venue_model["day_start_minutes"]
 
     # Sort by priority, then pool_round (groups non-conflicting RR matches),
     # then most-constrained-first (-player count, so doubles before singles),
@@ -561,21 +514,22 @@ def schedule_matches(matches, match_by_id):
                 # Prerequisite wasn't scheduled (maybe it was a bye that got skipped)
                 pass
 
-        # Sunday rule for SF/Final
-        if match.is_sf_or_final:
-            earliest = max(earliest, SUN_START)
+        # Day constraint (e.g. SF/Final must be on Sunday)
+        if match.day_constraint:
+            day_start = day_start_minutes.get(match.day_constraint, 0)
+            earliest = max(earliest, day_start)
 
-        # Snap to next 30-min slot boundary
-        if earliest % SLOT_DURATION != 0:
-            earliest = ((earliest // SLOT_DURATION) + 1) * SLOT_DURATION
+        # Snap to next slot boundary
+        if earliest % slot_duration != 0:
+            earliest = ((earliest // slot_duration) + 1) * slot_duration
 
         # Find available slot
         placed = False
-        for slot in ALL_SLOTS:
+        for slot in all_slots:
             if slot < earliest:
                 continue
 
-            courts = get_eligible_courts(match, slot)
+            courts = get_eligible_courts(match, slot, config, venue_model)
             for court in courts:
                 if court_sched.can_book(court, slot, match.duration_min):
                     # Check player availability only for real-player matches
@@ -609,17 +563,31 @@ def schedule_matches(matches, match_by_id):
 
 # ── Validation ───────────────────────────────────────────────────
 
-def validate_schedule(matches, match_by_id, scheduled, court_sched, player_tracker):
+def validate_schedule(matches, match_by_id, scheduled, court_sched, player_tracker, config, venue_model):
     """Run validation checks and return warnings."""
     warnings = []
+    day_start_minutes = venue_model["day_start_minutes"]
 
-    # Check SF/Final on Sunday
+    # Check day constraints
     for match in matches:
         if match.id not in scheduled:
             continue
         court, minute = scheduled[match.id]
-        if match.is_sf_or_final and minute < SUN_START:
-            warnings.append(f"SF/Final on Saturday: {match.id} at {minute_to_display(minute)}")
+        if match.day_constraint:
+            required_start = day_start_minutes.get(match.day_constraint, 0)
+            # Check that match is on the required day
+            on_correct_day = False
+            for day in venue_model["days"]:
+                if day["name"] == match.day_constraint:
+                    if day["start_minute"] <= minute < day["start_minute"] + 24 * 60:
+                        on_correct_day = True
+                    break
+            if not on_correct_day:
+                day_name, time_str = config_minute_to_display(venue_model, minute)
+                warnings.append(
+                    f"{match.round_name} on wrong day: {match.id} at {day_name} {time_str} "
+                    f"(should be {match.day_constraint})"
+                )
 
     # Check round ordering
     for match in matches:
@@ -631,8 +599,8 @@ def validate_schedule(matches, match_by_id, scheduled, court_sched, player_track
                 _, prereq_time = scheduled[prereq_id]
                 if prereq_time >= match_time:
                     warnings.append(
-                        f"Round order violation: {prereq_id} at {minute_to_display(prereq_time)} "
-                        f"but {match.id} at {minute_to_display(match_time)}"
+                        f"Round order violation: {prereq_id} at {config_minute_to_display(venue_model, prereq_time)} "
+                        f"but {match.id} at {config_minute_to_display(venue_model, match_time)}"
                     )
 
     # Check player double-booking (only for matches with confirmed real players)
@@ -656,17 +624,20 @@ def validate_schedule(matches, match_by_id, scheduled, court_sched, player_track
                 warnings.append(f"Double-booking: {player} in {id1} and {id2}")
             elif start2 < end1 + 30:  # minimum rest period
                 warnings.append(
-                    f"Insufficient rest for {player}: {id1} ends at {minute_to_display(end1)}, "
-                    f"{id2} starts at {minute_to_display(start2)}"
+                    f"Insufficient rest for {player}: {id1} ends at {config_minute_to_display(venue_model, end1)}, "
+                    f"{id2} starts at {config_minute_to_display(venue_model, start2)}"
                 )
 
-    # Check Elite courts
+    # Check court preferences for elite matches
+    elite_divisions = get_elite_divisions(config)
     for match in matches:
         if match.id not in scheduled:
             continue
         if match.is_elite:
-            court, _ = scheduled[match.id]
-            if court not in (5, 6, 7, 8):
+            court, minute = scheduled[match.id]
+            pref = get_court_preference(config, match.category)
+            required = pref.get("required_courts")
+            if required and court not in required:
                 warnings.append(f"Elite on wrong court: {match.id} on court {court}")
 
     return warnings
@@ -674,9 +645,13 @@ def validate_schedule(matches, match_by_id, scheduled, court_sched, player_track
 
 # ── Output generation ────────────────────────────────────────────
 
-def write_schedules(matches, match_by_id, scheduled, unscheduled, warnings):
+def write_schedules(matches, match_by_id, scheduled, unscheduled, warnings, config, venue_model):
     """Write session JSON files and index."""
-    os.makedirs(SCHEDULES_DIR, exist_ok=True)
+    schedules_dir = config["paths"]["schedules_dir"]
+    os.makedirs(schedules_dir, exist_ok=True)
+
+    sessions = venue_model["sessions"]
+    tournament_name = get_tournament_name(config)
 
     # Build scheduled match records
     records = []
@@ -684,7 +659,7 @@ def write_schedules(matches, match_by_id, scheduled, unscheduled, warnings):
         if match.id not in scheduled:
             continue
         court, minute = scheduled[match.id]
-        day, time_str = minute_to_display(minute)
+        day, time_str = config_minute_to_display(venue_model, minute)
         rec = {
             "time": time_str,
             "court": court,
@@ -705,7 +680,7 @@ def write_schedules(matches, match_by_id, scheduled, unscheduled, warnings):
 
     # Split into sessions
     session_data = []
-    for sess in SESSIONS:
+    for sess in sessions:
         sess_matches = [
             rec for minute, rec in records
             if sess["start"] <= minute < sess["end"]
@@ -718,7 +693,7 @@ def write_schedules(matches, match_by_id, scheduled, unscheduled, warnings):
             "matches": sess_matches,
         }
 
-        outpath = os.path.join(SCHEDULES_DIR, sess["file"])
+        outpath = os.path.join(schedules_dir, sess["file"])
         with open(outpath, "w", encoding="utf-8") as f:
             json.dump(session_json, f, indent=2, ensure_ascii=False)
 
@@ -731,18 +706,16 @@ def write_schedules(matches, match_by_id, scheduled, unscheduled, warnings):
 
     # Index
     index = {
-        "tournament": TOURNAMENT_NAME,
+        "tournament": tournament_name,
         "generated": str(date.today()),
         "sessions": session_data,
-        "total_matches": len(matches) + sum(1 for _ in []),  # all loaded (excl byes)
+        "total_matches": len(scheduled) + len(unscheduled),
         "total_scheduled": len(scheduled),
         "unscheduled": [m.id for m in unscheduled],
         "warnings": warnings,
     }
-    # Fix total count
-    index["total_matches"] = len(scheduled) + len(unscheduled)
 
-    index_path = os.path.join(SCHEDULES_DIR, "schedule_index.json")
+    index_path = os.path.join(schedules_dir, "schedule_index.json")
     with open(index_path, "w", encoding="utf-8") as f:
         json.dump(index, f, indent=2, ensure_ascii=False)
 
@@ -751,13 +724,25 @@ def write_schedules(matches, match_by_id, scheduled, unscheduled, warnings):
 
 # ── Main ─────────────────────────────────────────────────────────
 
-def main():
-    print(f"Loading divisions from: {DIVISIONS_DIR}/")
-    matches, match_by_id = load_all_matches()
+def main(config=None):
+    if config is None:
+        parser = argparse.ArgumentParser(description="Generate match schedules")
+        parser.add_argument("--tournament", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            help="Path to tournament directory (default: project root)")
+        args = parser.parse_args()
+        config = load_config(args.tournament)
+
+    venue_model = build_venue_model(config)
+    divisions_dir = config["paths"]["divisions_dir"]
+
+    print(f"Loading divisions from: {divisions_dir}/")
+    matches, match_by_id = load_all_matches(config)
     print(f"Loaded {len(matches)} schedulable matches (byes excluded)\n")
 
     print("Scheduling...")
-    scheduled, unscheduled, court_sched, player_tracker = schedule_matches(matches, match_by_id)
+    scheduled, unscheduled, court_sched, player_tracker = schedule_matches(
+        matches, match_by_id, config, venue_model
+    )
 
     print(f"  Scheduled: {len(scheduled)}")
     print(f"  Unscheduled: {len(unscheduled)}")
@@ -767,7 +752,7 @@ def main():
             print(f"    {m.id}")
 
     print("\nValidating...")
-    warnings = validate_schedule(matches, match_by_id, scheduled, court_sched, player_tracker)
+    warnings = validate_schedule(matches, match_by_id, scheduled, court_sched, player_tracker, config, venue_model)
     if warnings:
         print(f"  {len(warnings)} warnings:")
         for w in warnings:
@@ -775,8 +760,9 @@ def main():
     else:
         print("  No warnings — all checks passed!")
 
-    print(f"\nWriting schedules to: {SCHEDULES_DIR}/")
-    session_data = write_schedules(matches, match_by_id, scheduled, unscheduled, warnings)
+    schedules_dir = config["paths"]["schedules_dir"]
+    print(f"\nWriting schedules to: {schedules_dir}/")
+    session_data = write_schedules(matches, match_by_id, scheduled, unscheduled, warnings, config, venue_model)
 
     print("\nSchedule Summary:")
     for sess in session_data:
@@ -793,7 +779,7 @@ def main():
     for code in sorted(div_counts):
         print(f"  {code:12s}: {div_counts[code]} matches scheduled")
 
-    print(f"\nDone. Files written to {SCHEDULES_DIR}/")
+    print(f"\nDone. Files written to {schedules_dir}/")
 
 
 if __name__ == "__main__":

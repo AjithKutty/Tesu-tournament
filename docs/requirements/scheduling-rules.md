@@ -1,82 +1,59 @@
 ## Game Scheduling Rules
 
-### Tournament Director
-I am the tournament director for a badminton tournament organized by Tervasulka. I am preparing the schedules for the tournament. The tournament is played over two days.
+### Overview
+
+This document describes the general scheduling rules for badminton tournaments. All venue-specific parameters (courts, times, durations) are configured per tournament via YAML files in the tournament's `config/` directory.
 
 ### Court Availability
 
-**Saturday:** 12 courts available from 9:00 to 22:00.
-- All **Elite class** (MS V, WS V, XD V) matches must be played on **courts 5–8**.
-- **A class** matches (MS A, MD A, WD A, XD A) should also be played on **courts 5–8** when possible.
-- **Junior classes** should be played on **courts 9–12** when possible.
+Court availability is defined in `venue.yaml`. Each tournament day specifies:
+- Which courts are available
+- Start and end times per court group (different courts may close at different times)
 
-**Sunday:** Courts 1–4 available from 9:00 to 16:00, courts 5–8 available from 9:00 to 18:00.
+Courts that are not available on a given day are automatically excluded from scheduling.
 
-### Default Match Durations
-- **Juniors:** 30 minutes
-- **Adults (cup/pool):** 30 minutes
-- **Elite class:** 45 minutes
+### Match Durations
+
+Match durations are defined in `match_rules.yaml` per division category. A default duration applies to categories not explicitly configured. Matches that exceed one scheduling slot (e.g., a 45-minute match in a 30-minute slot grid) block multiple consecutive slots on the assigned court.
 
 ### Rest Periods
-- Players are entitled to a **30-minute break** between matches.
-- **Elite class** players are entitled to a **1-hour break** between matches.
+
+Players are entitled to a rest period between consecutive matches. Rest periods are defined in `match_rules.yaml` per division category, with a default for unlisted categories.
+
+### Court Preferences
+
+Court assignment preferences are defined in `court_preferences.yaml` per division category:
+- **Required courts**: Hard constraint — the match must be on one of these courts.
+- **Preferred courts**: Tried first, but not mandatory.
+- **Fallback courts**: Used when preferred courts are unavailable.
+- **Last resort courts**: Used only when all other options are exhausted.
+
+Categories not listed use the default preference chain.
 
 ### Division Draw Formats
 
-**Junior Divisions:**
-| Division | Format |
-|---|---|
-| BS U11 | 4-player pool (round-robin) |
-| BS U13 | 2 preliminary groups; group winners advance to a final |
-| BD U13 | 3-pair pool (round-robin) |
-| BS U15 | 2 preliminary groups; group winners advance to a final |
-| BD U15 | 3-pair pool (round-robin) |
-| BS U17 | 5 preliminary groups; top 8 advance to a cup-format knockout bracket |
-| BD U17 | 3-pair pool (round-robin) |
+Draw formats (elimination, round-robin, group+playoff) are auto-detected from the input data. Per-division overrides can be specified in `divisions.yaml` via the `format_overrides` section.
 
-**Veterans Divisions:**
-| Division | Format |
-|---|---|
-| MS 35 | 3-player pool (round-robin) |
-| MD 35 | 3-pair pool (round-robin) |
-| XD 35 | 3-pair pool (round-robin) |
-| MS 45 | 2 preliminary groups; group winners advance to a final |
-| MD 45 | 4-pair pool (round-robin) |
+### Scheduling Priorities
 
-**Elite Divisions:**
-| Division | Format |
-|---|---|
-| MS V | 4-player pool (round-robin) |
-| WS V | 3-player pool (round-robin) |
-| XD V | 4-pair pool (round-robin) |
+Matches are scheduled in priority order as defined in `scheduling.yaml`:
+1. Elite pool matches (highest priority — scheduled first)
+2. Regular pool / round-robin matches
+3. Elimination Round 1 matches
+4. Group playoff matches
+5. Elimination Round 2 matches
+6. Quarter-Finals
+7. Semi-Finals
+8. Finals (lowest priority — scheduled last)
 
-**Open A Divisions:**
-| Division | Format |
-|---|---|
-| MS A | 12-player cup (elimination bracket) |
-| MD A | 14-pair cup (elimination bracket) |
-| WD A | 3-pair pool (round-robin) |
-| XD A | 7-pair cup (elimination bracket) |
+### Day Constraints
 
-**Open B Divisions:**
-| Division | Format |
-|---|---|
-| MS B | 17-player cup (elimination bracket) |
-| WS B | 3-player pool (round-robin) |
-| MD B | 20-pair cup (elimination bracket) |
-| XD B | 7-pair cup (elimination bracket) |
+Certain rounds can be constrained to specific days via `scheduling.yaml`. For example, semi-finals and finals may be required to be played on the last day of the tournament.
 
-**Open C Divisions:**
-| Division | Format |
-|---|---|
-| MS C | 25-player cup (elimination bracket) |
-| WS C | 4-player pool (round-robin) |
-| MD C | 14-pair cup (elimination bracket) |
-| WD C | 3-pair pool (round-robin) |
-| XD C | 5-pair cup (elimination bracket) |
+### Additional Scheduling Rules
 
-### Additional Scheduling Notes
-- Player names and draw brackets can be found in the attached spreadsheet.
-- Start times should ideally be set at **30-minute intervals**.
-- Matches within the **same round of a cup bracket** should be scheduled as close together in time as possible.
-- **Semi-finals and finals of all divisions must be played on Sunday.**
+- Start times are set at fixed intervals defined by `slot_duration` in `venue.yaml`.
+- Matches within the same round of a cup bracket should be scheduled as close together in time as possible.
+- No player may be scheduled on two courts at the same time.
+- For later-round matches where players are unknown, worst-case player tracing ensures rest constraints are met for all possible players.
+- Bye matches are not scheduled (no court time needed).

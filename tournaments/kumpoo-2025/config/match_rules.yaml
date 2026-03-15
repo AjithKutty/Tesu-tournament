@@ -1,0 +1,8 @@
+default:
+  match_duration: 30  # Minutes
+  rest_period: 30     # Minutes between matches for same player
+
+categories:
+  Elite:
+    match_duration: 45
+    rest_period: 60

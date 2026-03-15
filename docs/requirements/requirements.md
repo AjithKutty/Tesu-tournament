@@ -4,7 +4,7 @@
 
 A tool that reads tournament draw data — either from an Excel spreadsheet or by scraping a tournamentsoftware.com webpage — generates a match schedule, and produces a self-contained single-page HTML website for players, officials, and spectators.
 
-The tool must be tournament-agnostic: it works with any badminton tournament hosted on tournamentsoftware.com, not only the specific tournament whose data is currently checked in. The user chooses their input source at the command line.
+The tool must be tournament-agnostic: it works with any badminton tournament hosted on tournamentsoftware.com. Each tournament is configured via YAML files in its own directory under `tournaments/`.
 
 ---
 
@@ -14,29 +14,43 @@ The tool must be tournament-agnostic: it works with any badminton tournament hos
 
 | ID | Requirement |
 |----|-------------|
-| IN-1 | The system accepts two input modes, selectable via CLI: (a) an Excel workbook (.XLSX), or (b) a tournamentsoftware.com URL. |
+| IN-1 | The system accepts two input modes, selectable via CLI or tournament config: (a) an Excel workbook (.XLSX), or (b) a tournamentsoftware.com URL. |
 | IN-2 | **Excel mode**: The workbook contains one sheet per division draw, following the naming convention `{EVENT} {LEVEL}-{Main Draw\|Playoff}` (e.g. `MS A-Main Draw`, `BS U17-Playoff`). |
-| IN-3 | **Web mode**: The system scrapes tournament draw data from a tournamentsoftware.com draws page URL, bypassing the cookie consent wall automatically. |
+| IN-3 | **Web mode**: The system scrapes tournament draw data from a tournamentsoftware.com draws page URL, bypassing the cookie consent wall automatically. Scraped data is cached in the tournament's `scraped/` directory to avoid redundant requests. |
 | IN-4 | The system must support the three draw formats produced by tournamentsoftware.com: elimination brackets, round-robin pools, and group-stage + playoff combinations — regardless of input mode. |
-| IN-5 | Scheduling parameters (court count, operating hours, match durations, rest periods, court preferences, session boundaries) must be configurable, not hard-coded to a single tournament. |
+| IN-5 | All tournament-specific parameters (venue, courts, match durations, rest periods, court preferences, session boundaries, division categories) must be configurable via YAML files in the tournament directory. |
 | IN-6 | Both input modes must produce the same JSON output format so that downstream pipeline stages (schedule generation, website generation) work without modification. |
-| IN-7 | The Excel file path and web URL must be passable as CLI arguments (`--file`, `--url`). |
+| IN-7 | The Excel file path and web URL must be specifiable in the tournament config or overridable via CLI arguments (`--file`, `--url`). |
 | IN-8 | An optional `--full-results` flag enables scraping of additional match data (results, scores, durations, scheduled times) when using web mode. By default, only draw/seeding information equivalent to the Excel export is scraped. |
 
-### 2.2 Data Parsing (Common to Both Input Modes)
+### 2.2 Tournament Configuration
+
+| ID | Requirement |
+|----|-------------|
+| CF-1 | Each tournament has its own directory under `tournaments/` containing config, input, scraped data, and output subdirectories. |
+| CF-2 | Tournament configuration is split across multiple YAML files: `tournament.yaml`, `venue.yaml`, `match_rules.yaml`, `court_preferences.yaml`, `divisions.yaml`, `scheduling.yaml`. |
+| CF-3 | The venue configuration defines days, sessions, court availability, and per-court end times — not hardcoded to any specific venue. |
+| CF-4 | Match durations and rest periods are configurable per division category, with defaults for unlisted categories. |
+| CF-5 | Court preferences (required, preferred, fallback, last-resort) are configurable per division category. |
+| CF-6 | Division-to-category mapping and website tab structure are configurable per tournament. Only categories present in the data produce tabs. |
+| CF-7 | Draw format is auto-detected from input data, with optional per-division overrides in the config. |
+| CF-8 | Scheduling priorities and day constraints (e.g., SF/Finals on a specific day) are configurable. |
+| CF-9 | Web-scraped data is cached in the tournament's `scraped/` directory. Subsequent pipeline runs use cached data unless re-scraping is explicitly requested. |
+
+### 2.3 Data Parsing (Common to Both Input Modes)
 
 | ID | Requirement |
 |----|-------------|
 | PA-1 | Parse each draw to extract: event code, level, draw type, category, and whether the event is singles or doubles. |
-| PA-2 | Detect the draw format automatically (elimination, round-robin, or group + playoff). |
+| PA-2 | Detect the draw format automatically (elimination, round-robin, or group + playoff). Allow per-division override via config. |
 | PA-3 | Extract player/pair entries including: draw position, player name(s), club affiliation (when available), seed, and status (e.g. WDN, SUB). |
 | PA-4 | For doubles events, correctly associate both partners. |
 | PA-5 | Build structural match data: bracket rounds with match pairings for elimination; all-play-all pairings for round-robin; group matches plus playoff bracket for group + playoff. |
 | PA-6 | Handle byes (empty draw positions) by auto-advancing the opponent to the next round. |
-| PA-7 | Produce one JSON file per division plus a master index JSON listing all divisions, their metadata, and a deduplicated list of all participating clubs. |
+| PA-7 | Produce one JSON file per division plus a master index JSON listing all divisions, their metadata, and a deduplicated list of all participating clubs. Output goes to the tournament's `output/divisions/` directory. |
 | PA-8 | Playoff draws must be linked back to their corresponding main-draw group-stage division. |
 
-### 2.2.1 Excel-Specific Parsing
+### 2.3.1 Excel-Specific Parsing
 
 | ID | Requirement |
 |----|-------------|
@@ -45,7 +59,7 @@ The tool must be tournament-agnostic: it works with any badminton tournament hos
 | PX-3 | Filter out ghost rows caused by whitespace-only cell values (use `str(cell.value).strip()`). |
 | PX-4 | Read club abbreviations from column C for each player entry. |
 
-### 2.2.2 Web-Specific Parsing
+### 2.3.2 Web-Specific Parsing
 
 | ID | Requirement |
 |----|-------------|
@@ -61,34 +75,35 @@ The tool must be tournament-agnostic: it works with any badminton tournament hos
 | PW-10 | Extract the tournament name from the page title/heading rather than hardcoding it. |
 | PW-11 | Include a 0.5-second delay between web requests to avoid throttling. |
 | PW-12 | When `--full-results` is enabled, include optional `result`, `duration`, `scheduled_time`, and `court` fields on match entries. |
+| PW-13 | Cache all scraped data (draw list, draw metadata, match data, club list) in the tournament's `scraped/` directory for reuse. |
 
-### 2.3 Schedule Generation (JSON to Schedule JSON)
+### 2.4 Schedule Generation (JSON to Schedule JSON)
 
 | ID | Requirement |
 |----|-------------|
-| SC-1 | Read all division JSON files and generate a court-by-court, time-slot-by-time-slot match schedule across all tournament sessions. |
-| SC-2 | Support configurable tournament duration: number of days, court availability per day (which courts, opening/closing times). |
-| SC-3 | Support configurable match durations per category (e.g. 30 min standard, 45 min for elite). |
-| SC-4 | Support configurable rest periods per category (e.g. 30 min standard, 60 min for elite). |
-| SC-5 | Enforce court eligibility rules: certain divisions may be restricted to or prefer specific courts. |
+| SC-1 | Read all division JSON files from the tournament's `output/divisions/` and generate a court-by-court, time-slot-by-time-slot match schedule across all tournament sessions. |
+| SC-2 | Read venue configuration from `venue.yaml`: number of days, court availability per day (which courts, opening/closing times), sessions. |
+| SC-3 | Read match durations per category from `match_rules.yaml`. |
+| SC-4 | Read rest periods per category from `match_rules.yaml`. |
+| SC-5 | Read court eligibility rules from `court_preferences.yaml`. |
 | SC-6 | Prevent player double-booking: no player may be scheduled on two courts at the same time. |
 | SC-7 | Enforce rest periods: a player's next match cannot start until their mandatory rest period has elapsed after the previous match ended. |
 | SC-8 | Respect round ordering: a match cannot be scheduled until all its prerequisite matches (feeder matches from earlier rounds) have been scheduled. |
 | SC-9 | For later-round matches where actual players are unknown (placeholders like "Winner of R1-M1"), use worst-case player tracing to ensure rest constraints are met for all players who could potentially reach that match. |
-| SC-10 | Schedule matches at fixed time-slot intervals (e.g. every 30 minutes). |
+| SC-10 | Schedule matches at fixed time-slot intervals as defined by `slot_duration` in `venue.yaml`. |
 | SC-11 | Matches within the same round of a division should be scheduled as close together in time as possible. |
-| SC-12 | Support the rule that semi-finals and finals of all divisions must be played on a designated day (e.g. Sunday). |
-| SC-13 | Use priority-based scheduling: higher-priority categories (e.g. Elite pools) are scheduled first to minimize cascading conflicts. |
+| SC-12 | Enforce day constraints from `scheduling.yaml` (e.g., semi-finals and finals on a specific day). |
+| SC-13 | Use priority-based scheduling from `scheduling.yaml`: higher-priority categories are scheduled first. |
 | SC-14 | For round-robin pools, compute pool rounds (a graph-coloring approach) so that matches sharing a player are assigned different rounds, enabling parallelism. |
-| SC-15 | Produce one schedule JSON file per session plus a session index JSON. |
+| SC-15 | Produce one schedule JSON file per session plus a session index JSON, in the tournament's `output/schedules/` directory. |
 | SC-16 | Validate the generated schedule and report warnings for any constraint violations (double-bookings, rest violations, round-order violations, court restriction violations). |
 
-### 2.4 Website Generation (JSON to HTML)
+### 2.5 Website Generation (JSON to HTML)
 
 | ID | Requirement |
 |----|-------------|
-| WE-1 | Produce a single, fully self-contained HTML file with all CSS and JavaScript inline — no external dependencies, no build step. |
-| WE-2 | Organize divisions into category tabs. The tab structure is derived from the categories present in the data. |
+| WE-1 | Produce a single, fully self-contained HTML file with all CSS and JavaScript inline — no external dependencies, no build step. Output to the tournament's `output/webpages/` directory. |
+| WE-2 | Organize divisions into category tabs. The tab structure is derived from the categories present in the data and the tab configuration in `divisions.yaml`. Only categories with divisions in the data are shown. |
 | WE-3 | Include a Clubs tab listing all participating clubs and their player counts. |
 | WE-4 | Include a Schedule tab with sub-tabs for each session, displaying a time-slot x court grid. |
 | WE-5 | Render elimination divisions as collapsible cards containing a draw-position table and a horizontal scrollable bracket with tree-style connectors. |
@@ -99,6 +114,7 @@ The tool must be tournament-agnostic: it works with any badminton tournament hos
 | WE-10 | Display summary statistics: total divisions, total clubs, total players. |
 | WE-11 | The website must be responsive and usable on both desktop and mobile devices. |
 | WE-12 | Division cards are collapsed by default and expand on click. |
+| WE-13 | The tournament name in the page title, header, and footer is read from the tournament config, not hardcoded. |
 
 ---
 
@@ -107,18 +123,22 @@ The tool must be tournament-agnostic: it works with any badminton tournament hos
 | ID | Requirement |
 |----|-------------|
 | NF-1 | **Portability**: The generated HTML file must work offline — openable directly from the filesystem in any modern browser without a web server. |
-| NF-2 | **Minimal dependencies**: The generator requires Python 3 with `openpyxl` (Excel mode) and `requests` + `beautifulsoup4` + `lxml` (web mode). No template engines, frontend frameworks, or build tools. |
-| NF-3 | **Single command**: The entire pipeline (parse, schedule, generate) must be executable with a single command (`python src/main.py`). Input source is selected via `--source excel` (default) or `--source web --url <URL>`. Individual steps must also be runnable independently. |
-| NF-4 | **Determinism**: Given the same input Excel file and configuration, the pipeline must produce identical output. |
+| NF-2 | **Minimal dependencies**: The generator requires Python 3 with `openpyxl` (Excel mode), `requests` + `beautifulsoup4` + `lxml` (web mode), and `pyyaml` (config loading). No template engines, frontend frameworks, or build tools. |
+| NF-3 | **Single command**: The entire pipeline (parse, schedule, generate) must be executable with a single command (`python src/main.py --tournament tournaments/<name>`). Individual steps must also be runnable independently. |
+| NF-4 | **Determinism**: Given the same input data and configuration, the pipeline must produce identical output. |
 | NF-5 | **Performance**: The full pipeline should complete within seconds for tournaments of up to ~300 matches and ~150 players. |
-| NF-6 | **Extensibility**: New division formats or categories should be addable without restructuring existing code. |
-| NF-7 | **No manual editing of output**: All files under `output/` are generated artifacts. Changes must be made in the source scripts. |
+| NF-6 | **Extensibility**: New division formats, categories, or venue configurations should be addable by creating a new tournament directory with appropriate config files — no code changes required. |
+| NF-7 | **No manual editing of output**: All files under a tournament's `output/` directory are generated artifacts. Changes must be made in the source scripts or config files. |
 
 ---
 
 ## 4. Data Flow
 
 ```
+Tournament Config (YAML)
+        │
+        ├──────────────────────────────────────┐
+        ▼                                      ▼
 Excel Workbook (.XLSX)              tournamentsoftware.com URL
         │                                      │
         ▼                                      ▼
@@ -126,19 +146,19 @@ Excel Workbook (.XLSX)              tournamentsoftware.com URL
         │                                      │
         └──────────────┬───────────────────────┘
                        ▼
-         output/divisions/*.json       (one per division + tournament_index.json)
+      tournaments/<name>/output/divisions/*.json
                        │
                        ▼
-              generate_schedule.py
+              generate_schedule.py  ← venue.yaml, match_rules.yaml,
+                       │              court_preferences.yaml, scheduling.yaml
+                       ▼
+      tournaments/<name>/output/schedules/*.json
                        │
                        ▼
-            output/schedules/*.json    (one per session + schedule_index.json)
+              generate_website.py   ← divisions.yaml, tournament.yaml
                        │
                        ▼
-              generate_website.py
-                       │
-                       ▼
-         output/webpages/index.html    (single self-contained page)
+      tournaments/<name>/output/webpages/index.html
 ```
 
 Both input paths produce identical JSON output format, so the downstream pipeline is shared.
@@ -153,8 +173,8 @@ The input workbook is expected to follow the export format from tournamentsoftwa
 
 Each sheet represents one draw and is named: `{EVENT_CODE} {LEVEL}-{DRAW_TYPE}`
 
-- **Event codes**: `MS` (Men's Singles), `WS` (Women's Singles), `MD` (Men's Doubles), `WD` (Women's Doubles), `XD` (Mixed Doubles), `BS` (Boys' Singles), `BD` (Boys' Doubles)
-- **Levels**: Open levels (`A`, `B`, `C`), Junior age groups (`U11`, `U13`, `U15`, `U17`), Veterans age groups (`35`, `45`), Elite (`V`)
+- **Event codes**: Configurable in `divisions.yaml` (default: MS, WS, MD, WD, XD, BS, BD)
+- **Levels**: Configurable in `divisions.yaml` (default: A, B, C, U11-U17, 35, 45, V)
 - **Draw types**: `Main Draw`, `Playoff`
 
 ### 5.2 Column Layout
@@ -173,6 +193,8 @@ Each sheet represents one draw and is named: `{EVENT_CODE} {LEVEL}-{DRAW_TYPE}`
 | Elimination bracket | Header row contains "Round 1", "Quarterfinals", "Semifinals", or "Final" in columns E onward |
 | Round-robin pool | Header row contains numbered columns ("1", "2", "3") and a "Standings" row exists |
 | Group + Playoff | Column A contains group header strings matching `"{EVENT} {LEVEL} - Group {LETTER}"` |
+
+These rules can be overridden per division via `format_overrides` in `divisions.yaml`.
 
 ### 5.4 Doubles Handling
 
@@ -202,6 +224,8 @@ The tournament UUID is extracted from this URL. The federation subdomain (e.g. `
 | Draw metadata | `/sport/draw.aspx?id={ID}&draw={N}` | Format type ("Cup-kaavio"), draw size ("Size 16"), player autosuggest list |
 | Draw matches | `/sport/drawmatches.aspx?id={ID}&draw={N}` | Player names, seeds, scheduled times, courts, results, durations |
 | Clubs | `/sport/clubs.aspx?id={ID}` | Club names and player counts |
+
+All scraped pages are cached in the tournament's `scraped/` directory.
 
 ### 6.3 Cookie Wall Bypass
 
@@ -350,22 +374,22 @@ For group + playoff divisions, additional fields:
 
 ---
 
-## 8. Scheduling Constraints (Configurable)
+## 8. Scheduling Constraints
 
-These constraints are provided here as defaults from the current tournament. They should be treated as configurable parameters, not hard-coded assumptions.
+All scheduling constraints are read from the tournament's config files. The following table shows the config file responsible for each parameter:
 
-| Parameter | Default value |
-|-----------|---------------|
-| Tournament days | 2 (Saturday + Sunday) |
-| Courts (Saturday) | 12 (courts 1–12), 9:00–22:00 |
-| Courts (Sunday) | Courts 1–4: 9:00–16:00; Courts 5–8: 9:00–18:00 |
-| Time slot interval | 30 minutes |
-| Standard match duration | 30 minutes |
-| Elite match duration | 45 minutes |
-| Standard rest period | 30 minutes |
-| Elite rest period | 60 minutes |
-| Elite court restriction | Courts 5–8 only |
-| SF/Final day | Sunday |
+| Parameter | Config file | Config key |
+|-----------|-------------|------------|
+| Tournament days and hours | `venue.yaml` | `days[].start_time`, `days[].courts[].end_time` |
+| Court numbers per day | `venue.yaml` | `days[].courts[].numbers` |
+| Session boundaries | `venue.yaml` | `days[].sessions[]` |
+| Time slot interval | `venue.yaml` | `slot_duration` |
+| Match duration per category | `match_rules.yaml` | `categories.<name>.match_duration` |
+| Rest period per category | `match_rules.yaml` | `categories.<name>.rest_period` |
+| Court restrictions/preferences | `court_preferences.yaml` | `categories.<name>.*_courts` |
+| SF/Final day constraints | `scheduling.yaml` | `day_constraints[]` |
+| Scheduling priorities | `scheduling.yaml` | `priorities`, `round_priority_map` |
+| Elite division codes | `scheduling.yaml` | `elite_divisions` |
 
 ---
 
@@ -375,14 +399,14 @@ These constraints are provided here as defaults from the current tournament. The
 
 The website is organized into tabs derived from the division categories present in the data, plus two special tabs:
 
-- **Division tabs** (one per category, e.g. Open A, Open B, Open C, Junior, Veterans, Elite)
+- **Division tabs** — one per category present in the data, ordered as defined in `divisions.yaml`
 - **Clubs tab** — alphabetical list of clubs with player counts
 - **Schedule tab** — session sub-tabs with time x court grids
 
 ### 9.2 Visual Design
 
 - Clean, modern card-based layout
-- Category-specific color coding (e.g. Junior = green, Open = blue, Veterans = orange, Elite = purple)
+- Category-specific color coding via badge classes defined in `divisions.yaml`
 - CSS custom properties for theming
 - Responsive breakpoint at 600px for mobile
 - Tree-style bracket connectors using CSS pseudo-elements
@@ -410,3 +434,4 @@ The website is organized into tabs derived from the division categories present 
 | Session | A contiguous block of play within a day (e.g. Saturday Morning) |
 | Bye | An empty draw position; the opponent auto-advances |
 | Seed | A ranking designation (e.g. [1], [3/4]) giving a player a protected draw position |
+| Tournament directory | A folder under `tournaments/` containing all config, input, and output for one tournament |

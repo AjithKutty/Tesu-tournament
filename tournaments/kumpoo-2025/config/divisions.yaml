@@ -1,0 +1,52 @@
+# Event code to full name mapping
+event_names:
+  MS: "Men's Singles"
+  WS: "Women's Singles"
+  MD: "Men's Doubles"
+  WD: "Women's Doubles"
+  XD: "Mixed Doubles"
+  BS: "Boys' Singles"
+  BD: "Boys' Doubles"
+
+# Level to category mapping
+level_categories:
+  A: "Open A"
+  B: "Open B"
+  C: "Open C"
+  U11: "Junior"
+  U13: "Junior"
+  U15: "Junior"
+  U17: "Junior"
+  "35": "Veterans"
+  "45": "Veterans"
+  V: "Elite"
+
+# Website tab display order and styling
+# Only categories present in the data will appear as tabs
+tabs:
+  - category: "Open A"
+    tab_id: "opena"
+    badge_class: "badge-open"
+  - category: "Open B"
+    tab_id: "openb"
+    badge_class: "badge-open"
+  - category: "Open C"
+    tab_id: "open"
+    badge_class: "badge-open"
+  - category: "Junior"
+    tab_id: "junior"
+    badge_class: "badge-junior"
+  - category: "Veterans"
+    tab_id: "veterans"
+    badge_class: "badge-veterans"
+  - category: "Elite"
+    tab_id: "elite"
+    badge_class: "badge-elite"
+
+# Doubles event codes (for parsing)
+doubles_events: ["MD", "WD", "XD", "BD"]
+
+# Optional: override auto-detected draw format for specific divisions
+# format_overrides:
+#   "BS U17": "group_playoff"
+#   "MS C": "elimination"
