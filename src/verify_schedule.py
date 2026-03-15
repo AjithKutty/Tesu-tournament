@@ -367,23 +367,10 @@ def check_player_conflicts(schedule_matches):
 
 # ── Main ─────────────────────────────────────────────────────────
 
-def main():
-    parser = argparse.ArgumentParser(description="Verify tournament schedule")
-    parser.add_argument(
-        "--tournament", required=True,
-        help="Path to tournament directory",
-    )
-    args = parser.parse_args()
-
-    config = load_config(args.tournament)
-    tournament_name = get_tournament_name(config)
+def verify(config):
+    """Run all verification checks. Returns the number of issues found."""
     divisions_dir = config["paths"]["divisions_dir"]
     schedules_dir = config["paths"]["schedules_dir"]
-
-    print(f"Verifying: {tournament_name}")
-    print(f"Divisions: {divisions_dir}")
-    print(f"Schedules: {schedules_dir}")
-    print()
 
     divisions = load_divisions(divisions_dir)
     schedule = load_schedule(schedules_dir)
@@ -441,11 +428,31 @@ def main():
     print()
     if all_issues:
         print(f"RESULT: {len(all_issues)} issues found across {total_checks} checks")
-        return 1
     else:
         print(f"RESULT: All {total_checks} checks passed")
-        return 0
+
+    return len(all_issues)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Verify tournament schedule")
+    parser.add_argument(
+        "--tournament", required=True,
+        help="Path to tournament directory",
+    )
+    args = parser.parse_args()
+
+    config = load_config(args.tournament)
+    tournament_name = get_tournament_name(config)
+
+    print(f"Verifying: {tournament_name}")
+    print(f"Divisions: {config['paths']['divisions_dir']}")
+    print(f"Schedules: {config['paths']['schedules_dir']}")
+    print()
+
+    issue_count = verify(config)
+    sys.exit(1 if issue_count > 0 else 0)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

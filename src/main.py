@@ -12,10 +12,11 @@ Usage:
     # Override Excel file:
     python src/main.py --tournament tournaments/kumpoo-2025 --source excel --file "path/to/draws.xlsx"
 
-Runs all three stages in sequence:
+Runs all four stages in sequence:
   1. parse (Excel or web)  → tournaments/<name>/output/divisions/*.json
   2. generate_schedule     → tournaments/<name>/output/schedules/*.json
-  3. generate_website      → tournaments/<name>/output/webpages/index.html
+  3. verify_schedule       → checks bracket completeness, round ordering, coverage, conflicts
+  4. generate_website      → tournaments/<name>/output/webpages/index.html
 """
 
 import sys
@@ -29,6 +30,7 @@ from config import load_config, get_tournament_name
 from parse_tournament import main as parse_excel_main
 from parse_web import main as parse_web_main
 from generate_schedule import main as schedule_main
+from verify_schedule import verify as verify_main
 from generate_website import main as website_main
 
 
@@ -90,7 +92,7 @@ def main():
 
     print("=" * 60)
     print(f"Tournament: {tournament_name}")
-    print(f"Step 1/3: Parsing tournament data (source: {source})")
+    print(f"Step 1/4: Parsing tournament data (source: {source})")
     print("=" * 60)
 
     if source == "excel":
@@ -106,13 +108,19 @@ def main():
 
     print()
     print("=" * 60)
-    print("Step 2/3: Generating match schedules")
+    print("Step 2/4: Generating match schedules")
     print("=" * 60)
     schedule_main(config=config)
 
     print()
     print("=" * 60)
-    print("Step 3/3: Building website")
+    print("Step 3/4: Verifying schedule")
+    print("=" * 60)
+    issue_count = verify_main(config=config)
+
+    print()
+    print("=" * 60)
+    print("Step 4/4: Building website")
     print("=" * 60)
     website_main(config=config)
 
