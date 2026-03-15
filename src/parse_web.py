@@ -4,7 +4,7 @@ structured JSON data — one file per division, identical format to
 parse_tournament.py's Excel-based output.
 
 Usage:
-    python src/parse_web.py "https://badmintonfinland.tournamentsoftware.com/sport/draws.aspx?id=48aae77a-..."
+    python src/parse_web.py "https://badmintonfinland.tournamentsoftware.com/sport/events.aspx?id=48aae77a-..."
 
     # With match results:
     python src/parse_web.py --full-results "https://..."
@@ -152,7 +152,11 @@ def bypass_cookiewall(session, base_url, target_path):
 
 
 def parse_url(url):
-    """Extract base_url and tournament_id from a tournamentsoftware.com URL."""
+    """Extract base_url and tournament_id from any tournamentsoftware.com URL.
+
+    Accepts URLs for any page (events.aspx, draws.aspx, draw.aspx, etc.) —
+    only the host and the ``id=`` query parameter are used.
+    """
     m = re.match(r"(https?://[^/]+)", url)
     if not m:
         raise ValueError(f"Invalid URL: {url}")
@@ -166,24 +170,80 @@ def parse_url(url):
     return base_url, tournament_id
 
 
-def extract_tournament_name(session, base_url, tournament_id):
-    """Fetch tournament name from the draws page heading."""
-    resp = _get(session, f"{base_url}/sport/draws.aspx?id={tournament_id}")
+def fetch_events(session, base_url, tournament_id):
+    """Scrape events.aspx to get tournament metadata and event list.
+
+    Returns dict with:
+        name: tournament name
+        organizer: organizer name
+        venue: venue name
+        dates: date string (e.g., "5.4.2025-6.4.2025")
+        events: list of event dicts with name, draws, entries, event_num
+    """
+    resp = _get(session, f"{base_url}/sport/events.aspx?id={tournament_id}")
     soup = BeautifulSoup(resp.text, "lxml")
-    # Tournament name is typically in the second <h2>
-    headings = soup.find_all("h2")
-    for h in headings:
-        text = h.get_text(strip=True)
-        # Skip the full page title that includes "Badminton Finland - ..."
-        if text and "Badminton Finland" not in text:
-            return text
-    # Fallback: parse from title tag
-    title = soup.find("title")
-    if title:
-        parts = title.get_text().split("-")
-        if len(parts) >= 2:
-            return parts[1].strip().split("-")[0].strip()
-    return "Unknown Tournament"
+
+    # Tournament metadata from nav-link__value spans inside div.media__content
+    nav_values = []
+    media_content = soup.find("div", class_="media__content")
+    if media_content:
+        nav_values = [
+            span.get_text(strip=True)
+            for span in media_content.find_all("span", class_="nav-link__value")
+        ]
+
+    tournament_name = nav_values[0] if len(nav_values) > 0 else "Unknown Tournament"
+
+    organizer = ""
+    venue = ""
+    if len(nav_values) > 1:
+        parts = nav_values[1].split(" | ", 1)
+        organizer = parts[0].strip()
+        venue = parts[1].strip() if len(parts) > 1 else ""
+
+    dates = nav_values[2] if len(nav_values) > 2 else ""
+
+    # Events table
+    events = []
+    table = soup.find("table", class_="admintournamentevents")
+    if not table:
+        table = soup.find("table", class_=lambda c: c and "admintournamentevents" in c)
+    if table:
+        rows = table.find_all("tr")
+        for row in rows:
+            cells = row.find_all("td")
+            if len(cells) < 3:
+                continue
+            link = cells[0].find("a", href=True)
+            if not link:
+                continue
+            event_name = link.get_text(strip=True)
+            href = link["href"]
+            m = re.search(r"event=(\d+)", href)
+            event_num = int(m.group(1)) if m else None
+            try:
+                draws_count = int(cells[1].get_text(strip=True))
+            except (ValueError, IndexError):
+                draws_count = 0
+            try:
+                entry_count = int(cells[2].get_text(strip=True))
+            except (ValueError, IndexError):
+                entry_count = 0
+            if draws_count > 0:
+                events.append({
+                    "name": event_name,
+                    "draws": draws_count,
+                    "entries": entry_count,
+                    "event_num": event_num,
+                })
+
+    return {
+        "name": tournament_name,
+        "organizer": organizer,
+        "venue": venue,
+        "dates": dates,
+        "events": events,
+    }
 
 
 def fetch_draw_list(session, base_url, tournament_id):
@@ -558,6 +618,129 @@ def _parse_players_from_main_row(cell_texts, sep_idx, is_doubles):
     return p1_names, p2_names, seed1, seed2
 
 
+def fetch_drawsheet(session, base_url, tournament_id, draw_num, is_doubles):
+    """Scrape drawsheet.aspx to get the bracket with draw positions, seeds, and clubs.
+
+    Returns a list of player entries in draw position order:
+    [
+        {"position": 1, "name": "Luka Penttinen", "club": "Haminan Sulkapalloilijat",
+         "seed": "1", "country": "FIN"},
+        {"position": 2, "name": None, "club": None, "seed": None, "country": None},  # Bye
+        ...
+    ]
+    For doubles, each entry has "players" list instead of "name".
+    """
+    resp = _get(
+        session,
+        f"{base_url}/sport/drawsheet.aspx?id={tournament_id}&draw={draw_num}",
+    )
+    soup = BeautifulSoup(resp.text, "lxml")
+
+    table = soup.find("table")
+    if not table:
+        return []
+
+    entries = []
+    rows = table.find_all("tr")
+
+    for row in rows:
+        cells = row.find_all("td")
+        if not cells:
+            continue
+
+        # Position rows have a digit in cell 0
+        pos_text = cells[0].get_text(strip=True)
+        if not pos_text or not pos_text.isdigit():
+            continue
+
+        position = int(pos_text)
+
+        # Cell 1: club name
+        club = cells[1].get_text(strip=True) if len(cells) > 1 else None
+        if club == "" or club == "-":
+            club = None
+
+        # Cell 2: player name with country code and seed
+        raw_player = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+
+        if not raw_player or raw_player.lower() == "bye":
+            # Bye entry
+            if is_doubles:
+                entries.append({
+                    "position": position,
+                    "players": None,
+                    "club": None,
+                    "seed": None,
+                    "country": None,
+                })
+            else:
+                entries.append({
+                    "position": position,
+                    "name": None,
+                    "club": None,
+                    "seed": None,
+                    "country": None,
+                })
+            continue
+
+        # Extract country code
+        country = None
+        country_m = re.search(r"\[([A-Z]{2,3})\]", raw_player)
+        if country_m:
+            country = country_m.group(1)
+
+        if is_doubles:
+            # Doubles: two players in the cell, separated by <br/> (shows as newline)
+            raw_full = cells[2].get_text("\n", strip=False) if len(cells) > 2 else ""
+            parts = [p.strip() for p in raw_full.split("\n") if p.strip()]
+
+            # Club cell also has two clubs separated by <br/>
+            club_full = cells[1].get_text("\n", strip=False) if len(cells) > 1 else ""
+            club_parts = [c.strip() for c in club_full.split("\n") if c.strip()]
+
+            players_list = []
+            entry_seed = None
+            player_idx = 0
+            for part in parts:
+                name, seed = clean_player_name(part)
+                if name:
+                    p_club = club_parts[player_idx] if player_idx < len(club_parts) else None
+                    if p_club == "" or p_club == "-":
+                        p_club = None
+                    players_list.append({"name": name, "club": p_club})
+                    if seed:
+                        entry_seed = seed
+                    player_idx += 1
+
+            if players_list:
+                entries.append({
+                    "position": position,
+                    "players": players_list,
+                    "club": club,
+                    "seed": entry_seed,
+                    "country": country,
+                })
+            else:
+                entries.append({
+                    "position": position,
+                    "players": None,
+                    "club": None,
+                    "seed": None,
+                    "country": None,
+                })
+        else:
+            name, seed = clean_player_name(raw_player)
+            entries.append({
+                "position": position,
+                "name": name if name else None,
+                "club": club,
+                "seed": seed,
+                "country": country,
+            })
+
+    return entries
+
+
 def fetch_clubs(session, base_url, tournament_id):
     """Scrape clubs.aspx for club name list."""
     resp = _get(session, f"{base_url}/sport/clubs.aspx?id={tournament_id}")
@@ -655,22 +838,26 @@ def _group_matches_into_rounds(matches, is_doubles):
     return rounds_of_matches
 
 
-def build_elimination_division(matches, draw_size, is_doubles, full_results,
-                               get_winners=False):
+def build_elimination_division(drawsheet_players, matches, draw_size, is_doubles,
+                               full_results, get_winners=False):
     """
-    Build players list and rounds structure from scraped elimination matches.
+    Build players list and rounds structure from drawsheet positions and
+    scraped match data.
 
-    When get_winners is False (default), later-round matches use structural
-    placeholders ('Winner R1-M1') instead of actual winner names from the
-    scraped data.  Only Round 1 uses real player names.
+    drawsheet_players is the list from fetch_drawsheet() with positions,
+    names, clubs, and seeds already resolved.  matches is the list from
+    fetch_draw_matches() (needed for --full-results and --get-winners).
 
     Returns (players, rounds, draw_size).
     """
     if draw_size == 0:
-        # Infer from match count: total matches = draw_size - 1
-        draw_size = len(matches) + 1
-        # Round up to next power of 2
-        draw_size = 2 ** math.ceil(math.log2(max(draw_size, 2)))
+        # Infer from drawsheet entries if possible, else from match count
+        if drawsheet_players:
+            draw_size = max(e["position"] for e in drawsheet_players)
+            draw_size = 2 ** math.ceil(math.log2(max(draw_size, 2)))
+        else:
+            draw_size = len(matches) + 1
+            draw_size = 2 ** math.ceil(math.log2(max(draw_size, 2)))
 
     rnd_names = round_names_for_size(draw_size)
     if not rnd_names:
@@ -686,42 +873,26 @@ def build_elimination_division(matches, draw_size, is_doubles, full_results,
         round_match_counts.append(size // 2)
         size //= 2
 
-    # Extract players from Round 1 matches
+    # Build players list directly from drawsheet data
     players = []
-    r1_matches = rounds_of_matches[0] if rounds_of_matches else []
-    pos = 1
-    seen_names = set()
-
-    for match in r1_matches:
-        for side, seed_key in [("player1", "seed1"), ("player2", "seed2")]:
-            names = match.get(side, [])
-            seed = match.get(seed_key)
-
-            if names and names[0].lower() != "bye":
-                if is_doubles and len(names) >= 2:
-                    pair_key = tuple(names)
-                    if pair_key not in seen_names:
-                        seen_names.add(pair_key)
-                        players.append({
-                            "position": pos,
-                            "players": [
-                                {"name": n, "club": None} for n in names
-                            ],
-                            "seed": seed,
-                            "status": None,
-                        })
-                elif not is_doubles and names:
-                    name = names[0]
-                    if name not in seen_names:
-                        seen_names.add(name)
-                        players.append({
-                            "position": pos,
-                            "name": name,
-                            "club": None,
-                            "seed": seed,
-                            "status": None,
-                        })
-            pos += 1
+    for entry in drawsheet_players:
+        if is_doubles:
+            if entry.get("players") is not None:
+                players.append({
+                    "position": entry["position"],
+                    "players": entry["players"],
+                    "seed": entry.get("seed"),
+                    "status": None,
+                })
+        else:
+            if entry.get("name") is not None:
+                players.append({
+                    "position": entry["position"],
+                    "name": entry["name"],
+                    "club": entry.get("club"),
+                    "seed": entry.get("seed"),
+                    "status": None,
+                })
 
     # Build position -> player map for bracket generation
     pos_map = {p["position"]: p for p in players}
@@ -729,20 +900,30 @@ def build_elimination_division(matches, draw_size, is_doubles, full_results,
     # Build the full structural bracket from draw_size first, then overlay
     # scraped data.  This ensures all rounds have the correct match count
     # even when the web doesn't list bye matches.
+    # Double-bye matches (both positions empty) are skipped entirely and
+    # propagated as Bye into later rounds.
 
-    # Step 1: Build full structural bracket (same as Excel parser's build_full_bracket)
+    # Track empty matches (both sides Bye) for propagation
+    empty_matches = set()  # set of (round_name, match_num)
+
+    # Step 1: Build full structural bracket
     # Round 1: pair adjacent draw positions
     r1_structural = []
     for i in range(1, draw_size + 1, 2):
-        # Check if we have a player at each position
         p1_entry = pos_map.get(i)
         p2_entry = pos_map.get(i + 1)
 
         p1_label = player_label(p1_entry, is_doubles) if p1_entry else "Bye"
         p2_label = player_label(p2_entry, is_doubles) if p2_entry else "Bye"
 
+        match_num = (i + 1) // 2
+
+        if p1_label == "Bye" and p2_label == "Bye":
+            empty_matches.add((rnd_names[0], match_num))
+            continue  # Skip double-bye matches entirely
+
         match = {
-            "match": len(r1_structural) + 1,
+            "match": match_num,
             "player1": p1_label,
             "player2": p2_label,
         }
@@ -751,14 +932,12 @@ def build_elimination_division(matches, draw_size, is_doubles, full_results,
             match["notes"] = f"{p2_label} auto-advances"
         elif p2_label == "Bye" and p1_label != "Bye":
             match["notes"] = f"{p1_label} auto-advances"
-        elif p1_label == "Bye" and p2_label == "Bye":
-            match["notes"] = "Empty slot"
 
         r1_structural.append(match)
 
     rounds = [{"name": rnd_names[0], "matches": r1_structural}]
 
-    # Later rounds: structural placeholders
+    # Later rounds: structural placeholders, propagating Byes from empty feeders
     for rnd_idx in range(1, len(rnd_names)):
         rnd_name = rnd_names[rnd_idx]
         prev_name = rnd_names[rnd_idx - 1]
@@ -766,11 +945,37 @@ def build_elimination_division(matches, draw_size, is_doubles, full_results,
         num_matches = round_match_counts[rnd_idx]
         struct_matches = []
         for m in range(num_matches):
-            struct_matches.append({
-                "match": m + 1,
-                "player1": f"Winner {prev_abbrev}-M{m * 2 + 1}",
-                "player2": f"Winner {prev_abbrev}-M{m * 2 + 2}",
-            })
+            m1 = m * 2 + 1
+            m2 = m * 2 + 2
+
+            p1_empty = (prev_name, m1) in empty_matches
+            p2_empty = (prev_name, m2) in empty_matches
+
+            if p1_empty and p2_empty:
+                empty_matches.add((rnd_name, m + 1))
+                continue  # Both feeders empty, skip
+            elif p1_empty:
+                match = {
+                    "match": m + 1,
+                    "player1": "Bye",
+                    "player2": f"Winner {prev_abbrev}-M{m2}",
+                    "notes": f"Winner {prev_abbrev}-M{m2} auto-advances",
+                }
+            elif p2_empty:
+                match = {
+                    "match": m + 1,
+                    "player1": f"Winner {prev_abbrev}-M{m1}",
+                    "player2": "Bye",
+                    "notes": f"Winner {prev_abbrev}-M{m1} auto-advances",
+                }
+            else:
+                match = {
+                    "match": m + 1,
+                    "player1": f"Winner {prev_abbrev}-M{m1}",
+                    "player2": f"Winner {prev_abbrev}-M{m2}",
+                }
+
+            struct_matches.append(match)
         rounds.append({"name": rnd_name, "matches": struct_matches})
 
     # Step 2: If get_winners, overlay scraped player names onto later rounds
@@ -1015,26 +1220,52 @@ def process_tournament(url, config, full_results=False, rescrape=False, get_winn
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     })
 
-    # Bypass cookie wall
-    target_path = f"/sport/draws.aspx?id={tournament_id}"
+    # Bypass cookie wall via events.aspx
+    target_path = f"/sport/events.aspx?id={tournament_id}"
     print("Bypassing cookie wall...")
     bypass_cookiewall(session, base_url, target_path)
 
-    # Get tournament name — use config if available, else scrape
+    # Fetch events metadata — use config name if available, else scrape events.aspx
     config_name = get_tournament_name(config)
+    cached_events = None if rescrape else _load_cache(scraped_dir, "events.json")
+    if cached_events:
+        events_data = cached_events
+        print(f"Loaded event data from cache ({len(events_data.get('events', []))} events)")
+    else:
+        events_data = fetch_events(session, base_url, tournament_id)
+        _save_cache(scraped_dir, "events.json", events_data)
+        print(f"Fetched event data ({len(events_data.get('events', []))} events)")
+
     if config_name and config_name != "Tournament":
         tournament_name = config_name
         print(f"Tournament: {tournament_name} (from config)")
     else:
-        # Check cache first
-        cached_info = None if rescrape else _load_cache(scraped_dir, "tournament_info.json")
-        if cached_info:
-            tournament_name = cached_info.get("name", "Unknown Tournament")
-            print(f"Tournament: {tournament_name} (from cache)")
-        else:
-            tournament_name = extract_tournament_name(session, base_url, tournament_id)
-            _save_cache(scraped_dir, "tournament_info.json", {"name": tournament_name})
-            print(f"Tournament: {tournament_name}")
+        tournament_name = events_data.get("name", "Unknown Tournament")
+        print(f"Tournament: {tournament_name}")
+
+    organizer = events_data.get("organizer", "")
+    venue = events_data.get("venue", "")
+    dates = events_data.get("dates", "")
+    events_list = events_data.get("events", [])
+
+    if organizer:
+        print(f"Organizer: {organizer}")
+    if venue:
+        print(f"Venue: {venue}")
+    if dates:
+        print(f"Dates: {dates}")
+    total_entries = sum(e["entries"] for e in events_list)
+    print(f"Events: {len(events_list)}, Total entries: {total_entries}")
+
+    # Save enriched tournament info
+    _save_cache(scraped_dir, "tournament_info.json", {
+        "name": tournament_name,
+        "organizer": organizer,
+        "venue": venue,
+        "dates": dates,
+        "total_events": len(events_list),
+        "total_entries": total_entries,
+    })
 
     # Fetch draw list (with caching)
     print("Fetching draw list...")
@@ -1128,6 +1359,19 @@ def _fetch_draw_meta_cached(session, base_url, tournament_id, draw_num,
     return meta
 
 
+def _fetch_drawsheet_cached(session, base_url, tournament_id, draw_num,
+                             is_doubles, scraped_dir, rescrape):
+    """Fetch drawsheet with caching support."""
+    cache_file = f"drawsheet_{draw_num}.json"
+    if not rescrape:
+        cached = _load_cache(scraped_dir, cache_file)
+        if cached is not None:
+            return cached
+    data = fetch_drawsheet(session, base_url, tournament_id, draw_num, is_doubles)
+    _save_cache(scraped_dir, cache_file, data)
+    return data
+
+
 def _fetch_draw_matches_cached(session, base_url, tournament_id, draw_num,
                                 is_doubles, scraped_dir, rescrape):
     """Fetch draw matches with caching support."""
@@ -1184,8 +1428,14 @@ def _process_standalone(
     }
 
     if fmt == "elimination":
+        # Fetch drawsheet for accurate player positions
+        drawsheet_players = _fetch_drawsheet_cached(
+            session, base_url, tournament_id, draw_num, info["is_doubles"],
+            scraped_dir, rescrape,
+        )
         players, rounds, ds = build_elimination_division(
-            matches, draw_size, info["is_doubles"], full_results, get_winners
+            drawsheet_players, matches, draw_size, info["is_doubles"],
+            full_results, get_winners,
         )
         division_json["drawSize"] = ds
         division_json["players"] = players

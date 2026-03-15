@@ -2,6 +2,10 @@
 
 Generates match schedules and single-page HTML websites for badminton tournaments. Reads draw data from either an Excel export or a tournamentsoftware.com URL. Each tournament has its own configuration, input, and output directory.
 
+## Agent Behavior
+
+- **Do not commit automatically.** After developing a solution, wait for the user to explicitly ask to commit. Never combine implementation and commit in the same response.
+
 ## Project Structure
 
 ```

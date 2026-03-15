@@ -326,6 +326,37 @@ def _is_playable(match):
     return True
 
 
+# ── Check 5: Double-Bye Matches ──────────────────────────────────
+
+def check_double_byes(divisions):
+    """Check that no match has both players as Bye."""
+    issues = []
+
+    for div in divisions:
+        code = div["code"]
+        fmt = div["format"]
+
+        if fmt == "elimination":
+            for rnd in div.get("rounds", []):
+                for m in rnd["matches"]:
+                    if m.get("player1") == "Bye" and m.get("player2") == "Bye":
+                        issues.append(
+                            f"{code}: {rnd['name']} M{m['match']} has both players as Bye"
+                        )
+
+        elif fmt == "group_playoff":
+            playoff = div.get("playoff")
+            if playoff:
+                for rnd in playoff.get("rounds", []):
+                    for m in rnd["matches"]:
+                        if m.get("player1") == "Bye" and m.get("player2") == "Bye":
+                            issues.append(
+                                f"{code} Playoff: {rnd['name']} M{m['match']} has both players as Bye"
+                            )
+
+    return issues
+
+
 # ── Check 4: Player Conflicts ───────────────────────────────────
 
 def check_player_conflicts(schedule_matches):
@@ -424,6 +455,17 @@ def verify(config):
             print("  PASS")
     else:
         print("Check 2-4: Skipped (no schedule data)")
+
+    # Check 5: Double-bye matches
+    print("Check 5: No double-bye matches...")
+    issues = check_double_byes(divisions)
+    total_checks += 1
+    if issues:
+        all_issues.extend(issues)
+        for issue in issues:
+            print(f"  FAIL: {issue}")
+    else:
+        print("  PASS")
 
     print()
     if all_issues:

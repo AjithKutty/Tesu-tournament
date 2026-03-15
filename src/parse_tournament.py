@@ -324,8 +324,20 @@ def build_full_bracket(players, draw_size, round_names, is_doubles):
     for p in players:
         pos_map[p["position"]] = p
 
+    abbrev_map = {
+        "Round 1": "R1",
+        "Round 2": "R2",
+        "Quarter-Final": "QF",
+        "Semi-Final": "SF",
+        "Final": "F",
+    }
+
     # Round 1: pair adjacent draw positions
     r1_matches = []
+    # Track which matches are empty (both sides Bye) — used to propagate
+    # Bye into later rounds so we never have "Bye vs Bye" matches.
+    empty_matches = set()  # set of (round_name, match_num)
+
     for i in range(1, draw_size + 1, 2):
         p1 = pos_map.get(i)
         p2 = pos_map.get(i + 1)
@@ -333,19 +345,22 @@ def build_full_bracket(players, draw_size, round_names, is_doubles):
         p1_label = player_label(p1, is_doubles) if p1 else "Bye"
         p2_label = player_label(p2, is_doubles) if p2 else "Bye"
 
+        match_num = len(r1_matches) + 1
+
+        if p1_label == "Bye" and p2_label == "Bye":
+            empty_matches.add((round_names[0] if round_names else "Round 1", match_num))
+            continue  # Skip double-bye matches entirely
+
         match = {
-            "match": len(r1_matches) + 1,
+            "match": match_num,
             "player1": p1_label,
             "player2": p2_label,
         }
 
-        # Determine auto-advance
         if p1_label == "Bye" and p2_label != "Bye":
             match["notes"] = f"{p2_label} auto-advances"
         elif p2_label == "Bye" and p1_label != "Bye":
             match["notes"] = f"{p1_label} auto-advances"
-        elif p1_label == "Bye" and p2_label == "Bye":
-            match["notes"] = "Empty slot"
 
         r1_matches.append(match)
 
@@ -354,16 +369,9 @@ def build_full_bracket(players, draw_size, round_names, is_doubles):
 
     rounds = [{"name": round_names[0], "matches": r1_matches}]
 
-    # Later rounds: structural matches
+    # Later rounds: structural matches, propagating Byes from empty feeders
     prev_round_name = round_names[0]
-    prev_match_count = len(r1_matches)
-    abbrev_map = {
-        "Round 1": "R1",
-        "Round 2": "R2",
-        "Quarter-Final": "QF",
-        "Semi-Final": "SF",
-        "Final": "F",
-    }
+    prev_match_count = draw_size // 2  # Use expected count, not actual (some were skipped)
 
     for rnd_idx in range(1, len(round_names)):
         rnd_name = round_names[rnd_idx]
@@ -376,11 +384,40 @@ def build_full_bracket(players, draw_size, round_names, is_doubles):
         for m in range(num_matches):
             m1 = m * 2 + 1
             m2 = m * 2 + 2
-            matches.append({
-                "match": m + 1,
-                "player1": f"Winner {prev_abbrev}-M{m1}",
-                "player2": f"Winner {prev_abbrev}-M{m2}",
-            })
+
+            p1_empty = (prev_round_name, m1) in empty_matches
+            p2_empty = (prev_round_name, m2) in empty_matches
+
+            if p1_empty and p2_empty:
+                # Both feeders are empty — this match is also empty
+                empty_matches.add((rnd_name, m + 1))
+                continue
+            elif p1_empty:
+                p1_label = "Bye"
+                p2_label = f"Winner {prev_abbrev}-M{m2}"
+                match = {
+                    "match": m + 1,
+                    "player1": p1_label,
+                    "player2": p2_label,
+                    "notes": f"{p2_label} auto-advances",
+                }
+            elif p2_empty:
+                p1_label = f"Winner {prev_abbrev}-M{m1}"
+                p2_label = "Bye"
+                match = {
+                    "match": m + 1,
+                    "player1": p1_label,
+                    "player2": p2_label,
+                    "notes": f"{p1_label} auto-advances",
+                }
+            else:
+                match = {
+                    "match": m + 1,
+                    "player1": f"Winner {prev_abbrev}-M{m1}",
+                    "player2": f"Winner {prev_abbrev}-M{m2}",
+                }
+
+            matches.append(match)
 
         rounds.append({"name": rnd_name, "matches": matches})
         prev_round_name = rnd_name
