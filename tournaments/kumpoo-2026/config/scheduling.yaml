@@ -23,6 +23,8 @@ priorities:
       "Round 1": 5
     "WD C":
       "Pool": 15
+    "MS 35":
+      "Pool": 15
 
 # Rounds that must be scheduled on a specific day (global — applies to all divisions)
 day_constraints:
@@ -42,6 +44,12 @@ division_day_constraints:
   "MD B":
     - rounds: ["Quarter-Final", "Semi-Final", "Final"]
       day: "Sunday"
+  "XD C":
+    - rounds: ["Quarter-Final", "Semi-Final", "Final"]
+      day: "Sunday"
+  #"MS 35":
+  #  - rounds: ["Pool"]
+  #    day: "Sunday"
   "XD 55":
     - rounds: ["Pool"]
       day: "Sunday"
@@ -129,27 +137,30 @@ rest_rules:
 
   # Per-player rest exceptions for specific division pairs.
   # Overrides all other rest rules for the named player between the listed divisions.
-  player_exceptions:
-    "Jaakko Hakala":
-      - between: ["MS A", "MD A"]
-        rest: 0
-    "Jaakko Hakala / Lassi Lybeck":
-      - between: ["MS A", "MD A"]
-        rest: 0
+  #player_exceptions:
+  #  "Jaakko Hakala":
+  #    - between: ["MS A", "MD A"]
+  #      rest: 0
+  #  "Jaakko Hakala / Lassi Lybeck":
+  #    - between: ["MS A", "MD A"]
+  #      rest: 0
 
 # ── Match density limit ──────────────────────────────────────────
 # Maximum matches a player can have within a rolling time window.
-match_density:
-  max_matches: 3
-  time_window: 180       # minutes (3 hours)
+#match_density:
+#  max_matches: 3
+#  time_window: 240       # minutes (4 hours)
   # Per-player exceptions:
-  player_exceptions:
-   "Ari Fingerroos": 
-       max_matches: 4
-       time_window: 180
-   "Joonas Huovila":
-       max_matches: 4
-       time_window: 180
+  #player_exceptions:
+  # "Ari Fingerroos": 
+  #     max_matches: 4
+  #     time_window: 180
+  # "Joonas Huovila":
+  #     max_matches: 4
+  #     time_window: 180
+  # "Kari Laurila":
+  #     max_matches: 4
+  #     time_window: 180
 
 # ── Time deadlines ──────────────────────────────────────────────
 # Rounds must finish (match end time) by a specific day+time.

@@ -12,6 +12,7 @@ Checks:
   5. No double-bye matches
   6. Same-day rule: all matches in the same round+division are on the same day
   7. Potential player conflicts: same player could be in overlapping later-round matches
+  8. Court buffer violations: matches scheduled over court buffer break slots
 """
 
 import argparse
@@ -531,6 +532,32 @@ def check_potential_player_conflicts(schedule_matches, schedules_dir):
     return issues
 
 
+# ── Check 8: Court Buffer Violations ────────────────────────────
+
+def check_court_buffer_violations(schedules_dir):
+    """Check if any matches were scheduled by overriding court buffer breaks.
+
+    Reads the scheduling trace to find matches with buffer override warnings.
+    """
+    issues = []
+    trace_path = os.path.join(schedules_dir, "scheduling_trace.json")
+    if not os.path.exists(trace_path):
+        return issues
+
+    with open(trace_path, encoding="utf-8") as f:
+        trace = json.load(f)
+
+    for entry in trace:
+        if entry.get("warning") == "court buffer overridden":
+            slots = entry.get("buffer_slots_overridden", [])
+            issues.append(
+                f"Buffer override: {entry['match_id']} at {entry['placed']} court {entry['court']} "
+                f"— overrode buffer at {', '.join(slots)}"
+            )
+
+    return issues
+
+
 # ── Check 6: Same-Day Rule ──────────────────────────────────────
 
 def check_same_day_rule(schedule_matches):
@@ -663,6 +690,17 @@ def verify(config):
                 print(f"  WARN: {issue}")
         else:
             print("  PASS")
+
+    # Check 8: Court buffer violations
+    print("Check 8: Court buffer violations...")
+    issues = check_court_buffer_violations(schedules_dir)
+    total_checks += 1
+    if issues:
+        all_issues.extend(issues)
+        for issue in issues:
+            print(f"  WARN: {issue}")
+    else:
+        print("  PASS")
 
     print()
     if all_issues:

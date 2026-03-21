@@ -691,6 +691,39 @@ class CourtSchedule:
 
         return True
 
+    def can_book_override_buffer(self, court, minute, duration_min, overrun_buffer=0):
+        """Check if a court can be booked if court buffer breaks are ignored.
+
+        Returns (can_book, overridden_buffers) where overridden_buffers is a
+        list of (court, minute) buffer slots that would need to be cleared.
+        """
+        slot_duration = self.venue_model["slot_duration"]
+        total_forward = duration_min + overrun_buffer
+        slots_forward = (total_forward + slot_duration - 1) // slot_duration
+        overridden = []
+
+        for i in range(slots_forward):
+            t = minute + i * slot_duration
+            if not self._court_exists(court, t):
+                return False, []
+            if (court, t) in self.booked:
+                if self.booked[(court, t)] == "_buffer_break":
+                    overridden.append((court, t))
+                else:
+                    return False, []
+
+        if overrun_buffer > 0:
+            slots_before = (overrun_buffer + slot_duration - 1) // slot_duration
+            for i in range(1, slots_before + 1):
+                t = minute - i * slot_duration
+                if t >= 0 and (court, t) in self.booked:
+                    if self.booked[(court, t)] == "_buffer_break":
+                        overridden.append((court, t))
+                    else:
+                        return False, []
+
+        return bool(overridden), overridden  # only True if there were buffers to override
+
 
 class PlayerTracker:
     """Tracks player match history for rest-rule enforcement.
@@ -942,8 +975,11 @@ def _player_conflict_detail(player_tracker, match, slot):
         # Also check density
         if not player_tracker._check_density(p, slot, new_end):
             density = player_tracker.density_cfg
+            p_exc = density["player_exceptions"].get(p)
+            p_max = p_exc.get("max_matches", density["max_matches"]) if p_exc else density["max_matches"]
+            p_window = p_exc.get("time_window", density["time_window"]) if p_exc else density["time_window"]
             conflicts.append(
-                f"{p} exceeds {density['max_matches']} matches in {density['time_window']}min"
+                f"{p} exceeds {p_max} matches in {p_window}min"
             )
     return "; ".join(conflicts) if conflicts else "unknown"
 
@@ -1213,6 +1249,61 @@ def schedule_matches(matches, match_by_id, config, venue_model):
             if placed:
                 break
 
+        # Fallback: retry with court buffer override if normal placement failed
+        buffer_override_detail = None
+        if not placed:
+            for slot in all_slots:
+                if slot < earliest:
+                    continue
+                if latest is not None and slot >= latest:
+                    break
+
+                courts = get_eligible_courts(match, slot, config, venue_model)
+                for court in courts:
+                    can_override, overridden = court_sched.can_book_override_buffer(
+                        court, slot, match.duration_min, match.overrun_buffer
+                    )
+                    if not can_override:
+                        continue
+
+                    if match.effective_players:
+                        if not player_tracker.can_play_at(
+                            match.effective_players, slot, match.duration_min,
+                            match.division_code, match.category
+                        ):
+                            continue
+
+                    # Clear the buffer blocks and book
+                    for bc, bm in overridden:
+                        del court_sched.booked[(bc, bm)]
+                    court_sched.book(court, slot, match.id, match.duration_min, match.overrun_buffer)
+
+                    if match.has_some_real_players:
+                        confirmed = set()
+                        for p_str in (match.player1, match.player2):
+                            if not p_str.startswith("Winner ") and not p_str.startswith("Slot "):
+                                confirmed.update(extract_player_names(p_str))
+                        if confirmed:
+                            player_tracker.update(
+                                list(confirmed), slot,
+                                match.duration_min, match.division_code, match.category
+                            )
+                    scheduled[match.id] = (court, slot)
+                    scheduled_end[match.id] = slot + match.duration_min
+
+                    if same_day_key not in round_day_assignments:
+                        placed_day = _day_name_for_minute(venue_model, slot)
+                        round_day_assignments[same_day_key] = placed_day
+
+                    buffer_override_detail = [
+                        _fmt_minute(venue_model, bm) + f" court {bc}"
+                        for bc, bm in overridden
+                    ]
+                    placed = True
+                    break
+                if placed:
+                    break
+
         if not placed:
             unschedulable.add(match.id)
             unscheduled.append(match)
@@ -1232,7 +1323,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
             })
         else:
             court, minute = scheduled[match.id]
-            sched_trace.append({
+            trace_entry = {
                 "match_id": match.id,
                 "status": "SCHEDULED",
                 "priority": match.priority,
@@ -1241,7 +1332,11 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 "player1": match.player1,
                 "player2": match.player2,
                 "players": match.effective_players[:10],
-            })
+            }
+            if buffer_override_detail:
+                trace_entry["warning"] = "court buffer overridden"
+                trace_entry["buffer_slots_overridden"] = buffer_override_detail
+            sched_trace.append(trace_entry)
 
     # Write scheduling trace log
     trace_path = os.path.join(config["paths"]["schedules_dir"], "scheduling_trace.json")
