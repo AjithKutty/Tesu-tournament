@@ -22,7 +22,7 @@ from datetime import date
 from config import (load_config, get_tournament_name, get_priorities,
                     get_round_priority_map, get_elite_divisions,
                     get_day_constraints, get_division_day_constraints,
-                    get_match_duration,
+                    get_match_duration, get_division_priorities,
                     get_overrun_buffer, compute_rest_between,
                     get_cross_division_rest, get_same_division_rest,
                     get_court_preference, get_round_completion,
@@ -184,6 +184,7 @@ def load_all_matches(config):
     elite_divisions = get_elite_divisions(config)
     priorities = get_priorities(config)
     round_priority_map = get_round_priority_map(config)
+    div_priorities = get_division_priorities(config)
     global_day_map, division_day_map = _build_day_constraint_set(config)
 
     # Build resolved priority map: round_name -> numeric priority
@@ -232,6 +233,13 @@ def load_all_matches(config):
             all_matches.extend(matches)
             for m in matches:
                 match_by_id[m.id] = m
+
+    # Apply per-division priority adjustments
+    if div_priorities:
+        for m in all_matches:
+            offset = div_priorities.get(m.division_code, 0)
+            if offset:
+                m.priority += offset
 
     # Resolve known_players for later rounds by tracing back through brackets
     _resolve_known_players(all_matches, match_by_id)

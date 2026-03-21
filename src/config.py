@@ -332,6 +332,15 @@ def get_priorities(config):
     })
 
 
+def get_division_priorities(config):
+    """Get per-division priority adjustments.
+
+    Returns dict: division_code -> int (added to base round priority).
+    Negative values mean higher priority (scheduled earlier).
+    """
+    return config["scheduling"].get("division_priorities", {})
+
+
 def get_round_priority_map(config):
     """Get round name → priority key mapping."""
     return config["scheduling"].get("round_priority_map", {
@@ -407,12 +416,21 @@ def build_venue_model(config):
         # Compute court windows for this day
         for court_group in day_cfg.get("courts", []):
             end_h, end_m = map(int, court_group["end_time"].split(":"))
-            # Minutes from day start to court end
             court_end_offset = (end_h - day_start_h) * 60 + (end_m - day_start_m)
+
+            # Optional per-group start_time (defaults to day start)
+            group_start_offset = 0
+            if "start_time" in court_group:
+                gs_h, gs_m = map(int, court_group["start_time"].split(":"))
+                group_start_offset = (gs_h - day_start_h) * 60 + (gs_m - day_start_m)
 
             for court_num in court_group["numbers"]:
                 all_courts.add(court_num)
-                court_windows.append((court_num, current_minute, current_minute + court_end_offset))
+                court_windows.append((
+                    court_num,
+                    current_minute + group_start_offset,
+                    current_minute + court_end_offset,
+                ))
 
         # Compute day end (latest court end)
         day_end_offsets = []

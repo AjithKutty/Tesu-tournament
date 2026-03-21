@@ -20,6 +20,14 @@ round_priority_map:
 # Division codes that get elite_pool priority for their pool matches
 elite_divisions: ["MS V", "WS V", "XD V"]
 
+# Per-division priority adjustment (added to the round priority).
+# Negative values = higher priority (scheduled earlier within the same round type).
+# Example: MS C and MD C with -5 means their Round 1 (priority 20) becomes 15,
+# so they get scheduled before other divisions' Round 1 matches.
+division_priorities:
+  "MS C": -5
+  "MD C": -5
+
 # Rounds that must be scheduled on a specific day (global — applies to all divisions)
 day_constraints:
   - rounds: ["Semi-Final", "Final"]

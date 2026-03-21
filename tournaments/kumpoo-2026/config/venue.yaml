@@ -15,7 +15,10 @@ days:
   - name: "Saturday"
     start_time: "09:00"
     courts:
-      - numbers: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      - numbers: [1, 2, 3, 4, 5, 6, 7, 8]
+        end_time: "20:00"
+      - numbers: [9, 10, 11, 12]
+        start_time: "09:15"
         end_time: "20:00"
     sessions:
       - name: "Saturday Morning"
