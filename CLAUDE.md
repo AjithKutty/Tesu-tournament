@@ -4,7 +4,7 @@ Generates match schedules and single-page HTML websites for badminton tournament
 
 ## Agent Behavior
 
-- **Do not commit automatically.** After developing a solution, wait for the user to explicitly ask to commit. Never combine implementation and commit in the same response.
+- **Do not commit automatically.** Changes should only be committed when the user explicitly asks to commit. The agent may propose committing (e.g., "Should I commit these changes?"), but must not proceed with `git add` or `git commit` until the user confirms. Never combine implementation and commit in the same response.
 
 ## Project Structure
 
