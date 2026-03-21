@@ -217,7 +217,26 @@ def get_cross_division_rest(config):
     return rules.get("cross_division_rest", 30)
 
 
-def compute_rest_between(config, div_code_a, category_a, div_code_b, category_b):
+def get_player_rest_exception(config, player_name, div_code_a, div_code_b):
+    """Check for a per-player rest exception between two divisions.
+
+    Returns the overridden rest in minutes, or None if no exception applies.
+    """
+    rules = get_rest_rules(config)
+    exceptions = rules.get("player_exceptions", {})
+    player_exc = exceptions.get(player_name)
+    if not player_exc:
+        return None
+    for exc in player_exc:
+        pair = exc.get("between", [])
+        if len(pair) == 2:
+            if (div_code_a in pair and div_code_b in pair):
+                return exc.get("rest", 0)
+    return None
+
+
+def compute_rest_between(config, div_code_a, category_a, div_code_b, category_b,
+                         player_name=None):
     """Compute the required rest between two matches for the same player.
 
     Takes the division code and category of both matches and returns
@@ -227,7 +246,16 @@ def compute_rest_between(config, div_code_a, category_a, div_code_b, category_b)
       - cross_division_rest: always applies
       - same_category_rest: if both matches are in the same category
       - same_division_rest: if both matches are in the same division
+
+    If player_name is given, per-player exceptions are checked first.
+    A player exception overrides all other rules for that division pair.
     """
+    # Check per-player exception first
+    if player_name:
+        exc = get_player_rest_exception(config, player_name, div_code_a, div_code_b)
+        if exc is not None:
+            return exc
+
     rest = get_cross_division_rest(config)
 
     if category_a == category_b:

@@ -80,6 +80,12 @@ rest_rules:
   # Between games in any two divisions (absolute minimum)
   cross_division_rest: 30
 
+  # Per-player rest exceptions for specific division pairs
+  # player_exceptions:
+  #   "Player Name":
+  #     - between: ["MS A", "MD A"]
+  #       rest: 0    # Allow back-to-back scheduling between these divisions
+
 # ── Probability-based player filtering ────────────────────────────
 # For later-round matches with placeholder players ("Winner R1-M1"),
 # controls which possible players are checked for rest enforcement.

@@ -23,6 +23,7 @@ Rest between matches is context-dependent, defined in `scheduling.yaml` under `r
 - **`same_division_rest`**: Between consecutive games for a player within the same division. Can be overridden per division (e.g., Elite singles needs 3 hours between games in MS V).
 - **`same_category_rest`**: Between games in different divisions of the same category (e.g., a player in MS V and XD V — both Elite — needs 60 min between them).
 - **`cross_division_rest`**: Absolute minimum rest between games in any two divisions (default baseline, e.g., 30 min).
+- **`player_exceptions`**: Per-player overrides for specific division pairs. When a player's matches in two divisions cannot both be scheduled with normal rest periods, an exception can reduce or eliminate the rest requirement for that player between those divisions. This affects only the named player — other players in the same divisions keep their normal rest.
 
 ### Match Overrun Buffer
 

@@ -747,7 +747,8 @@ class PlayerTracker:
         for p in players:
             for prev_start, prev_end, prev_div, prev_cat in self.history[p]:
                 rest = compute_rest_between(
-                    self.config, prev_div, prev_cat, new_div_code, new_category
+                    self.config, prev_div, prev_cat, new_div_code, new_category,
+                    player_name=p,
                 )
                 if prev_end <= start_minute:
                     # Prior match ended before this one starts — check forward rest
@@ -775,7 +776,8 @@ class PlayerTracker:
         for p in players:
             for _, prev_end, prev_div, prev_cat in self.history[p]:
                 rest = compute_rest_between(
-                    self.config, prev_div, prev_cat, new_div_code, new_category
+                    self.config, prev_div, prev_cat, new_div_code, new_category,
+                    player_name=p,
                 )
                 earliest = max(earliest, prev_end + rest)
         return earliest
