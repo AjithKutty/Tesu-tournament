@@ -677,27 +677,27 @@ function showPlayerSchedule(name) {
 }"""
 
 
-def add_30min(time_str):
-    """Add 30 minutes to a HH:MM time string."""
+def add_minutes(time_str, minutes):
+    """Add N minutes to a HH:MM time string."""
     hh, mm = map(int, time_str.split(":"))
-    mm += 30
-    if mm >= 60:
+    mm += minutes
+    while mm >= 60:
         hh += 1
         mm -= 60
     return f"{hh:02d}:{mm:02d}"
 
 
-def time_slots_range(start_str, end_str):
-    """Generate 30-min time slots from start to end (exclusive)."""
+def time_slots_range(start_str, end_str, slot_duration=30):
+    """Generate time slots from start to end (exclusive) at slot_duration intervals."""
     slots = []
     current = start_str
     while current < end_str:
         slots.append(current)
-        current = add_30min(current)
+        current = add_minutes(current, slot_duration)
     return slots
 
 
-def render_schedule_grid(session_data, badge_lookup):
+def render_schedule_grid(session_data, badge_lookup, slot_duration=30):
     """Render a time x court grid table for one session."""
     matches = session_data.get("matches", [])
     if not matches:
@@ -705,16 +705,20 @@ def render_schedule_grid(session_data, badge_lookup):
 
     # Determine courts and time slots
     courts = sorted(set(m["court"] for m in matches))
-    time_slots = time_slots_range(session_data["start"], session_data["end"])
+    time_slots = time_slots_range(session_data["start"], session_data["end"], slot_duration)
 
     # Build grid and blocked set
+    # A match spanning N slots blocks slots 2..N (the first slot has the cell)
     grid = {}
     blocked = set()
     for m in matches:
         grid[(m["time"], m["court"])] = m
-        if m["duration_min"] > 30:
-            next_time = add_30min(m["time"])
-            blocked.add((next_time, m["court"]))
+        dur = m.get("duration_min", slot_duration)
+        extra_slots = (dur + slot_duration - 1) // slot_duration - 1
+        t = m["time"]
+        for _ in range(extra_slots):
+            t = add_minutes(t, slot_duration)
+            blocked.add((t, m["court"]))
 
     # Header row
     header_cells = '<th>Time</th>'
@@ -737,7 +741,9 @@ def render_schedule_grid(session_data, badge_lookup):
                 mnum = m.get("match_num", "")
                 p1 = h(m["player1"])
                 p2 = h(m["player2"])
-                rowspan = ' rowspan="2"' if m["duration_min"] > 30 else ""
+                dur = m.get("duration_min", slot_duration)
+                span = (dur + slot_duration - 1) // slot_duration
+                rowspan = f' rowspan="{span}"' if span > 1 else ""
                 cells += f'''<td class="sched-cell"{rowspan}>
 <div class="sched-div"><span class="badge {badge}">{div_code}</span><span class="sched-round">{rnd} M{mnum}</span></div>
 <div class="sched-p" title="{p1}">{p1}</div>
@@ -758,7 +764,7 @@ def render_schedule_grid(session_data, badge_lookup):
 </div>"""
 
 
-def render_schedule_panel(all_sessions, badge_lookup):
+def render_schedule_panel(all_sessions, badge_lookup, slot_duration=30):
     """Render the Schedule tab panel content with session sub-tabs and grids."""
     if not all_sessions:
         return '<p style="color: var(--text-light); padding: 1rem;">No schedule data available.</p>'
@@ -778,7 +784,7 @@ def render_schedule_panel(all_sessions, badge_lookup):
         tab_buttons.append(
             f'<button class="sched-tab-btn{active}" data-session="{sess_id}">{label} ({count})</button>'
         )
-        grid = render_schedule_grid(sess, badge_lookup)
+        grid = render_schedule_grid(sess, badge_lookup, slot_duration)
         tab_panels.append(f'<div class="sched-panel{active}" id="sched-{sess_id}">{grid}</div>')
 
     total = sum(len(s.get("matches", [])) for s in all_sessions)
@@ -904,8 +910,9 @@ def generate_html(config, schedule_lookup=None, all_sessions=None):
         fullwidth_panels.append(f"""<div class="tab-panel" id="tab-players">
 {render_players_tab(player_matches, badge_lookup)}
 </div>""")
+        slot_duration = config["venue"].get("slot_duration", 30)
         fullwidth_panels.append(f"""<div class="tab-panel" id="tab-schedule">
-{render_schedule_panel(all_sessions, badge_lookup)}
+{render_schedule_panel(all_sessions, badge_lookup, slot_duration)}
 </div>""")
 
     # Hero meta line: use description from config if available

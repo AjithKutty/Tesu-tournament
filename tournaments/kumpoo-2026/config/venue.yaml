@@ -1,4 +1,4 @@
-slot_duration: 30  # Minutes per scheduling slot
+slot_duration: 15  # Minutes per scheduling slot
 
 days:
   - name: "Saturday"

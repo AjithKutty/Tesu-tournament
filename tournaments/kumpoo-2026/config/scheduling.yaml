@@ -81,6 +81,7 @@ match_duration:
   default: 30           # Minutes
   categories:
     Elite: 45
+    Open A: 40
 
 overrun_buffer:
   default: 0            # No buffer needed for non-Elite matches

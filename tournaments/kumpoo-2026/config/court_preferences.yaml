@@ -4,6 +4,9 @@ categories:
   Open A:
     preferred_courts: [5, 6, 7, 8]
     fallback_courts: [1, 2, 3, 4]
+  Open B:
+    preferred_courts: [5, 6, 7, 8]
+    fallback_courts: [1, 2, 3, 4]
   Junior:
     required_courts: [9, 10, 11, 12]
     day_overrides:

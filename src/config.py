@@ -161,12 +161,29 @@ def get_slot_duration(config):
     return config["venue"].get("slot_duration", 30)
 
 
+def _resolve_category_key(cats, category, config):
+    """Look up a category in a config dict, trying both full name and level code.
+
+    Supports e.g. both "Open A" (full category) and "A" (level code).
+    """
+    if category in cats:
+        return cats[category]
+    # Try matching via level_categories: if a level maps to this category,
+    # check if that level code is a key in cats
+    level_cats = config.get("divisions", {}).get("level_categories", {})
+    for level, cat_name in level_cats.items():
+        if cat_name == category and level in cats:
+            return cats[level]
+    return None
+
+
 def get_match_duration(config, category):
     """Get match duration for a category from scheduling.match_duration."""
     md = config["scheduling"].get("match_duration", {})
     cats = md.get("categories", {})
-    if category in cats:
-        return cats[category]
+    val = _resolve_category_key(cats, category, config)
+    if val is not None:
+        return val
     return md.get("default", 30)
 
 
@@ -178,8 +195,9 @@ def get_overrun_buffer(config, category):
     """
     ob = config["scheduling"].get("overrun_buffer", {})
     cats = ob.get("categories", {})
-    if category in cats:
-        return cats[category]
+    val = _resolve_category_key(cats, category, config)
+    if val is not None:
+        return val
     return ob.get("default", 0)
 
 
@@ -206,8 +224,9 @@ def get_same_category_rest(config, category):
     rules = get_rest_rules(config)
     sc = rules.get("same_category_rest", {})
     cats = sc.get("categories", {})
-    if category in cats:
-        return cats[category]
+    val = _resolve_category_key(cats, category, config)
+    if val is not None:
+        return val
     return sc.get("default", 30)
 
 
