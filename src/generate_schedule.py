@@ -905,6 +905,11 @@ def schedule_matches(matches, match_by_id, config, venue_model):
     scheduled_end = {}   # match_id -> end minute
     unscheduled = []
 
+    # Pre-block court buffer slots (breaks/maintenance)
+    for court, minute in venue_model.get("court_buffer_blocks", []):
+        if (court, minute) not in court_sched.booked:
+            court_sched.booked[(court, minute)] = "_buffer_break"
+
     # Round-completion constraint: build (div_code, round_name) -> [match_ids]
     rc_enabled, rc_exceptions = get_round_completion(config)
     div_round_matches = defaultdict(list)  # (div_code, round_name) -> [match_id]

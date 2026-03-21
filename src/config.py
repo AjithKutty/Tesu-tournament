@@ -458,6 +458,44 @@ def build_venue_model(config):
 
     all_slots.sort()
 
+    # Build court buffer blocks: list of (court, minute) to pre-block
+    court_buffer_blocks = []
+    buffers_config = config["venue"].get("court_buffers", [])
+    for buf in buffers_config:
+        pool = buf.get("courts", [])
+        duration = buf.get("duration", 30)
+        interval = buf.get("interval", 120)
+        at_once = buf.get("courts_at_once", len(pool))
+        buffer_slots = (duration + slot_duration - 1) // slot_duration
+
+        # Apply buffers to each day
+        for day in days:
+            day_start = day["start_minute"]
+            day_end = day["end_minute"]
+            # Available courts from the pool on this day
+            day_pool = [c for c in pool
+                        if any(crt == c and s <= day_start < e
+                               for crt, s, e in court_windows)]
+            if not day_pool:
+                continue
+
+            # Generate buffer times at each interval from day start
+            rotation_idx = 0
+            t = day_start + interval
+            while t < day_end:
+                # Pick which courts to block (rotate through pool)
+                start_idx = (rotation_idx * at_once) % len(day_pool)
+                blocked_courts = []
+                for i in range(at_once):
+                    blocked_courts.append(day_pool[(start_idx + i) % len(day_pool)])
+
+                for court in blocked_courts:
+                    for s in range(buffer_slots):
+                        court_buffer_blocks.append((court, t + s * slot_duration))
+
+                rotation_idx += 1
+                t += interval
+
     return {
         "slot_duration": slot_duration,
         "days": days,
@@ -466,6 +504,7 @@ def build_venue_model(config):
         "all_slots": all_slots,
         "day_start_minutes": day_start_minutes,
         "court_windows": court_windows,
+        "court_buffer_blocks": court_buffer_blocks,
     }
 
 

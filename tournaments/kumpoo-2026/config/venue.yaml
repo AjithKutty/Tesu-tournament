@@ -1,5 +1,16 @@
 slot_duration: 15  # Minutes per scheduling slot
 
+# Periodic court buffers — block courts at regular intervals for breaks/maintenance.
+# courts: which courts are in the rotation pool
+# duration: how long each buffer lasts (minutes)
+# interval: how often buffers occur (minutes, measured from day start)
+# courts_at_once: how many courts to block per interval (rotates through the pool)
+court_buffers:
+  - courts: [1, 2, 3, 4, 5, 6, 7, 8]
+    duration: 30
+    interval: 120        # every 2 hours
+    courts_at_once: 4    # block 4 courts at a time, rotating (1-4, then 5-8, etc.)
+
 days:
   - name: "Saturday"
     start_time: "09:00"

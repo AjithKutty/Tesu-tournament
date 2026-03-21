@@ -1,5 +1,12 @@
 slot_duration: 30  # Minutes per scheduling slot
 
+# Periodic court buffers — block courts at regular intervals for breaks/maintenance
+# court_buffers:
+#   - courts: [1, 2, 3, 4, 5, 6, 7, 8]
+#     duration: 30          # minutes per buffer
+#     interval: 120         # every 2 hours from day start
+#     courts_at_once: 4     # rotate: 1-4 then 5-8
+
 days:
   - name: "Saturday"
     start_time: "09:00"
