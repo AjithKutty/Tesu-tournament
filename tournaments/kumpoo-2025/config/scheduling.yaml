@@ -20,10 +20,33 @@ round_priority_map:
 # Division codes that get elite_pool priority for their pool matches
 elite_divisions: ["MS V", "WS V", "XD V"]
 
-# Rounds that must be scheduled on a specific day
+# Rounds that must be scheduled on a specific day (global — applies to all divisions)
 day_constraints:
   - rounds: ["Semi-Final", "Final"]
     day: "Sunday"
+
+# Per-division day constraints (override global constraints for specific divisions)
+# Round names: "Round 1", "Round 2", "Quarter-Final", "Semi-Final", "Final",
+#              "Pool" (round-robin), "Group" (group stage), "Playoff Round 1", etc.
+# division_day_constraints:
+#   "BS U17":
+#     - rounds: ["Group"]
+#       day: "Saturday"
+#   "MS C":
+#     - rounds: ["Round 1", "Round 2"]
+#       day: "Saturday"
+
+# ── Draw format overrides (used when input has entries only, no draws) ───
+# Controls which draw format parse_entries.py uses for each division.
+# draw_formats:
+#   default: elimination
+#   categories:
+#     Veterans: round_robin
+#   divisions:
+#     "BS U17":
+#       format: group_playoff
+#       groups: 2
+#       advancers_per_group: 2
 
 # ── Match durations and court blocking ────────────────────────────
 

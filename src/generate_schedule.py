@@ -15,12 +15,14 @@ import argparse
 import json
 import os
 import re
+import sys
 from collections import defaultdict
 from datetime import date
 
 from config import (load_config, get_tournament_name, get_priorities,
                     get_round_priority_map, get_elite_divisions,
-                    get_day_constraints, get_match_duration,
+                    get_day_constraints, get_division_day_constraints,
+                    get_match_duration,
                     get_overrun_buffer, compute_rest_between,
                     get_cross_division_rest, get_same_division_rest,
                     get_court_preference,
@@ -107,15 +109,62 @@ class Match:
 
 
 def _build_day_constraint_set(config):
-    """Build a set of round names that have day constraints, mapped to their required day.
-    Returns dict: round_name -> day_name."""
+    """Build day constraint maps from config.
+
+    Returns (global_map, division_map):
+      - global_map: round_name -> day_name (applies to all divisions)
+      - division_map: div_code -> {round_name -> day_name} (per-division overrides)
+
+    Per-division constraints override global constraints when both exist
+    for the same round.
+
+    Round names in division_day_constraints support the special names:
+      - "Pool": matches round-robin pool rounds
+      - "Group": matches all group-stage pool rounds (e.g., "Group A Pool")
+    """
     constraints = get_day_constraints(config)
-    result = {}
+    global_map = {}
     for constraint in constraints:
         day_name = constraint.get("day")
         for round_name in constraint.get("rounds", []):
-            result[round_name] = day_name
-    return result
+            global_map[round_name] = day_name
+
+    div_constraints = get_division_day_constraints(config)
+    division_map = {}  # div_code -> {round_name -> day_name}
+    for div_code, constraint_list in div_constraints.items():
+        div_map = {}
+        for constraint in constraint_list:
+            day_name = constraint.get("day")
+            for round_name in constraint.get("rounds", []):
+                div_map[round_name] = day_name
+        division_map[div_code] = div_map
+
+    return global_map, division_map
+
+
+def _resolve_day_constraint(div_code, round_name, global_day_map, division_day_map):
+    """Resolve the day constraint for a specific division and round.
+
+    Checks per-division constraints first, then global.
+    For group-stage rounds (e.g., "Group A Pool"), also checks the special
+    "Group" key in division constraints.
+
+    Returns day_name or None.
+    """
+    div_map = division_day_map.get(div_code, {})
+    # Direct match on the round name in per-division constraints
+    if round_name in div_map:
+        return div_map[round_name]
+    # For group pool rounds, check the "Group" shorthand
+    if " Pool" in round_name and "Group" in div_map:
+        return div_map["Group"]
+    # Check global constraints
+    if round_name in global_day_map:
+        return global_day_map[round_name]
+    # For group pool rounds, check "Group" in global too
+    if " Pool" in round_name and "Group" in global_day_map:
+        return global_day_map["Group"]
+    return None
 
 
 def load_all_matches(config):
@@ -128,7 +177,7 @@ def load_all_matches(config):
     elite_divisions = get_elite_divisions(config)
     priorities = get_priorities(config)
     round_priority_map = get_round_priority_map(config)
-    day_constraint_map = _build_day_constraint_set(config)
+    global_day_map, division_day_map = _build_day_constraint_set(config)
 
     # Build resolved priority map: round_name -> numeric priority
     resolved_round_priority = {}
@@ -156,7 +205,8 @@ def load_all_matches(config):
         overrun_buf = get_overrun_buffer(config, category)
 
         loader_args = (data, div_code, div_name, category, is_elite, duration,
-                       resolved_round_priority, priorities, day_constraint_map, overrun_buf)
+                       resolved_round_priority, priorities, global_day_map,
+                       division_day_map, overrun_buf)
 
         if fmt == "elimination":
             matches = _load_elimination_matches(*loader_args)
@@ -183,8 +233,8 @@ def load_all_matches(config):
 
 
 def _load_elimination_matches(data, div_code, div_name, category, is_elite, duration,
-                              resolved_round_priority, priorities, day_constraint_map,
-                              overrun_buf=0):
+                              resolved_round_priority, priorities, global_day_map,
+                              division_day_map, overrun_buf=0):
     matches = []
     rounds = data.get("rounds", [])
 
@@ -194,7 +244,9 @@ def _load_elimination_matches(data, div_code, div_name, category, is_elite, dura
     for rnd in rounds:
         round_name = rnd["name"]
         priority = resolved_round_priority.get(round_name, priorities.get("round_1", 20))
-        day_constraint = day_constraint_map.get(round_name)
+        day_constraint = _resolve_day_constraint(
+            div_code, round_name, global_day_map, division_day_map
+        )
 
         for m in rnd["matches"]:
             match_id = make_match_id(div_code, round_name, m["match"])
@@ -265,9 +317,12 @@ def _compute_pool_rounds(matches):
 
 
 def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, duration,
-                             resolved_round_priority, priorities, day_constraint_map,
-                             overrun_buf=0):
+                             resolved_round_priority, priorities, global_day_map,
+                             division_day_map, overrun_buf=0):
     matches = []
+    day_constraint = _resolve_day_constraint(
+        div_code, "Pool", global_day_map, division_day_map
+    )
     for m in data.get("matches", []):
         match_id = make_match_id(div_code, "Pool", m["match"])
         p1 = m.get("player1", "")
@@ -281,7 +336,7 @@ def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, durat
             round_name="Pool", match_num=m["match"],
             player1=p1, player2=p2, known_players=known,
             duration_min=duration,
-            priority=pool_priority, day_constraint=None,
+            priority=pool_priority, day_constraint=day_constraint,
             prerequisites=[], is_elite=is_elite,
             overrun_buffer=overrun_buf,
         )
@@ -293,12 +348,17 @@ def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, durat
 
 
 def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, duration,
-                                resolved_round_priority, priorities, day_constraint_map,
-                                overrun_buf=0):
+                                resolved_round_priority, priorities, global_day_map,
+                                division_day_map, overrun_buf=0):
     matches = []
     group_match_ids = []
 
-    # Group stage matches
+    # Group stage matches — all groups share the same day constraint
+    # The "Group" shorthand in config applies to all "X Pool" round names
+    group_day_constraint = _resolve_day_constraint(
+        div_code, "Group A Pool", global_day_map, division_day_map
+    )
+
     for group in data.get("groups", []):
         group_name = group["name"]
         for m in group.get("matches", []):
@@ -313,7 +373,7 @@ def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, du
                 round_name=f"{group_name} Pool", match_num=m["match"],
                 player1=p1, player2=p2, known_players=known,
                 duration_min=duration,
-                priority=priorities.get("pool", 10), day_constraint=None,
+                priority=priorities.get("pool", 10), day_constraint=group_day_constraint,
                 prerequisites=[], is_elite=is_elite,
                 overrun_buffer=overrun_buf,
             )
@@ -330,7 +390,16 @@ def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, du
             round_name = rnd["name"]
             priority = resolved_round_priority.get(round_name, priorities.get("group_playoff", 30))
             priority = max(priority, priorities.get("group_playoff", 30))
-            day_constraint = day_constraint_map.get(round_name)
+            # Resolve day constraint for "Playoff Round 1", etc.
+            playoff_round_label = f"Playoff {round_name}"
+            day_constraint = _resolve_day_constraint(
+                div_code, playoff_round_label, global_day_map, division_day_map
+            )
+            # Also check if the bare round name has a constraint (global SF/Final)
+            if day_constraint is None:
+                day_constraint = _resolve_day_constraint(
+                    div_code, round_name, global_day_map, division_day_map
+                )
 
             for m in rnd["matches"]:
                 match_id = make_match_id(div_code, f"Playoff {round_name}", m["match"])
@@ -753,6 +822,29 @@ def get_eligible_courts(match, time_minute, config, venue_model):
 
 # ── Scheduling algorithm ─────────────────────────────────────────
 
+def _get_same_day_key(match):
+    """Return the grouping key for same-day enforcement.
+
+    All matches sharing a key must be scheduled on the same day.
+    For group+playoff divisions, all group pools share one key (so all
+    group-stage matches land on the same day regardless of group letter).
+    """
+    div_code = match.division_code
+    round_name = match.round_name
+    # Group pool rounds like "Group A Pool", "Group B Pool" → shared key
+    if " Pool" in round_name and round_name != "Pool":
+        return (div_code, "Group Pool")
+    return (div_code, round_name)
+
+
+def _day_bounds_for_minute(venue_model, minute):
+    """Return (day_start, day_end) for the day containing the given minute."""
+    for day in venue_model["days"]:
+        if day["start_minute"] <= minute < day["start_minute"] + 24 * 60:
+            return day["start_minute"], day["end_minute"]
+    return None, None
+
+
 def schedule_matches(matches, match_by_id, config, venue_model):
     """Main scheduling loop. Returns (scheduled_dict, unscheduled_list)."""
     # Compute probabilities and filter effective players
@@ -769,8 +861,19 @@ def schedule_matches(matches, match_by_id, config, venue_model):
     slot_duration = venue_model["slot_duration"]
     day_start_minutes = venue_model["day_start_minutes"]
 
+    # Build day_end_minutes for same-day enforcement
+    day_end_minutes = {}
+    for day in venue_model["days"]:
+        day_end_minutes[day["name"]] = day["end_minute"]
+
     # Minimum rest for prerequisite gaps (cross-division baseline)
     min_prereq_rest = get_cross_division_rest(config)
+
+    # Same-day enforcement: once the first match of a (div, round) group
+    # is placed on a day, all remaining matches in that group are constrained
+    # to the same day.
+    # Key: _get_same_day_key(match) -> day_name
+    round_day_assignments = {}
 
     # Sort by priority, then pool_round (groups non-conflicting RR matches),
     # then most-constrained-first (-player count, so doubles before singles),
@@ -798,16 +901,31 @@ def schedule_matches(matches, match_by_id, config, venue_model):
         # Compute earliest start time from hard constraints
         # (player rest is checked bidirectionally per-slot via can_play_at)
         earliest = 0
+        latest = None  # upper bound on slot (exclusive), set by same-day rule
 
         # Prerequisite constraint — feeder matches must finish + minimum rest
         for prereq_id in match.prerequisites:
             if prereq_id in scheduled_end:
                 earliest = max(earliest, scheduled_end[prereq_id] + min_prereq_rest)
 
-        # Day constraint (e.g. SF/Final must be on Sunday)
-        if match.day_constraint:
-            day_start = day_start_minutes.get(match.day_constraint, 0)
+        # Day constraint from config (e.g. SF/Final must be on Sunday)
+        effective_day = match.day_constraint
+
+        # Same-day enforcement: if another match in this round+division
+        # was already placed on a day, this match must go on that same day
+        same_day_key = _get_same_day_key(match)
+        if same_day_key in round_day_assignments:
+            assigned_day = round_day_assignments[same_day_key]
+            day_start = day_start_minutes.get(assigned_day, 0)
+            day_end = day_end_minutes.get(assigned_day, day_start + 24 * 60)
             earliest = max(earliest, day_start)
+            latest = day_end
+            effective_day = assigned_day
+        elif effective_day:
+            day_start = day_start_minutes.get(effective_day, 0)
+            day_end = day_end_minutes.get(effective_day, day_start + 24 * 60)
+            earliest = max(earliest, day_start)
+            latest = day_end
 
         # Snap to next slot boundary
         if earliest % slot_duration != 0:
@@ -818,6 +936,9 @@ def schedule_matches(matches, match_by_id, config, venue_model):
         for slot in all_slots:
             if slot < earliest:
                 continue
+            # If same-day or day constraint limits the day, stop searching beyond it
+            if latest is not None and slot >= latest:
+                break
 
             courts = get_eligible_courts(match, slot, config, venue_model)
             for court in courts:
@@ -844,6 +965,12 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                         )
                     scheduled[match.id] = (court, slot)
                     scheduled_end[match.id] = slot + match.duration_min
+
+                    # Record same-day assignment for this round+division
+                    if same_day_key not in round_day_assignments:
+                        placed_day = _day_name_for_minute(venue_model, slot)
+                        round_day_assignments[same_day_key] = placed_day
+
                     placed = True
                     break
             if placed:
@@ -859,9 +986,36 @@ def schedule_matches(matches, match_by_id, config, venue_model):
 # ── Validation ───────────────────────────────────────────────────
 
 def validate_schedule(matches, match_by_id, scheduled, court_sched, player_tracker, config, venue_model):
-    """Run validation checks and return warnings."""
+    """Run validation checks and return (errors, warnings).
+
+    Errors are hard failures (e.g., same-day violations). Warnings are
+    advisory (e.g., insufficient rest for placeholder matches).
+    """
+    errors = []
     warnings = []
     day_start_minutes = venue_model["day_start_minutes"]
+
+    # Check same-day rule: all matches in the same round+division must be on the same day
+    round_day_map = {}  # _get_same_day_key -> {day_name: [match_ids]}
+    for match in matches:
+        if match.id not in scheduled:
+            continue
+        _, minute = scheduled[match.id]
+        day_name = _day_name_for_minute(venue_model, minute)
+        key = _get_same_day_key(match)
+        if key not in round_day_map:
+            round_day_map[key] = defaultdict(list)
+        round_day_map[key][day_name].append(match.id)
+
+    for key, day_matches in round_day_map.items():
+        if len(day_matches) > 1:
+            div_code, round_label = key
+            day_list = ", ".join(
+                f"{d} ({len(ids)} matches)" for d, ids in day_matches.items()
+            )
+            errors.append(
+                f"Same-day violation: {div_code} {round_label} split across days: {day_list}"
+            )
 
     # Check day constraints
     for match in matches:
@@ -879,7 +1033,7 @@ def validate_schedule(matches, match_by_id, scheduled, court_sched, player_track
                     break
             if not on_correct_day:
                 day_name, time_str = config_minute_to_display(venue_model, minute)
-                warnings.append(
+                errors.append(
                     f"{match.round_name} on wrong day: {match.id} at {day_name} {time_str} "
                     f"(should be {match.day_constraint})"
                 )
@@ -934,7 +1088,7 @@ def validate_schedule(matches, match_by_id, scheduled, court_sched, player_track
         if required and court not in required:
             warnings.append(f"{match.category} on wrong court: {match.id} on court {court}")
 
-    return warnings
+    return errors, warnings
 
 
 # ── Output generation ────────────────────────────────────────────
@@ -1046,13 +1200,21 @@ def main(config=None):
             print(f"    {m.id}")
 
     print("\nValidating...")
-    warnings = validate_schedule(matches, match_by_id, scheduled, court_sched, player_tracker, config, venue_model)
+    errors, warnings = validate_schedule(matches, match_by_id, scheduled, court_sched, player_tracker, config, venue_model)
+    if errors:
+        print(f"  {len(errors)} ERRORS:")
+        for e in errors:
+            print(f"    ERROR: {e}")
     if warnings:
         print(f"  {len(warnings)} warnings:")
         for w in warnings:
             print(f"    WARNING: {w}")
-    else:
-        print("  No warnings — all checks passed!")
+    if not errors and not warnings:
+        print("  No errors or warnings — all checks passed!")
+
+    if errors:
+        print(f"\nAborting: {len(errors)} scheduling error(s) detected.")
+        sys.exit(1)
 
     schedules_dir = config["paths"]["schedules_dir"]
     print(f"\nWriting schedules to: {schedules_dir}/")

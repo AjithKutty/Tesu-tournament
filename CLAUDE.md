@@ -100,7 +100,7 @@ Each tournament is configured via 6 YAML files in `tournaments/<name>/config/`. 
 | `match_rules.yaml` | Match durations and rest periods per category |
 | `court_preferences.yaml` | Court preferences/restrictions per category |
 | `divisions.yaml` | Event names, level→category mapping, tab display, format overrides |
-| `scheduling.yaml` | Scheduling priorities, day constraints, elite divisions |
+| `scheduling.yaml` | Scheduling priorities, day constraints (global + per-division), elite divisions |
 
 ## Web Scraper (parse_web.py)
 
@@ -148,6 +148,8 @@ Generates match schedules respecting court availability, player rest, and round 
 - **Sessions**: From `venue.yaml` — named time blocks within each day
 - **Scheduling priorities**: From `scheduling.yaml` — priority ordering and day constraints
 - **Scheduling algorithm**: Greedy slot assignment sorted by priority
+- **Same-day rule**: All matches in the same round of the same division are automatically scheduled on a single day. Hard error if they don't fit.
+- **Day constraints**: Global (all divisions) and per-division overrides in `scheduling.yaml` via `day_constraints` and `division_day_constraints`
 - **Pool round parallelism**: Round-robin matches use graph coloring so independent matches can run simultaneously
 - **Worst-case rest buffering**: Later-round matches trace prerequisites back to R1; scheduling guarantees rest for worst-case bracket outcomes
 - **Bye matches**: Loaded but not scheduled (no court time needed)

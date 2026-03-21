@@ -9,6 +9,8 @@ Checks:
   2. Round ordering: preceding rounds are scheduled before succeeding rounds
   3. Schedule coverage: all playable matches appear in the schedule
   4. Player conflicts: no player is double-booked
+  5. No double-bye matches
+  6. Same-day rule: all matches in the same round+division are on the same day
 """
 
 import argparse
@@ -396,6 +398,44 @@ def check_player_conflicts(schedule_matches):
     return issues
 
 
+# ── Check 6: Same-Day Rule ──────────────────────────────────────
+
+def check_same_day_rule(schedule_matches):
+    """Check that all matches in the same round+division are on the same day.
+
+    Groups "Group X Pool" rounds together (all group pools in a division
+    must be on the same day).
+    """
+    issues = []
+    from collections import defaultdict
+
+    # Build (division, round_group) -> set of dates
+    round_days = defaultdict(lambda: defaultdict(list))
+    for m in schedule_matches:
+        div = m["division"]
+        rnd = m["round"]
+        # Group all group-pool rounds together
+        if " Pool" in rnd and rnd != "Pool":
+            round_group = "Group Pool"
+        else:
+            round_group = rnd
+        date = m["_date"]
+        round_days[(div, round_group)][date].append(
+            f"M{m['match_num']} at {m['time']}"
+        )
+
+    for (div, round_group), day_matches in sorted(round_days.items()):
+        if len(day_matches) > 1:
+            day_list = ", ".join(
+                f"{d} ({len(ids)} matches)" for d, ids in day_matches.items()
+            )
+            issues.append(
+                f"{div}: {round_group} split across days: {day_list}"
+            )
+
+    return issues
+
+
 # ── Main ─────────────────────────────────────────────────────────
 
 def verify(config):
@@ -466,6 +506,18 @@ def verify(config):
             print(f"  FAIL: {issue}")
     else:
         print("  PASS")
+
+    # Check 6: Same-day rule
+    if schedule:
+        print("Check 6: Same-day rule...")
+        issues = check_same_day_rule(schedule)
+        total_checks += 1
+        if issues:
+            all_issues.extend(issues)
+            for issue in issues:
+                print(f"  FAIL: {issue}")
+        else:
+            print("  PASS")
 
     print()
     if all_issues:

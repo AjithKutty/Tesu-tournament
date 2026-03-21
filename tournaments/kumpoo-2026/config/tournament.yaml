@@ -3,6 +3,6 @@ description: "Badminton tournament organized by Tervasulka"
 
 input:
   source: excel
-  excel_file: ""
+  excel_file: "Entries Kumpoo Tervasulan Eliitti 2026 19.3..XLSX"
   web_url: "https://badmintonfinland.tournamentsoftware.com/sport/events.aspx?id=077fa231-b428-43ba-844d-3689c1d977ed"
   full_results: false

@@ -104,6 +104,58 @@ def get_format_overrides(config):
     return config["divisions"].get("format_overrides", {})
 
 
+def get_draw_format(config, div_code, category, entry_count):
+    """Determine draw format for a division when generating from entries.
+
+    Resolution order:
+      1. Per-division override in scheduling.draw_formats.divisions
+      2. Per-category default in scheduling.draw_formats.categories
+      3. Global default in scheduling.draw_formats.default
+      4. Fallback: round_robin if <=6, elimination otherwise
+
+    Returns (format_str, params_dict) where params_dict may contain
+    'groups' and 'advancers_per_group' for group_playoff format.
+    """
+    df = config["scheduling"].get("draw_formats", {})
+    divisions_cfg = df.get("divisions", {})
+    categories_cfg = df.get("categories", {})
+    default_fmt = df.get("default", None)
+
+    # 1. Per-division override
+    if div_code in divisions_cfg:
+        div_cfg = divisions_cfg[div_code]
+        if isinstance(div_cfg, dict):
+            fmt = div_cfg.get("format", "elimination")
+            params = {k: v for k, v in div_cfg.items() if k != "format"}
+            return fmt, params
+        else:
+            return str(div_cfg), {}
+
+    # 2. Per-category default
+    if category in categories_cfg:
+        cat_fmt = categories_cfg[category]
+        if isinstance(cat_fmt, dict):
+            fmt = cat_fmt.get("format", "elimination")
+            params = {k: v for k, v in cat_fmt.items() if k != "format"}
+            return fmt, params
+        else:
+            return str(cat_fmt), {}
+
+    # 3. Global default (only for >6 entries)
+    if entry_count <= 6:
+        return "round_robin", {}
+
+    if default_fmt:
+        if isinstance(default_fmt, dict):
+            fmt = default_fmt.get("format", "elimination")
+            params = {k: v for k, v in default_fmt.items() if k != "format"}
+            return fmt, params
+        return str(default_fmt), {}
+
+    # 4. Hardcoded fallback
+    return "elimination", {}
+
+
 def get_slot_duration(config):
     """Get scheduling slot duration in minutes."""
     return config["venue"].get("slot_duration", 30)
@@ -248,8 +300,16 @@ def get_elite_divisions(config):
 
 
 def get_day_constraints(config):
-    """Get day constraints (rounds that must be on a specific day)."""
+    """Get global day constraints (rounds that must be on a specific day)."""
     return config["scheduling"].get("day_constraints", [])
+
+
+def get_division_day_constraints(config):
+    """Get per-division day constraints.
+
+    Returns dict: division_code -> list of {rounds: [...], day: "..."}
+    """
+    return config["scheduling"].get("division_day_constraints", {})
 
 
 # ── Venue model ──────────────────────────────────────────────────

@@ -237,11 +237,30 @@ round_priority_map:
 # Division codes that get elite_pool priority for their pool matches
 elite_divisions: ["MS V", "WS V", "XD V"]
 
-# Rounds that must be scheduled on a specific day
+# Day constraints — force rounds onto a specific day
+# Global constraints apply to all divisions:
 day_constraints:
   - rounds: ["Semi-Final", "Final"]
     day: "Sunday"                # Must match a day name from venue.yaml
+
+# Per-division overrides — pin specific division rounds/stages to a day.
+# These override global constraints when both apply to the same round.
+# Round names: "Round 1", "Round 2", "Quarter-Final", "Semi-Final", "Final",
+#              "Pool" (round-robin), "Group" (group stage), "Playoff Round 1", etc.
+division_day_constraints:
+  "BS U17":
+    - rounds: ["Group"]
+      day: "Saturday"
+  "MS C":
+    - rounds: ["Round 1"]
+      day: "Saturday"
 ```
+
+Notes:
+- **Same-day rule**: All matches in the same round of the same division are automatically scheduled on a single day. No configuration is needed for this — it is always enforced. If the matches cannot fit on the assigned day, the scheduler reports a hard error.
+- **Global `day_constraints`**: Apply to all divisions. A round name listed here is pinned to the given day for every division.
+- **`division_day_constraints`**: Per-division overrides. When a division has its own constraint for a round, it takes precedence over the global constraint. Round names include `"Pool"` (for round-robin divisions), `"Group"` (for all group-stage matches in group+playoff divisions), and standard elimination round names.
+- **`draw_formats`**: Controls which draw format `parse_entries.py` uses when generating draws from an entries-only Excel file (no bracket data). Resolution order: per-division override → per-category default → global default → fallback (round_robin if ≤6, elimination otherwise). The `group_playoff` format accepts `groups` (number of groups) and `advancers_per_group` (how many players advance from each group to the elimination playoff).
 
 ## Config Resolution Rules
 

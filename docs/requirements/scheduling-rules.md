@@ -68,9 +68,28 @@ Matches are scheduled in priority order as defined in `scheduling.yaml`:
 7. Semi-Finals
 8. Finals (lowest priority — scheduled last)
 
+### Same-Day Rule
+
+All matches in the same round of the same division must be scheduled on the same day. This is an automatic scheduling rule — no configuration is needed.
+
+The rule applies to every draw format:
+- **Elimination**: All matches in a given round (e.g., Round 1, Quarter-Final) of a division are placed on a single day.
+- **Round-robin**: All pool matches for a division are placed on a single day.
+- **Group+playoff**: All group-stage matches for a division are placed on a single day. Each playoff round for that division is also placed on a single day (which may be a different day from the group stage).
+
+If the matches for a round+division cannot all fit on the assigned day, this is a **hard error** — the scheduler must report the failure and abort rather than silently splitting a round across days.
+
 ### Day Constraints
 
-Certain rounds can be constrained to specific days via `scheduling.yaml`. For example, semi-finals and finals may be required to be played on the last day of the tournament.
+Day constraints force specific rounds to be scheduled on a specific day. They are configured in `scheduling.yaml` under `day_constraints`.
+
+**Global constraints** apply to all divisions. For example, semi-finals and finals may be required to be played on the last day of the tournament.
+
+**Per-division constraints** allow the tournament director to pin specific divisions' rounds or stages to a chosen day. For example:
+- All group-stage matches of BS U17 must be on Saturday.
+- Round 1 of MS C must be on Saturday.
+
+Per-division constraints override global constraints for the same round when both apply.
 
 ### Additional Scheduling Rules
 

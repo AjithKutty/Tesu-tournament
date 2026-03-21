@@ -83,17 +83,23 @@ python src/main.py --tournament tournaments/kumpoo-2025 --source web --full-resu
 Each pipeline stage can be run independently:
 
 ```bash
-# 1. Parse Excel → JSON
-python src/parse_tournament.py --tournament tournaments/kumpoo-2025
+# 1a. Parse Excel draws → JSON
+python src/parse_tournament.py --tournament tournaments/kumpoo-2026
 
-# 1. (Alternative) Scrape web → JSON
-python src/parse_web.py --tournament tournaments/kumpoo-2025
+# 1b. (Alternative) Scrape web → JSON
+python src/parse_web.py --tournament tournaments/kumpoo-2026
+
+# 1c. (Alternative) Parse entries Excel → random draws → JSON
+python src/parse_entries.py --tournament tournaments/kumpoo-2026 --seed 42
 
 # 2. Generate schedule from division JSON
-python src/generate_schedule.py --tournament tournaments/kumpoo-2025
+python src/generate_schedule.py --tournament tournaments/kumpoo-2026
 
-# 3. Generate website from divisions + schedule JSON
-python src/generate_website.py --tournament tournaments/kumpoo-2025
+# 3. Verify schedule (optional)
+python src/verify_schedule.py --tournament tournaments/kumpoo-2026
+
+# 4. Generate website from divisions + schedule JSON
+python src/generate_website.py --tournament tournaments/kumpoo-2026
 ```
 
 ## Pipeline
@@ -101,10 +107,11 @@ python src/generate_website.py --tournament tournaments/kumpoo-2025
 ```
 Tournament Config (YAML) ──────────────────────────┐
         │                                          │
-Excel (.XLSX) or Web URL                           │
+Excel (.XLSX) or Web URL or Entries Excel          │
         │                                          │
         ▼                                          ▼
   parse_tournament.py / parse_web.py  →  output/divisions/*.json
+  parse_entries.py (entries only)      →  output/divisions/*.json
   generate_schedule.py  ← config      →  output/schedules/*.json
   generate_website.py   ← config      →  output/webpages/index.html
 ```
@@ -141,7 +148,7 @@ Tournament behavior is controlled by 6 YAML config files. See `docs/architecture
 | `match_rules.yaml` | Match timing | Duration and rest period per category (e.g., Elite: 45 min match, 60 min rest) |
 | `court_preferences.yaml` | Court assignment | Required/preferred/fallback courts per category |
 | `divisions.yaml` | Division mapping | Event names, level→category mapping, website tab order and styling, format overrides |
-| `scheduling.yaml` | Scheduling logic | Priority ordering, round-priority mapping, day constraints (e.g., SF/Finals on Sunday) |
+| `scheduling.yaml` | Scheduling logic | Priority ordering, day constraints, draw format overrides for entries-only mode |
 
 ## Creating a New Tournament
 
@@ -182,9 +189,11 @@ Tournament behavior is controlled by 6 YAML config files. See `docs/architecture
 Tesu-Tournament/
 ├── src/
 │   ├── main.py                  # Unified entry point (parse → schedule → website)
-│   ├── parse_tournament.py      # Excel → JSON parser
+│   ├── parse_tournament.py      # Excel draws → JSON parser
 │   ├── parse_web.py             # Web scraper → JSON parser
+│   ├── parse_entries.py         # Entries-only Excel → random draws → JSON
 │   ├── generate_schedule.py     # JSON → schedule JSON
+│   ├── verify_schedule.py       # Schedule verification checks
 │   └── generate_website.py      # JSON → single-page HTML
 ├── tournaments/                 # One folder per tournament (config + input + output)
 ├── docs/
@@ -197,7 +206,9 @@ Tesu-Tournament/
 
 ## Input Formats
 
-### Excel mode
+The pipeline supports three input modes depending on what data is available.
+
+### Excel mode (draws available)
 
 Expects an `.xlsx` workbook exported from tournamentsoftware.com with one sheet per division draw. Supports three draw formats:
 
@@ -207,13 +218,55 @@ Expects an `.xlsx` workbook exported from tournamentsoftware.com with one sheet 
 
 Format detection is automatic. Per-division overrides can be specified in `divisions.yaml`.
 
-### Web scraping mode
+### Web scraping mode (draws available)
 
 Scrapes tournament data directly from tournamentsoftware.com. Handles cookie consent walls automatically. Scraped data is cached in the tournament's `scraped/` directory.
 
 Note: club-per-player data is not available from the web (only country codes).
 
 The `--full-results` flag additionally scrapes match results, scores, durations, scheduled times, and court assignments.
+
+### Entries-only mode (no draws yet)
+
+When only a player entry list is available (no bracket draws), `parse_entries.py` reads the entries Excel and generates randomized draws. This is useful for pre-tournament scheduling when draws haven't been made yet.
+
+The entries Excel has one sheet per division named `{EVENT} {LEVEL} - Main Draw` (e.g., `MS B - Main Draw`), with columns: No., Name (and partner on the next row for doubles).
+
+```bash
+# Generate random draws from entries and run the full pipeline:
+python src/parse_entries.py --tournament tournaments/kumpoo-2026 --seed 42
+python src/generate_schedule.py --tournament tournaments/kumpoo-2026
+python src/generate_website.py --tournament tournaments/kumpoo-2026
+
+# Use --seed for reproducible draws (omit for fully random)
+```
+
+#### Draw format configuration
+
+The draw format for each division is controlled by the `draw_formats` section in `scheduling.yaml`. This determines whether a division plays as round-robin, elimination, or group stage with playoffs.
+
+```yaml
+draw_formats:
+  # Default for divisions with >6 entries (<=6 always use round_robin)
+  default: elimination
+
+  # Per-category defaults
+  categories:
+    Veterans: round_robin
+
+  # Per-division overrides (take precedence over category and default)
+  divisions:
+    "BS U13":
+      format: group_playoff
+      groups: 2                  # Number of round-robin groups
+      advancers_per_group: 2     # Top 2 per group → 4 in playoff → SF + Final
+    "MD 35":
+      format: group_playoff
+      groups: 2
+      advancers_per_group: 1     # Top 1 per group → 2 in playoff → Final only
+```
+
+Resolution order: per-division override → per-category default → global default → fallback (round_robin if ≤6 entries, elimination otherwise).
 
 ## License
 
