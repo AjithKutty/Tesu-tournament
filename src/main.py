@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import load_config, get_tournament_name
 from parse_tournament import main as parse_excel_main
 from parse_web import main as parse_web_main
+from parse_entries import main as parse_entries_main
 from generate_schedule import main as schedule_main
 from verify_schedule import verify as verify_main
 from generate_website import main as website_main
@@ -75,6 +76,12 @@ def main():
         help="Use actual winner names from scraped data in later bracket rounds "
              "(default: use structural placeholders like 'Winner R1-M1')",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Random seed for reproducible draws (entries-only mode)",
+    )
     args = parser.parse_args()
 
     # Load config
@@ -101,7 +108,10 @@ def main():
             excel_file = config["tournament"].get("input", {}).get("excel_file")
             if excel_file:
                 filepath = os.path.join(config["paths"]["input_dir"], excel_file)
-        parse_excel_main(config=config, filepath=filepath)
+        _, count = parse_excel_main(config=config, filepath=filepath)
+        if count == 0:
+            print("\nNo draws found in Excel — falling back to entries-only mode")
+            parse_entries_main(config=config, seed=args.seed)
     else:
         parse_web_main(config=config, url=url, full_results=full_results,
                        rescrape=args.rescrape, get_winners=args.get_winners)

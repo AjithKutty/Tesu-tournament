@@ -427,10 +427,14 @@ def main(config=None, seed=None):
         category = level_categories.get(level, level)
         div_name = f"{full_name_event} {level}"
 
+        n = len(entries)
+        if n < 2:
+            print(f"  Skipping {div_code}: only {n} entry (need at least 2)")
+            continue
+
         # Shuffle entries for random draw
         random.shuffle(entries)
 
-        n = len(entries)
         fmt, fmt_params = get_draw_format(config, div_code, category, n)
 
         params_str = ""

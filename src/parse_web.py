@@ -32,7 +32,7 @@ from bs4 import BeautifulSoup
 
 from config import (load_config, get_tournament_name, get_event_names,
                      get_level_categories, get_doubles_events,
-                     get_category_order, get_format_overrides)
+                     get_category_order, get_format_overrides, get_draw_format)
 
 REQUEST_DELAY = 0.5  # seconds between requests
 
@@ -239,7 +239,7 @@ def fetch_events(session, base_url, tournament_id):
                 entry_count = int(cells[2].get_text(strip=True))
             except (ValueError, IndexError):
                 entry_count = 0
-            if draws_count > 0:
+            if draws_count > 0 or entry_count > 0:
                 events.append({
                     "name": event_name,
                     "draws": draws_count,
@@ -769,6 +769,57 @@ def fetch_clubs(session, base_url, tournament_id):
     return sorted(clubs)
 
 
+def fetch_event_entries(session, base_url, tournament_id, event_num, is_doubles):
+    """Scrape event.aspx to get the entry list for an event (no draws needed).
+
+    Returns list of entry dicts:
+        {'name': str, 'partner': str|None}
+    For doubles, both player names are in one cell, each prefixed with [COUNTRY].
+    """
+    resp = _get(
+        session,
+        f"{base_url}/sport/event.aspx?id={tournament_id}&event={event_num}",
+    )
+    soup = BeautifulSoup(resp.text, "lxml")
+
+    entries = []
+    table = soup.find("table", class_="ruler")
+    if not table:
+        return entries
+
+    for row in table.find_all("tr")[1:]:  # skip header
+        cells = row.find_all("td")
+        if len(cells) < 2:
+            continue
+
+        # Column 0: draw status (e.g., "Maindraw", "Exclude list")
+        status = cells[0].get_text(strip=True).lower()
+        if "exclude" in status:
+            continue
+
+        # Column 1: player name(s) with country prefix like "[FIN]Name"
+        player_cell = cells[1]
+        player_text = player_cell.get_text(strip=True)
+        if not player_text:
+            continue
+
+        # Extract names by splitting on [COUNTRY] pattern
+        # e.g., "[FIN]Player1[FIN]Player2" for doubles
+        name_parts = re.findall(r"\[[A-Z]+\]\s*([^[]+)", player_text)
+        if not name_parts:
+            # Try without country code prefix
+            name_parts = [player_text]
+
+        names = [n.strip() for n in name_parts if n.strip()]
+
+        if is_doubles and len(names) >= 2:
+            entries.append({'name': names[0], 'partner': names[1]})
+        elif names:
+            entries.append({'name': names[0], 'partner': None})
+
+    return entries
+
+
 # ── Division name parsing ───────────────────────────────────────
 
 def parse_draw_name(name, event_names, level_categories, doubles_events):
@@ -1292,6 +1343,17 @@ def process_tournament(url, config, full_results=False, rescrape=False, get_winn
     divisions = group_draws_by_division(draw_list)
     print(f"Grouped into {len(divisions)} divisions")
 
+    # If no draws found but events have entries, fall back to entries-only mode
+    events_with_entries = [e for e in events_list if e["entries"] > 0]
+    if not divisions and events_with_entries:
+        print(f"\nNo draws available — falling back to entries-only mode "
+              f"({len(events_with_entries)} events with entries)")
+        return _process_entries_only(
+            session, base_url, tournament_id, tournament_name,
+            events_with_entries, config, event_names, level_categories,
+            doubles_events, cat_order, output_dir, scraped_dir, rescrape,
+        )
+
     # Fetch clubs (with caching)
     print("Fetching club list...")
     cached_clubs = None if rescrape else _load_cache(scraped_dir, "clubs.json")
@@ -1597,6 +1659,188 @@ def _process_group_playoff(
     return files_written
 
 
+# ── Entries-only fallback ───────────────────────────────────────
+
+def _process_entries_only(session, base_url, tournament_id, tournament_name,
+                          events_with_entries, config, event_names,
+                          level_categories, doubles_events, cat_order,
+                          output_dir, scraped_dir, rescrape):
+    """Fall back to scraping entry lists when draws aren't published yet.
+
+    Scrapes event.aspx for each event, then uses parse_entries.py draw
+    generation logic to create randomized draws.
+    """
+    from parse_entries import (generate_round_robin, generate_elimination,
+                               generate_group_playoff, make_player_str)
+
+    os.makedirs(output_dir, exist_ok=True)
+    index_entries = []
+    files_written = 0
+    category_files = {}
+
+    for event in events_with_entries:
+        event_name = event["name"]
+        event_num = event["event_num"]
+
+        info = parse_draw_name(event_name, event_names, level_categories, doubles_events)
+        if not info:
+            print(f"  Skipping unrecognized event: {event_name}")
+            continue
+
+        div_code = info["code"]
+        is_doubles = info["is_doubles"]
+        category = info["category"]
+
+        # Fetch entries (with caching)
+        cache_file = f"entries_event_{event_num}.json"
+        cached = None if rescrape else _load_cache(scraped_dir, cache_file)
+        if cached is not None:
+            entries = cached
+        else:
+            entries = fetch_event_entries(
+                session, base_url, tournament_id, event_num, is_doubles
+            )
+            _save_cache(scraped_dir, cache_file, entries)
+
+        if not entries:
+            print(f"  Skipping {div_code}: no entries")
+            continue
+
+        n = len(entries)
+        if n < 2:
+            print(f"  Skipping {div_code}: only {n} entry (need at least 2)")
+            continue
+        fmt, fmt_params = get_draw_format(config, div_code, category, n)
+
+        params_str = ""
+        if fmt_params:
+            parts = [f"{k}={v}" for k, v in fmt_params.items()]
+            params_str = f" ({', '.join(parts)})"
+        print(f"  {div_code:12s} {n:3d} entries -> {fmt}{params_str}")
+
+        # Build player list
+        players = []
+        for i, entry in enumerate(entries):
+            players.append({
+                'position': i + 1,
+                'name': make_player_str(entry, is_doubles),
+                'club': None,
+                'seed': None,
+                'status': None,
+            })
+
+        div_json = {
+            'tournament': tournament_name,
+            'name': info["full_name"],
+            'code': div_code,
+            'category': category,
+            'sheet': event_name,
+            'draw_type': 'main_draw',
+            'format': fmt,
+            'players': players,
+        }
+
+        if fmt == "round_robin":
+            div_json['matches'] = generate_round_robin(entries, is_doubles)
+
+        elif fmt == "elimination":
+            rounds, draw_size = generate_elimination(entries, is_doubles)
+            div_json['drawSize'] = draw_size
+            div_json['rounds'] = rounds
+
+        elif fmt == "group_playoff":
+            cfg_groups = fmt_params.get('groups')
+            cfg_advancers = fmt_params.get('advancers_per_group')
+            groups, playoff = generate_group_playoff(
+                entries, is_doubles,
+                cfg_groups=cfg_groups, cfg_advancers=cfg_advancers,
+            )
+            div_json['groups'] = groups
+            div_json['playoff'] = playoff
+
+            # Standalone playoff file
+            playoff_json = {
+                'tournament': tournament_name,
+                'name': info["full_name"],
+                'code': div_code,
+                'category': category,
+                'sheet': f"{div_code}-Playoff",
+                'draw_type': 'playoff',
+                'format': 'elimination',
+                'drawSize': playoff['drawSize'],
+                'rounds': playoff['rounds'],
+                'players': [],
+                'clubs': [],
+            }
+            playoff_filename = division_to_filename(div_code, "playoff")
+            with open(os.path.join(output_dir, playoff_filename), 'w', encoding='utf-8') as f:
+                json.dump(playoff_json, f, indent=2, ensure_ascii=False)
+            files_written += 1
+
+            div_json['playoff_file'] = playoff_filename
+            index_entries.append({
+                'file': playoff_filename,
+                'name': info["full_name"],
+                'code': div_code,
+                'category': category,
+                'draw_type': 'playoff',
+                'format': 'elimination',
+            })
+
+        div_json['clubs'] = []
+
+        filename = division_to_filename(div_code, "main_draw")
+        with open(os.path.join(output_dir, filename), 'w', encoding='utf-8') as f:
+            json.dump(div_json, f, indent=2, ensure_ascii=False)
+        files_written += 1
+
+        index_entries.append({
+            'file': filename,
+            'name': info["full_name"],
+            'code': div_code,
+            'category': category,
+            'draw_type': 'main_draw',
+            'format': fmt,
+        })
+
+        if category not in category_files:
+            category_files[category] = []
+        category_files[category].append(filename)
+
+    # Write tournament index
+    if not cat_order:
+        cat_order = ["Open A", "Open B", "Open C", "Junior", "Veterans", "Elite"]
+
+    def sort_key(e):
+        cat_idx = cat_order.index(e["category"]) if e["category"] in cat_order else 99
+        return (cat_idx, e["code"], 0 if e["draw_type"] == "main_draw" else 1)
+
+    index_entries.sort(key=sort_key)
+
+    index_json = {
+        "tournament": tournament_name,
+        "source": "web_entries",
+        "total_divisions": len(index_entries),
+        "clubs": [],
+        "divisions": index_entries,
+    }
+
+    index_path = os.path.join(output_dir, "tournament_index.json")
+    with open(index_path, "w", encoding="utf-8") as f:
+        json.dump(index_json, f, indent=2, ensure_ascii=False)
+    files_written += 1
+
+    print(f"\nGenerated {files_written} JSON files + tournament_index.json")
+    print(f"Output: {output_dir}/")
+    for cat in sorted(category_files):
+        files = category_files[cat]
+        print(f"\n  {cat}: {len(files)} files")
+        for fn in sorted(files):
+            print(f"    {fn}")
+
+    return index_json, len([e for e in index_entries if e['draw_type'] == 'main_draw'])
+
+
 # ── Entry point ─────────────────────────────────────────────────
 
 def main(config=None, url=None, full_results=False, rescrape=False, get_winners=False):
@@ -1633,7 +1877,7 @@ def main(config=None, url=None, full_results=False, rescrape=False, get_winners=
 
         if args.tournament:
             config = load_config(args.tournament)
-            url = args.url or config["tournament"].get("url")
+            url = args.url or config["tournament"].get("input", {}).get("web_url")
         else:
             url = args.url
             if not url:
@@ -1641,7 +1885,7 @@ def main(config=None, url=None, full_results=False, rescrape=False, get_winners=
 
     # If config was provided but no URL, get from config
     if config is not None and url is None:
-        url = config["tournament"].get("url")
+        url = config["tournament"].get("input", {}).get("web_url")
         if not url:
             raise ValueError("No URL provided and none found in config")
 
