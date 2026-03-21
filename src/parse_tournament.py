@@ -248,6 +248,10 @@ def extract_elimination_players(rows, is_doubles, layout=None):
     data_rows = [r for r in rows if r["_row"] >= 5]
     max_pos = 0
 
+    def _is_bye_name(val):
+        """Check if a player name is a bye (e.g., 'Bye', 'Bye 1', 'Bye 5')."""
+        return val.lower() == "bye" or val.lower().startswith("bye ")
+
     if is_doubles:
         prev_row = None
         for r in data_rows:
@@ -256,7 +260,7 @@ def extract_elimination_players(rows, is_doubles, layout=None):
             if a_val and a_val.isdigit():
                 pos = int(a_val)
                 max_pos = max(max_pos, pos)
-                if p_val and p_val.lower() != "bye":
+                if p_val and not _is_bye_name(p_val):
                     name1_raw = prev_row.get(pcol, "") if prev_row else ""
                     club1 = prev_row.get(ccol, "") if prev_row else ""
                     name2_raw = p_val
@@ -290,7 +294,7 @@ def extract_elimination_players(rows, is_doubles, layout=None):
             if a_val and a_val.isdigit():
                 pos = int(a_val)
                 max_pos = max(max_pos, pos)
-                if p_val and p_val.lower() != "bye":
+                if p_val and not _is_bye_name(p_val):
                     name, seed = extract_seed(p_val)
                     players.append({
                         "position": pos,
@@ -498,6 +502,17 @@ def build_full_bracket(players, draw_size, round_names, is_doubles):
 
     rounds = [{"name": round_names[0], "matches": r1_matches}]
 
+    # Build a map of known winners from bye matches so later rounds can
+    # use actual player names instead of "Winner X-MN" placeholders.
+    # Key: (round_name, match_num) -> winner name
+    bye_winners = {}
+    for m in r1_matches:
+        if "auto-advances" in m.get("notes", ""):
+            p1 = m["player1"]
+            p2 = m["player2"]
+            winner = p1 if p2.startswith("Bye") else p2
+            bye_winners[(round_names[0], m["match"])] = winner
+
     # Later rounds: structural matches, propagating Byes from empty feeders
     prev_round_name = round_names[0]
     prev_match_count = draw_size // 2  # Use expected count, not actual (some were skipped)
@@ -523,15 +538,18 @@ def build_full_bracket(players, draw_size, round_names, is_doubles):
                 continue
             elif p1_empty:
                 p1_label = "Bye"
-                p2_label = f"Winner {prev_abbrev}-M{m2}"
+                p2_label = bye_winners.get((prev_round_name, m2),
+                                           f"Winner {prev_abbrev}-M{m2}")
                 match = {
                     "match": m + 1,
                     "player1": p1_label,
                     "player2": p2_label,
                     "notes": f"{p2_label} auto-advances",
                 }
+                bye_winners[(rnd_name, m + 1)] = p2_label
             elif p2_empty:
-                p1_label = f"Winner {prev_abbrev}-M{m1}"
+                p1_label = bye_winners.get((prev_round_name, m1),
+                                           f"Winner {prev_abbrev}-M{m1}")
                 p2_label = "Bye"
                 match = {
                     "match": m + 1,
@@ -539,11 +557,17 @@ def build_full_bracket(players, draw_size, round_names, is_doubles):
                     "player2": p2_label,
                     "notes": f"{p1_label} auto-advances",
                 }
+                bye_winners[(rnd_name, m + 1)] = p1_label
             else:
+                # Resolve feeder labels: use actual name if bye winner, else placeholder
+                p1_label = bye_winners.get((prev_round_name, m1),
+                                           f"Winner {prev_abbrev}-M{m1}")
+                p2_label = bye_winners.get((prev_round_name, m2),
+                                           f"Winner {prev_abbrev}-M{m2}")
                 match = {
                     "match": m + 1,
-                    "player1": f"Winner {prev_abbrev}-M{m1}",
-                    "player2": f"Winner {prev_abbrev}-M{m2}",
+                    "player1": p1_label,
+                    "player2": p2_label,
                 }
 
             matches.append(match)

@@ -99,9 +99,16 @@ class Match:
         self.is_elite = is_elite
         self.overrun_buffer = overrun_buffer  # extra minutes to keep court free before this match
         self.pool_round = 0  # scheduling round within a RR pool (0-based)
-        # True if actual players are known (R1/pool), False if placeholder ("Winner of...")
+        # True if ALL players are confirmed (no placeholders).
+        # False if any side is a placeholder ("Winner of..." / "Slot N").
         self.has_real_players = bool(known_players) and not (
-            player1.startswith("Winner ") or player1.startswith("Slot ")
+            player1.startswith("Winner ") or player1.startswith("Slot ") or
+            player2.startswith("Winner ") or player2.startswith("Slot ")
+        )
+        # True if at least one side has a confirmed player name (for partial tracking).
+        self.has_some_real_players = bool(known_players) and (
+            not (player1.startswith("Winner ") or player1.startswith("Slot ")) or
+            not (player2.startswith("Winner ") or player2.startswith("Slot "))
         )
         # Effective players for scheduling (filtered by probability threshold).
         # Set by _apply_probability_filter(); defaults to known_players.
@@ -954,15 +961,22 @@ def schedule_matches(matches, match_by_id, config, venue_model):
 
                     # Book it — blocks duration + overrun_buffer on the court
                     court_sched.book(court, slot, match.id, match.duration_min, match.overrun_buffer)
-                    # Only update tracker for real-player matches (confirmed players).
-                    # Placeholder matches check effective_players for rest but don't
-                    # add tracker entries — avoids over-constraining cross-division
-                    # schedules when all possible players would be blocked.
-                    if match.has_real_players and match.known_players:
-                        player_tracker.update(
-                            match.known_players, slot,
-                            match.duration_min, match.division_code, match.category
-                        )
+                    # Update tracker for confirmed players. For matches where
+                    # one side is a bye winner (confirmed) and the other is a
+                    # placeholder ("Winner R1-M5"), track the confirmed players
+                    # so they aren't double-booked across divisions.
+                    if match.has_some_real_players:
+                        # Extract only the confirmed player names (from the
+                        # non-placeholder side)
+                        confirmed = set()
+                        for p_str in (match.player1, match.player2):
+                            if not p_str.startswith("Winner ") and not p_str.startswith("Slot "):
+                                confirmed.update(extract_player_names(p_str))
+                        if confirmed:
+                            player_tracker.update(
+                                list(confirmed), slot,
+                                match.duration_min, match.division_code, match.category
+                            )
                     scheduled[match.id] = (court, slot)
                     scheduled_end[match.id] = slot + match.duration_min
 

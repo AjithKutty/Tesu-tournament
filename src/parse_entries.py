@@ -202,11 +202,18 @@ def generate_elimination(entries, is_doubles):
             m['notes'] = f"{winner} auto-advances"
         r1_matches.append(m)
 
-    round_name = _round_name(1, num_rounds)
-    rounds.append({'name': round_name, 'matches': r1_matches})
+    first_round_name = _round_name(1, num_rounds)
+    rounds.append({'name': first_round_name, 'matches': r1_matches})
 
-    # Later rounds
-    abbrev_map = {}
+    # Build map of known winners from bye matches
+    bye_winners = {}  # (round_name, match_num) -> winner name
+    for m in r1_matches:
+        if "auto-advances" in m.get("notes", ""):
+            p1, p2 = m["player1"], m["player2"]
+            winner = p1 if p2 == "Bye" else p2
+            bye_winners[(first_round_name, m["match"])] = winner
+
+    # Later rounds: resolve bye winners to actual names
     for rnd_idx in range(2, num_rounds + 1):
         prev_round_name = _round_name(rnd_idx - 1, num_rounds)
         prev_abbrev = _round_abbrev(prev_round_name)
@@ -218,10 +225,14 @@ def generate_elimination(entries, is_doubles):
             match_num = i + 1
             feeder1 = i * 2 + 1
             feeder2 = i * 2 + 2
+            p1 = bye_winners.get((prev_round_name, feeder1),
+                                 f"Winner {prev_abbrev}-M{feeder1}")
+            p2 = bye_winners.get((prev_round_name, feeder2),
+                                 f"Winner {prev_abbrev}-M{feeder2}")
             rnd_matches.append({
                 'match': match_num,
-                'player1': f"Winner {prev_abbrev}-M{feeder1}",
-                'player2': f"Winner {prev_abbrev}-M{feeder2}",
+                'player1': p1,
+                'player2': p2,
             })
         rounds.append({'name': current_round_name, 'matches': rnd_matches})
 
