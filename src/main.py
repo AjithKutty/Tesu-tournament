@@ -114,7 +114,8 @@ def main():
             parse_entries_main(config=config, seed=args.seed)
     else:
         parse_web_main(config=config, url=url, full_results=full_results,
-                       rescrape=args.rescrape, get_winners=args.get_winners)
+                       rescrape=args.rescrape, get_winners=args.get_winners,
+                       seed=args.seed)
 
     print()
     print("=" * 60)

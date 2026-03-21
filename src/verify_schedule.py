@@ -322,6 +322,8 @@ def _is_playable(match):
     p2 = match.get("player2", "")
     if p1 == "Bye" or p2 == "Bye":
         return False
+    if p1.startswith("Bye") or p2.startswith("Bye"):
+        return False
     notes = match.get("notes", "")
     if "auto-advances" in notes or "Empty slot" in notes:
         return False

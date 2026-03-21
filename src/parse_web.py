@@ -792,9 +792,9 @@ def fetch_event_entries(session, base_url, tournament_id, event_num, is_doubles)
         if len(cells) < 2:
             continue
 
-        # Column 0: draw status (e.g., "Maindraw", "Exclude list")
+        # Column 0: draw status (e.g., "Maindraw", "Exclude list", "Reserve list")
         status = cells[0].get_text(strip=True).lower()
-        if "exclude" in status:
+        if "exclude" in status or "reserve" in status:
             continue
 
         # Column 1: player name(s) with country prefix like "[FIN]Name"
@@ -1259,7 +1259,7 @@ def build_playoff_bracket(draw_size, rnd_names=None):
 
 # ── Main orchestration ──────────────────────────────────────────
 
-def process_tournament(url, config, full_results=False, rescrape=False, get_winners=False):
+def process_tournament(url, config, full_results=False, rescrape=False, get_winners=False, seed=None):
     """
     Scrape a tournament from tournamentsoftware.com and write division JSON files.
 
@@ -1352,6 +1352,7 @@ def process_tournament(url, config, full_results=False, rescrape=False, get_winn
             session, base_url, tournament_id, tournament_name,
             events_with_entries, config, event_names, level_categories,
             doubles_events, cat_order, output_dir, scraped_dir, rescrape,
+            seed=seed,
         )
 
     # Fetch clubs (with caching)
@@ -1664,14 +1665,18 @@ def _process_group_playoff(
 def _process_entries_only(session, base_url, tournament_id, tournament_name,
                           events_with_entries, config, event_names,
                           level_categories, doubles_events, cat_order,
-                          output_dir, scraped_dir, rescrape):
+                          output_dir, scraped_dir, rescrape, seed=None):
     """Fall back to scraping entry lists when draws aren't published yet.
 
     Scrapes event.aspx for each event, then uses parse_entries.py draw
     generation logic to create randomized draws.
     """
+    import random
     from parse_entries import (generate_round_robin, generate_elimination,
                                generate_group_playoff, make_player_str)
+
+    if seed is not None:
+        random.seed(seed)
 
     os.makedirs(output_dir, exist_ok=True)
     index_entries = []
@@ -1710,6 +1715,10 @@ def _process_entries_only(session, base_url, tournament_id, tournament_name,
         if n < 2:
             print(f"  Skipping {div_code}: only {n} entry (need at least 2)")
             continue
+
+        # Shuffle entries for random draw
+        random.shuffle(entries)
+
         fmt, fmt_params = get_draw_format(config, div_code, category, n)
 
         params_str = ""
@@ -1843,7 +1852,7 @@ def _process_entries_only(session, base_url, tournament_id, tournament_name,
 
 # ── Entry point ─────────────────────────────────────────────────
 
-def main(config=None, url=None, full_results=False, rescrape=False, get_winners=False):
+def main(config=None, url=None, full_results=False, rescrape=False, get_winners=False, seed=None):
     if config is None and url is None:
         parser = argparse.ArgumentParser(
             description="Scrape tournament data from tournamentsoftware.com"
@@ -1908,7 +1917,7 @@ def main(config=None, url=None, full_results=False, rescrape=False, get_winners=
     print(f"Rescrape: {rescrape}")
     print(f"Output:  {output_dir}/\n")
 
-    index, count = process_tournament(url, config, full_results, rescrape, get_winners)
+    index, count = process_tournament(url, config, full_results, rescrape, get_winners, seed=seed)
 
     print(f"\nGenerated {count} division JSON files + tournament_index.json")
     print(f"Total clubs: {len(index['clubs'])}\n")
