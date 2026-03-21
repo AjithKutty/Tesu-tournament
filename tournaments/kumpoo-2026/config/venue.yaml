@@ -1,0 +1,33 @@
+slot_duration: 30  # Minutes per scheduling slot
+
+days:
+  - name: "Saturday"
+    start_time: "09:00"
+    courts:
+      - numbers: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        end_time: "20:00"
+    sessions:
+      - name: "Saturday Morning"
+        start_time: "09:00"
+        end_time: "13:00"
+      - name: "Saturday Afternoon"
+        start_time: "13:00"
+        end_time: "18:00"
+      - name: "Saturday Evening"
+        start_time: "18:00"
+        end_time: "20:00"
+
+  - name: "Sunday"
+    start_time: "09:00"
+    courts:
+      - numbers: [1, 2, 3, 4]
+        end_time: "16:00"
+      - numbers: [5, 6, 7, 8]
+        end_time: "16:00"
+    sessions:
+      - name: "Sunday Morning"
+        start_time: "09:00"
+        end_time: "13:00"
+      - name: "Sunday Afternoon"
+        start_time: "13:00"
+        end_time: "16:00"

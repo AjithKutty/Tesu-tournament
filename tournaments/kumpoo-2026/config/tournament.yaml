@@ -1,0 +1,8 @@
+name: "Kumpoo Tervasulan Eliitti 2026"
+description: "Badminton tournament organized by Tervasulka"
+
+input:
+  source: excel
+  excel_file: ""
+  web_url: ""
+  full_results: false
