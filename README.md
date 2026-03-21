@@ -133,7 +133,7 @@ tournaments/kumpoo-2025/
 ├── scraped/                     # Cached web scrape data
 └── output/                      # Generated files (git-ignored)
     ├── divisions/               # One JSON per division + tournament_index.json
-    ├── schedules/               # One JSON per session + schedule_index.json
+    ├── schedules/               # One JSON per session + schedule_index.json + scheduling_trace.json
     └── webpages/                # index.html — the final single-page website
 ```
 
@@ -267,6 +267,23 @@ draw_formats:
 ```
 
 Resolution order: per-division override → per-category default → global default → fallback (round_robin if ≤6 entries, elimination otherwise).
+
+## License
+
+## Scheduling Trace Log
+
+Every scheduling run writes a detailed trace log to `tournaments/<name>/output/schedules/scheduling_trace.json`. This log records the outcome of every match placement attempt:
+
+- **Scheduled matches**: match ID, priority, placed time, and court number
+- **Unscheduled matches**: match ID, constraints (earliest/latest time bounds, day), effective players, number of slots tried, and the last 10 rejection reasons
+
+Rejection reasons include specific details to help diagnose scheduling failures:
+- `"player conflict: Player Name needs 30min rest after Division X"` — rest period violation
+- `"player conflict: Player Name exceeds 3 matches in 180min"` — match density limit
+- `"court busy"` — no court available at this slot
+- `"past latest bound Saturday 20:00"` — time deadline or same-day constraint exceeded
+- `"prerequisite failed: DIV:Round 1:M3"` — a feeder match couldn't be scheduled
+- `"previous round incomplete: Round 1 has unscheduled [...]"` — round-completion constraint
 
 ## License
 
