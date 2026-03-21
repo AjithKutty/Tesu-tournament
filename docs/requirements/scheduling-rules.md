@@ -69,6 +69,14 @@ Matches are scheduled in priority order as defined in `scheduling.yaml`:
 7. Semi-Finals
 8. Finals (lowest priority — scheduled last)
 
+### Round Completion
+
+When enabled via `round_completion` in `scheduling.yaml`, all matches in a round must finish before the next round starts within the same division. For example, all Round 1 matches in MS B must be completed before any Round 2 match in MS B can begin.
+
+This rule applies only to elimination rounds (Round 1, Round 2, Quarter-Final, Semi-Final, Final) and playoff rounds. It does not apply to round-robin pool matches.
+
+Specific divisions can be exempted via the `exceptions` list in the config, allowing their rounds to overlap when venue capacity requires it.
+
 ### Same-Day Rule
 
 All matches in the same round of the same division must be scheduled on the same day. This is an automatic scheduling rule — no configuration is needed.

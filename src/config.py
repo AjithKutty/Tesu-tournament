@@ -340,6 +340,19 @@ def get_division_day_constraints(config):
     return config["scheduling"].get("division_day_constraints", {})
 
 
+def get_round_completion(config):
+    """Get round-completion constraint settings.
+
+    Returns (enabled, exceptions_set).
+    When enabled, all matches in a round must finish before the next round
+    starts (per division). Exceptions are division codes exempt from this rule.
+    """
+    rc = config["scheduling"].get("round_completion", {})
+    enabled = rc.get("enabled", False)
+    exceptions = set(rc.get("exceptions", []))
+    return enabled, exceptions
+
+
 # ── Venue model ──────────────────────────────────────────────────
 
 

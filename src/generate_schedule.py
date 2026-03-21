@@ -25,7 +25,7 @@ from config import (load_config, get_tournament_name, get_priorities,
                     get_match_duration,
                     get_overrun_buffer, compute_rest_between,
                     get_cross_division_rest, get_same_division_rest,
-                    get_court_preference,
+                    get_court_preference, get_round_completion,
                     get_slot_duration, build_venue_model,
                     minute_to_display as config_minute_to_display)
 
@@ -854,6 +854,45 @@ def _day_bounds_for_minute(venue_model, minute):
     return None, None
 
 
+# Elimination round ordering for round-completion constraint
+_ROUND_ORDER = [
+    "Round 1", "Round 2", "Round 3", "Round 4",
+    "Quarter-Final", "Semi-Final", "Final",
+]
+
+# Playoff round ordering
+_PLAYOFF_ROUND_ORDER = [
+    "Playoff Quarter-Final", "Playoff Semi-Final", "Playoff Final",
+]
+
+
+def _get_previous_round(div_code, round_name, div_round_matches):
+    """Get the previous round name for a match, within the same division.
+
+    Returns None if this is the first round or a pool round.
+    """
+    # Skip pool/group rounds — round completion doesn't apply
+    if "Pool" in round_name:
+        return None
+
+    # Determine the round sequence for this division
+    if round_name.startswith("Playoff "):
+        order = _PLAYOFF_ROUND_ORDER
+    else:
+        order = _ROUND_ORDER
+
+    if round_name not in order:
+        return None
+
+    idx = order.index(round_name)
+    # Walk backwards to find the previous round that actually has matches
+    for i in range(idx - 1, -1, -1):
+        prev = order[i]
+        if (div_code, prev) in div_round_matches:
+            return prev
+    return None
+
+
 def schedule_matches(matches, match_by_id, config, venue_model):
     """Main scheduling loop. Returns (scheduled_dict, unscheduled_list)."""
     # Compute probabilities and filter effective players
@@ -865,6 +904,13 @@ def schedule_matches(matches, match_by_id, config, venue_model):
     scheduled = {}       # match_id -> (court, minute)
     scheduled_end = {}   # match_id -> end minute
     unscheduled = []
+
+    # Round-completion constraint: build (div_code, round_name) -> [match_ids]
+    rc_enabled, rc_exceptions = get_round_completion(config)
+    div_round_matches = defaultdict(list)  # (div_code, round_name) -> [match_id]
+    if rc_enabled:
+        for m in matches:
+            div_round_matches[(m.division_code, m.round_name)].append(m.id)
 
     all_slots = venue_model["all_slots"]
     slot_duration = venue_model["slot_duration"]
@@ -916,6 +962,28 @@ def schedule_matches(matches, match_by_id, config, venue_model):
         for prereq_id in match.prerequisites:
             if prereq_id in scheduled_end:
                 earliest = max(earliest, scheduled_end[prereq_id] + min_prereq_rest)
+
+        # Round-completion constraint: all matches of the previous round in
+        # this division must finish before this match can start
+        if rc_enabled and match.division_code not in rc_exceptions:
+            prev_round = _get_previous_round(
+                match.division_code, match.round_name, div_round_matches
+            )
+            if prev_round:
+                prev_match_ids = div_round_matches[(match.division_code, prev_round)]
+                # Check if any previous-round match failed to schedule
+                prev_failed = any(mid in unschedulable for mid in prev_match_ids)
+                if prev_failed:
+                    unschedulable.add(match.id)
+                    unscheduled.append(match)
+                    continue
+                # All previous-round matches should be scheduled by now
+                # (they have lower priority). Use latest end time as earliest start.
+                if prev_match_ids:
+                    latest_prev_end = max(
+                        scheduled_end.get(mid, 0) for mid in prev_match_ids
+                    )
+                    earliest = max(earliest, latest_prev_end)
 
         # Day constraint from config (e.g. SF/Final must be on Sunday)
         effective_day = match.day_constraint

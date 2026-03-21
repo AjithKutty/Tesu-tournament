@@ -36,6 +36,13 @@ day_constraints:
 #     - rounds: ["Round 1", "Round 2"]
 #       day: "Saturday"
 
+# Round completion: all matches in a round must finish before the next round
+# starts (per division). Does not apply to round-robin pool matches.
+round_completion:
+  enabled: true
+  # Divisions exempt from this rule (rounds can overlap):
+  # exceptions: ["MD C"]
+
 # ── Draw format overrides (used when input has entries only, no draws) ───
 # Controls which draw format parse_entries.py uses for each division.
 # Format options: "round_robin", "elimination", "group_playoff"
@@ -107,9 +114,6 @@ rest_rules:
       - between: ["MS A", "MD A"]
         rest: 0
     "Jaakko Hakala / Lassi Lybeck":
-      - between: ["MS A", "MD A"]
-        rest: 0
-    "Lassi Lybeck":
       - between: ["MS A", "MD A"]
         rest: 0
 

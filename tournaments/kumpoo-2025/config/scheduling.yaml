@@ -36,6 +36,12 @@ day_constraints:
 #     - rounds: ["Round 1", "Round 2"]
 #       day: "Saturday"
 
+# Round completion: all matches in a round must finish before the next round
+# starts (per division). Does not apply to round-robin pool matches.
+# round_completion:
+#   enabled: true
+#   exceptions: ["MD C"]   # Divisions exempt from this rule
+
 # ── Draw format overrides (used when input has entries only, no draws) ───
 # Controls which draw format parse_entries.py uses for each division.
 # draw_formats:
