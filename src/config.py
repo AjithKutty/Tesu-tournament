@@ -324,35 +324,105 @@ def get_court_preference(config, category, day_name=None):
     return result
 
 
-def get_priorities(config):
-    """Get priority name → numeric value mapping."""
-    return config["scheduling"].get("priorities", {
-        "elite_pool": 5, "pool": 10, "round_1": 20, "group_playoff": 30,
-        "round_2": 40, "quarter_final": 50, "semi_final": 60, "final": 70,
-    })
+def resolve_priority(config, round_name, category, div_code):
+    """Resolve the scheduling priority for a specific match.
 
+    Checks in order (highest precedence first):
+      1. Per-division override in priorities.divisions
+      2. Per-category override in priorities.categories
+      3. Base round priority in priorities.rounds
+      4. Fallback default (50)
 
-def get_division_priorities(config):
-    """Get per-division priority adjustments.
-
-    Returns dict: division_code -> int (added to base round priority).
-    Negative values mean higher priority (scheduled earlier).
+    Supports both new hierarchical format and legacy flat format.
     """
-    return config["scheduling"].get("division_priorities", {})
+    prio_cfg = config["scheduling"].get("priorities", {})
 
+    # New hierarchical format: priorities.rounds / categories / divisions
+    if "rounds" in prio_cfg:
+        base_rounds = prio_cfg.get("rounds", {})
+        cat_overrides = prio_cfg.get("categories", {})
+        div_overrides = prio_cfg.get("divisions", {})
 
-def get_round_priority_map(config):
-    """Get round name → priority key mapping."""
-    return config["scheduling"].get("round_priority_map", {
+        # Division override (highest precedence)
+        if div_code in div_overrides and round_name in div_overrides[div_code]:
+            return div_overrides[div_code][round_name]
+
+        # Category override
+        if category in cat_overrides and round_name in cat_overrides[category]:
+            return cat_overrides[category][round_name]
+        # Also try level code for category
+        level_cats = config.get("divisions", {}).get("level_categories", {})
+        for level, cat_name in level_cats.items():
+            if cat_name == category and level in cat_overrides:
+                if round_name in cat_overrides[level]:
+                    return cat_overrides[level][round_name]
+
+        # Base round priority
+        if round_name in base_rounds:
+            return base_rounds[round_name]
+
+        return 50  # default fallback
+
+    # Legacy flat format: priorities + round_priority_map + elite_divisions + division_priorities
+    round_map = config["scheduling"].get("round_priority_map", {
         "Round 1": "round_1", "Round 2": "round_2",
         "Quarter-Final": "quarter_final",
         "Semi-Final": "semi_final", "Final": "final",
     })
+    elite_divs = set(config["scheduling"].get("elite_divisions", []))
+    div_adjustments = config["scheduling"].get("division_priorities", {})
+
+    # Resolve round name to priority key, then to numeric value
+    priority_key = round_map.get(round_name)
+    if priority_key:
+        priority = prio_cfg.get(priority_key, 50)
+    elif round_name == "Pool":
+        if div_code in elite_divs:
+            priority = prio_cfg.get("elite_pool", 5)
+        else:
+            priority = prio_cfg.get("pool", 20)
+    elif "Pool" in round_name:
+        # Group pool rounds
+        priority = prio_cfg.get("pool", 20)
+    elif round_name.startswith("Playoff "):
+        base_name = round_name.replace("Playoff ", "")
+        base_key = round_map.get(base_name)
+        if base_key:
+            priority = max(prio_cfg.get(base_key, 50),
+                          prio_cfg.get("group_playoff", 40))
+        else:
+            priority = prio_cfg.get("group_playoff", 40)
+    else:
+        priority = 50
+
+    # Apply per-division adjustment
+    priority += div_adjustments.get(div_code, 0)
+
+    return priority
 
 
-def get_elite_divisions(config):
-    """Get set of division codes that get elite priority."""
-    return set(config["scheduling"].get("elite_divisions", []))
+def get_time_deadlines(config):
+    """Get time deadline constraints.
+
+    Returns list of dicts: {rounds: [...], divisions: [...] or None, deadline: "Day HH:MM"}
+    """
+    return config["scheduling"].get("time_deadlines", [])
+
+
+def get_match_density(config):
+    """Get match density limit settings.
+
+    Returns dict with:
+      max_matches: int (max matches within window, 0 = unlimited)
+      time_window: int (minutes)
+      player_exceptions: dict of player_name -> {max_matches, time_window}
+    """
+    md = config["scheduling"].get("match_density", {})
+    return {
+        "max_matches": md.get("max_matches", 0),
+        "time_window": md.get("time_window", 180),
+        "player_exceptions": md.get("player_exceptions", {}),
+    }
 
 
 def get_day_constraints(config):

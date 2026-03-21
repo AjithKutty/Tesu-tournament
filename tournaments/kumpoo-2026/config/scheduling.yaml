@@ -1,32 +1,26 @@
-# Priority levels (lower number = scheduled first)
+# Scheduling priorities (lower number = scheduled first).
+# Use round names directly. Override per category or per division.
 priorities:
-  elite_pool: 5
-  pool: 10
-  round_1: 20
-  group_playoff: 30
-  round_2: 40
-  quarter_final: 50
-  semi_final: 60
-  final: 70
+  # Base priorities by round type
+  rounds:
+    "Round 1": 10
+    "Pool": 20
+    "Round 2": 30
+    "Quarter-Final": 50
+    "Semi-Final": 60
+    "Final": 70
 
-# Which round names map to which priority key
-round_priority_map:
-  "Round 1": round_1
-  "Round 2": round_2
-  "Quarter-Final": quarter_final
-  "Semi-Final": semi_final
-  "Final": final
+  # Per-category overrides
+  categories:
+    Elite:
+      "Pool": 5
 
-# Division codes that get elite_pool priority for their pool matches
-elite_divisions: ["MS V", "WS V", "XD V"]
-
-# Per-division priority adjustment (added to the round priority).
-# Negative values = higher priority (scheduled earlier within the same round type).
-# Example: MS C and MD C with -5 means their Round 1 (priority 20) becomes 15,
-# so they get scheduled before other divisions' Round 1 matches.
-division_priorities:
-  "MS C": -5
-  "MD C": -5
+  # Per-division overrides (highest precedence)
+  divisions:
+    "MS C":
+      "Round 1": 5
+    "MS B":
+      "Round 1": 5
 
 # Rounds that must be scheduled on a specific day (global — applies to all divisions)
 day_constraints:
@@ -36,13 +30,19 @@ day_constraints:
 # Per-division day constraints (override global constraints for specific divisions)
 # Round names: "Round 1", "Round 2", "Quarter-Final", "Semi-Final", "Final",
 #              "Pool" (round-robin), "Group" (group stage), "Playoff Round 1", etc.
-# division_day_constraints:
-#   "BS U17":
-#     - rounds: ["Group"]
-#       day: "Saturday"
-#   "MS C":
-#     - rounds: ["Round 1", "Round 2"]
-#       day: "Saturday"
+division_day_constraints:
+  "MS C":
+    - rounds: ["Quarter-Final", "Semi-Final", "Final"]
+      day: "Sunday"
+#  "MD C":
+#   - rounds: ["Quarter-Final", "Semi-Final", "Final"]
+#      day: "Sunday"
+  "MD B":
+    - rounds: ["Quarter-Final", "Semi-Final", "Final"]
+      day: "Sunday"
+  "XD 55":
+    - rounds: ["Pool"]
+      day: "Sunday"
 
 # Round completion: all matches in a round must finish before the next round
 # starts (per division). Does not apply to round-robin pool matches.
@@ -125,6 +125,30 @@ rest_rules:
     "Jaakko Hakala / Lassi Lybeck":
       - between: ["MS A", "MD A"]
         rest: 0
+
+# ── Match density limit ──────────────────────────────────────────
+# Maximum matches a player can have within a rolling time window.
+match_density:
+  max_matches: 3
+  time_window: 180       # minutes (3 hours)
+  # Per-player exceptions:
+  player_exceptions:
+   "Ari Fingerroos": 
+       max_matches: 4
+       time_window: 180
+
+# ── Time deadlines ──────────────────────────────────────────────
+# Rounds must finish (match end time) by a specific day+time.
+# Global (no divisions list) or per-division.
+time_deadlines:
+   - rounds: ["Round 1"]
+     divisions: ["MS C", "MS B"]
+     deadline: "Saturday 12:00"
+   - rounds: ["Round 1"]
+     divisions: ["MD C", "MD B"]
+     deadline: "Saturday 13:00"
+#   - rounds: ["Semi-Final"]
+#     deadline: "Sunday 12:00"
 
 # ── Probability-based player filtering ────────────────────────────
 # For later-round matches with placeholder players ("Winner R1-M1"),

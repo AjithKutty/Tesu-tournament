@@ -19,10 +19,9 @@ import sys
 from collections import defaultdict
 from datetime import date
 
-from config import (load_config, get_tournament_name, get_priorities,
-                    get_round_priority_map, get_elite_divisions,
+from config import (load_config, get_tournament_name, resolve_priority,
                     get_day_constraints, get_division_day_constraints,
-                    get_match_duration, get_division_priorities,
+                    get_match_duration, get_time_deadlines, get_match_density,
                     get_overrun_buffer, compute_rest_between,
                     get_cross_division_rest, get_same_division_rest,
                     get_court_preference, get_round_completion,
@@ -181,19 +180,9 @@ def load_all_matches(config):
     with open(os.path.join(divisions_dir, "tournament_index.json"), encoding="utf-8") as f:
         index = json.load(f)
 
-    elite_divisions = get_elite_divisions(config)
-    priorities = get_priorities(config)
-    round_priority_map = get_round_priority_map(config)
-    div_priorities = get_division_priorities(config)
     global_day_map, division_day_map = _build_day_constraint_set(config)
 
-    # Build resolved priority map: round_name -> numeric priority
-    resolved_round_priority = {}
-    for round_name, priority_key in round_priority_map.items():
-        resolved_round_priority[round_name] = priorities.get(priority_key, priorities.get("round_1", 20))
-
     all_matches = []
-    # Store match data by ID for back-tracing player names
     match_by_id = {}
 
     for entry in index["divisions"]:
@@ -208,38 +197,24 @@ def load_all_matches(config):
         div_name = data["name"]
         category = data["category"]
         fmt = data["format"]
-        is_elite = div_code in elite_divisions
         duration = get_match_duration(config, category)
         overrun_buf = get_overrun_buffer(config, category)
 
-        loader_args = (data, div_code, div_name, category, is_elite, duration,
-                       resolved_round_priority, priorities, global_day_map,
-                       division_day_map, overrun_buf)
+        loader_args = (config, data, div_code, div_name, category, duration,
+                       global_day_map, division_day_map, overrun_buf)
 
         if fmt == "elimination":
             matches = _load_elimination_matches(*loader_args)
-            all_matches.extend(matches)
-            for m in matches:
-                match_by_id[m.id] = m
-
         elif fmt == "round_robin":
             matches = _load_roundrobin_matches(*loader_args)
-            all_matches.extend(matches)
-            for m in matches:
-                match_by_id[m.id] = m
-
         elif fmt == "group_playoff":
             matches = _load_group_playoff_matches(*loader_args)
-            all_matches.extend(matches)
-            for m in matches:
-                match_by_id[m.id] = m
+        else:
+            continue
 
-    # Apply per-division priority adjustments
-    if div_priorities:
-        for m in all_matches:
-            offset = div_priorities.get(m.division_code, 0)
-            if offset:
-                m.priority += offset
+        all_matches.extend(matches)
+        for m in matches:
+            match_by_id[m.id] = m
 
     # Resolve known_players for later rounds by tracing back through brackets
     _resolve_known_players(all_matches, match_by_id)
@@ -247,9 +222,8 @@ def load_all_matches(config):
     return all_matches, match_by_id
 
 
-def _load_elimination_matches(data, div_code, div_name, category, is_elite, duration,
-                              resolved_round_priority, priorities, global_day_map,
-                              division_day_map, overrun_buf=0):
+def _load_elimination_matches(config, data, div_code, div_name, category, duration,
+                              global_day_map, division_day_map, overrun_buf=0):
     matches = []
     rounds = data.get("rounds", [])
 
@@ -258,7 +232,7 @@ def _load_elimination_matches(data, div_code, div_name, category, is_elite, dura
 
     for rnd in rounds:
         round_name = rnd["name"]
-        priority = resolved_round_priority.get(round_name, priorities.get("round_1", 20))
+        priority = resolve_priority(config, round_name, category, div_code)
         day_constraint = _resolve_day_constraint(
             div_code, round_name, global_day_map, division_day_map
         )
@@ -296,7 +270,7 @@ def _load_elimination_matches(data, div_code, div_name, category, is_elite, dura
                 player1=p1, player2=p2, known_players=known,
                 duration_min=duration,
                 priority=priority, day_constraint=day_constraint,
-                prerequisites=prereqs, is_elite=is_elite,
+                prerequisites=prereqs, is_elite=False,
                 overrun_buffer=overrun_buf,
             )
             matches.append(match)
@@ -331,20 +305,19 @@ def _compute_pool_rounds(matches):
         m.pool_round = rounds.get(i, 0)
 
 
-def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, duration,
-                             resolved_round_priority, priorities, global_day_map,
-                             division_day_map, overrun_buf=0):
+def _load_roundrobin_matches(config, data, div_code, div_name, category, duration,
+                             global_day_map, division_day_map, overrun_buf=0):
     matches = []
     day_constraint = _resolve_day_constraint(
         div_code, "Pool", global_day_map, division_day_map
     )
+    pool_priority = resolve_priority(config, "Pool", category, div_code)
     for m in data.get("matches", []):
         match_id = make_match_id(div_code, "Pool", m["match"])
         p1 = m.get("player1", "")
         p2 = m.get("player2", "")
         known = extract_player_names(p1) + extract_player_names(p2)
 
-        pool_priority = priorities.get("elite_pool", 5) if is_elite else priorities.get("pool", 10)
         match = Match(
             match_id=match_id,
             div_code=div_code, div_name=div_name, category=category,
@@ -352,7 +325,7 @@ def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, durat
             player1=p1, player2=p2, known_players=known,
             duration_min=duration,
             priority=pool_priority, day_constraint=day_constraint,
-            prerequisites=[], is_elite=is_elite,
+            prerequisites=[], is_elite=False,
             overrun_buffer=overrun_buf,
         )
         matches.append(match)
@@ -362,17 +335,16 @@ def _load_roundrobin_matches(data, div_code, div_name, category, is_elite, durat
     return matches
 
 
-def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, duration,
-                                resolved_round_priority, priorities, global_day_map,
-                                division_day_map, overrun_buf=0):
+def _load_group_playoff_matches(config, data, div_code, div_name, category, duration,
+                                global_day_map, division_day_map, overrun_buf=0):
     matches = []
     group_match_ids = []
 
     # Group stage matches — all groups share the same day constraint
-    # The "Group" shorthand in config applies to all "X Pool" round names
     group_day_constraint = _resolve_day_constraint(
         div_code, "Group A Pool", global_day_map, division_day_map
     )
+    pool_priority = resolve_priority(config, "Pool", category, div_code)
 
     for group in data.get("groups", []):
         group_name = group["name"]
@@ -388,8 +360,8 @@ def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, du
                 round_name=f"{group_name} Pool", match_num=m["match"],
                 player1=p1, player2=p2, known_players=known,
                 duration_min=duration,
-                priority=priorities.get("pool", 10), day_constraint=group_day_constraint,
-                prerequisites=[], is_elite=is_elite,
+                priority=pool_priority, day_constraint=group_day_constraint,
+                prerequisites=[], is_elite=False,
                 overrun_buffer=overrun_buf,
             )
             matches.append(match)
@@ -398,19 +370,19 @@ def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, du
     # Playoff bracket
     playoff = data.get("playoff")
     if playoff and playoff.get("rounds"):
-        playoff_round_map = {rnd["name"]: rnd for rnd in playoff["rounds"]}
         is_first_playoff_round = True
 
         for rnd in playoff["rounds"]:
             round_name = rnd["name"]
-            priority = resolved_round_priority.get(round_name, priorities.get("group_playoff", 30))
-            priority = max(priority, priorities.get("group_playoff", 30))
-            # Resolve day constraint for "Playoff Round 1", etc.
             playoff_round_label = f"Playoff {round_name}"
+            priority = resolve_priority(config, playoff_round_label, category, div_code)
+            # Also try bare round name if playoff-specific isn't configured
+            bare_priority = resolve_priority(config, round_name, category, div_code)
+            priority = min(priority, bare_priority)
+
             day_constraint = _resolve_day_constraint(
                 div_code, playoff_round_label, global_day_map, division_day_map
             )
-            # Also check if the bare round name has a constraint (global SF/Final)
             if day_constraint is None:
                 day_constraint = _resolve_day_constraint(
                     div_code, round_name, global_day_map, division_day_map
@@ -425,10 +397,8 @@ def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, du
 
                 prereqs = []
                 if is_first_playoff_round:
-                    # First playoff round depends on all group matches
                     prereqs = list(group_match_ids)
                 else:
-                    # Later playoff rounds: parse "Winner QF-M1" to find specific feeders
                     for player_str in (p1, p2):
                         ref = parse_winner_ref(player_str)
                         if ref:
@@ -445,7 +415,7 @@ def _load_group_playoff_matches(data, div_code, div_name, category, is_elite, du
                     player1=p1, player2=p2, known_players=known,
                     duration_min=duration,
                     priority=priority, day_constraint=day_constraint,
-                    prerequisites=prereqs, is_elite=is_elite,
+                    prerequisites=prereqs, is_elite=False,
                     overrun_buffer=overrun_buf,
                 )
                 matches.append(match)
@@ -741,13 +711,12 @@ class PlayerTracker:
         self.config = config
         # player_name -> list of (start_minute, end_minute, div_code, category)
         self.history = defaultdict(list)
+        self.density_cfg = get_match_density(config)
 
     def can_play_at(self, players, start_minute, duration, new_div_code, new_category):
         """Check if all players can play a match at the given time.
 
-        Verifies rest constraints in both directions:
-        - Forward: enough rest after any earlier match (prior match end + rest <= start)
-        - Backward: enough rest before any later match (start + duration + rest <= later match start)
+        Verifies rest constraints in both directions and match density limits.
         """
         if not players:
             return True
@@ -769,7 +738,45 @@ class PlayerTracker:
                 else:
                     # Overlapping — not allowed
                     return False
+
+            # Match density check: max X matches within Y minutes
+            if not self._check_density(p, start_minute, new_end):
+                return False
         return True
+
+    def _check_density(self, player, new_start, new_end):
+        """Check match density limit for a player.
+
+        Returns True if adding a match at [new_start, new_end) doesn't
+        violate the max-matches-per-window constraint.
+        """
+        max_matches = self.density_cfg["max_matches"]
+        if max_matches <= 0:
+            return True  # disabled
+
+        time_window = self.density_cfg["time_window"]
+
+        # Per-player exception
+        player_exc = self.density_cfg["player_exceptions"].get(player)
+        if player_exc:
+            max_matches = player_exc.get("max_matches", max_matches)
+            time_window = player_exc.get("time_window", time_window)
+            if max_matches <= 0:
+                return True
+
+        # Count matches (including this new one) that overlap with a sliding
+        # window. The tightest window is one that includes the new match.
+        # Check: in the window [new_start - time_window, new_end + time_window],
+        # how many matches fall within any time_window-sized sub-window?
+        # Simplified: count matches whose start is within [new_start - time_window, new_end]
+        # (any match starting within time_window before this match ends could
+        # be in the same window).
+        count = 1  # the new match itself
+        for prev_start, prev_end, _, _ in self.history[player]:
+            # Check if this match and the new match could be in the same window
+            if abs(prev_start - new_start) < time_window:
+                count += 1
+        return count <= max_matches
 
     def earliest_for_match(self, players, new_div_code, new_category):
         """Get the earliest time when all players can start, considering
@@ -901,6 +908,88 @@ def _get_previous_round(div_code, round_name, div_round_matches):
     return None
 
 
+def _fmt_minute(venue_model, minute):
+    """Format a minute offset as 'Day HH:MM' for trace logging."""
+    day, time = config_minute_to_display(venue_model, minute)
+    return f"{day} {time}"
+
+
+def _player_conflict_detail(player_tracker, match, slot):
+    """Get a human-readable description of which player(s) cause a conflict."""
+    duration = match.duration_min
+    new_end = slot + duration
+    conflicts = []
+    for p in match.effective_players:
+        for prev_start, prev_end, prev_div, prev_cat in player_tracker.history[p]:
+            rest = compute_rest_between(
+                player_tracker.config, prev_div, prev_cat,
+                match.division_code, match.category, player_name=p,
+            )
+            if prev_end <= slot:
+                if prev_end + rest > slot:
+                    conflicts.append(
+                        f"{p} needs {rest}min rest after {prev_div} "
+                        f"(ends {_fmt_minute(player_tracker.config.get('_venue_model', {}), prev_end) if False else prev_end})"
+                    )
+                    break
+            elif new_end <= prev_start:
+                if new_end + rest > prev_start:
+                    conflicts.append(f"{p} has {prev_div} starting too soon after")
+                    break
+            else:
+                conflicts.append(f"{p} overlaps with {prev_div}")
+                break
+        # Also check density
+        if not player_tracker._check_density(p, slot, new_end):
+            density = player_tracker.density_cfg
+            conflicts.append(
+                f"{p} exceeds {density['max_matches']} matches in {density['time_window']}min"
+            )
+    return "; ".join(conflicts) if conflicts else "unknown"
+
+
+def _parse_deadline(deadline_str, venue_model):
+    """Parse 'Day HH:MM' to a minute offset. Returns None if invalid."""
+    parts = deadline_str.split(" ", 1)
+    if len(parts) != 2:
+        return None
+    day_name, time_str = parts
+    day_start = venue_model["day_start_minutes"].get(day_name)
+    if day_start is None:
+        return None
+    # Find the day's start_time to compute offset
+    for day in venue_model["days"]:
+        if day["name"] == day_name:
+            start_h, start_m = map(int, day["start_time"].split(":"))
+            dl_h, dl_m = map(int, time_str.split(":"))
+            offset = (dl_h - start_h) * 60 + (dl_m - start_m)
+            return day_start + offset
+    return None
+
+
+def _build_time_deadline_map(config, venue_model):
+    """Build (div_code, round_name) -> deadline_minute map from config.
+
+    Global deadlines (no divisions list) apply to all divisions.
+    """
+    deadlines = get_time_deadlines(config)
+    result = {}  # (div_code, round_name) -> deadline minute
+    for dl in deadlines:
+        minute = _parse_deadline(dl.get("deadline", ""), venue_model)
+        if minute is None:
+            continue
+        rounds = dl.get("rounds", [])
+        divisions = dl.get("divisions")  # None means all divisions
+        for rnd in rounds:
+            if divisions:
+                for div in divisions:
+                    result[(div, rnd)] = minute
+            else:
+                # Sentinel: store with None div_code for "all divisions"
+                result[(None, rnd)] = minute
+    return result
+
+
 def schedule_matches(matches, match_by_id, config, venue_model):
     """Main scheduling loop. Returns (scheduled_dict, unscheduled_list)."""
     # Compute probabilities and filter effective players
@@ -912,6 +1001,15 @@ def schedule_matches(matches, match_by_id, config, venue_model):
     scheduled = {}       # match_id -> (court, minute)
     scheduled_end = {}   # match_id -> end minute
     unscheduled = []
+
+    # Time deadlines: (div_code, round_name) -> deadline minute
+    deadline_map = _build_time_deadline_map(config, venue_model)
+
+    # Match density limits
+    density_cfg = get_match_density(config)
+
+    # Scheduling trace log — records why each match was placed or rejected
+    sched_trace = []
 
     # Pre-block court buffer slots (breaks/maintenance)
     for court, minute in venue_model.get("court_buffer_blocks", []):
@@ -964,6 +1062,10 @@ def schedule_matches(matches, match_by_id, config, venue_model):
         if prereq_failed:
             unschedulable.add(match.id)
             unscheduled.append(match)
+            sched_trace.append({
+                "match_id": match.id, "status": "UNSCHEDULED",
+                "reason": f"prerequisite failed: {prereq_id}",
+            })
             continue
 
         # Compute earliest start time from hard constraints
@@ -987,8 +1089,13 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 # Check if any previous-round match failed to schedule
                 prev_failed = any(mid in unschedulable for mid in prev_match_ids)
                 if prev_failed:
+                    failed_ids = [mid for mid in prev_match_ids if mid in unschedulable]
                     unschedulable.add(match.id)
                     unscheduled.append(match)
+                    sched_trace.append({
+                        "match_id": match.id, "status": "UNSCHEDULED",
+                        "reason": f"previous round incomplete: {prev_round} has unscheduled {failed_ids}",
+                    })
                     continue
                 # All previous-round matches should be scheduled by now
                 # (they have lower priority). Use latest end time as earliest start.
@@ -1017,65 +1124,127 @@ def schedule_matches(matches, match_by_id, config, venue_model):
             earliest = max(earliest, day_start)
             latest = day_end
 
+        # Time deadline: match must finish by this minute
+        deadline = deadline_map.get((match.division_code, match.round_name))
+        if deadline is None:
+            deadline = deadline_map.get((None, match.round_name))  # global
+        if deadline is not None:
+            # Match must start early enough to finish by deadline
+            dl_latest = deadline - match.duration_min
+            if latest is None:
+                latest = dl_latest
+            else:
+                latest = min(latest, dl_latest)
+
         # Snap to next slot boundary
         if earliest % slot_duration != 0:
             earliest = ((earliest // slot_duration) + 1) * slot_duration
 
+        # Collect trace info for this match
+        trace_constraints = []
+        if earliest > 0:
+            trace_constraints.append(f"earliest={_fmt_minute(venue_model, earliest)}")
+        if latest is not None:
+            trace_constraints.append(f"latest={_fmt_minute(venue_model, latest)}")
+        if match.day_constraint:
+            trace_constraints.append(f"day={match.day_constraint}")
+
         # Find available slot
         placed = False
+        trace_rejections = []  # (slot, court, reason) for failed attempts
+        slots_tried = 0
         for slot in all_slots:
             if slot < earliest:
                 continue
             # If same-day or day constraint limits the day, stop searching beyond it
             if latest is not None and slot >= latest:
+                trace_rejections.append(
+                    (slot, None, f"past latest bound {_fmt_minute(venue_model, latest)}")
+                )
                 break
 
             courts = get_eligible_courts(match, slot, config, venue_model)
+            slots_tried += 1
             for court in courts:
-                if court_sched.can_book(court, slot, match.duration_min, match.overrun_buffer):
-                    # Check player availability bidirectionally using effective_players
-                    # (filtered by probability threshold for placeholder matches)
-                    if match.effective_players:
-                        if not player_tracker.can_play_at(
-                            match.effective_players, slot, match.duration_min,
-                            match.division_code, match.category
-                        ):
-                            continue
+                if not court_sched.can_book(court, slot, match.duration_min, match.overrun_buffer):
+                    trace_rejections.append(
+                        (slot, court, "court busy")
+                    )
+                    continue
 
-                    # Book it — blocks duration + overrun_buffer on the court
-                    court_sched.book(court, slot, match.id, match.duration_min, match.overrun_buffer)
-                    # Update tracker for confirmed players. For matches where
-                    # one side is a bye winner (confirmed) and the other is a
-                    # placeholder ("Winner R1-M5"), track the confirmed players
-                    # so they aren't double-booked across divisions.
-                    if match.has_some_real_players:
-                        # Extract only the confirmed player names (from the
-                        # non-placeholder side)
-                        confirmed = set()
-                        for p_str in (match.player1, match.player2):
-                            if not p_str.startswith("Winner ") and not p_str.startswith("Slot "):
-                                confirmed.update(extract_player_names(p_str))
-                        if confirmed:
-                            player_tracker.update(
-                                list(confirmed), slot,
-                                match.duration_min, match.division_code, match.category
-                            )
-                    scheduled[match.id] = (court, slot)
-                    scheduled_end[match.id] = slot + match.duration_min
+                # Check player availability bidirectionally using effective_players
+                # (filtered by probability threshold for placeholder matches)
+                if match.effective_players:
+                    if not player_tracker.can_play_at(
+                        match.effective_players, slot, match.duration_min,
+                        match.division_code, match.category
+                    ):
+                        trace_rejections.append(
+                            (slot, court, f"player conflict: {_player_conflict_detail(player_tracker, match, slot)}")
+                        )
+                        continue
 
-                    # Record same-day assignment for this round+division
-                    if same_day_key not in round_day_assignments:
-                        placed_day = _day_name_for_minute(venue_model, slot)
-                        round_day_assignments[same_day_key] = placed_day
+                # Book it — blocks duration + overrun_buffer on the court
+                court_sched.book(court, slot, match.id, match.duration_min, match.overrun_buffer)
+                # Update tracker for confirmed players. For matches where
+                # one side is a bye winner (confirmed) and the other is a
+                # placeholder ("Winner R1-M5"), track the confirmed players
+                # so they aren't double-booked across divisions.
+                if match.has_some_real_players:
+                    confirmed = set()
+                    for p_str in (match.player1, match.player2):
+                        if not p_str.startswith("Winner ") and not p_str.startswith("Slot "):
+                            confirmed.update(extract_player_names(p_str))
+                    if confirmed:
+                        player_tracker.update(
+                            list(confirmed), slot,
+                            match.duration_min, match.division_code, match.category
+                        )
+                scheduled[match.id] = (court, slot)
+                scheduled_end[match.id] = slot + match.duration_min
 
-                    placed = True
-                    break
+                # Record same-day assignment for this round+division
+                if same_day_key not in round_day_assignments:
+                    placed_day = _day_name_for_minute(venue_model, slot)
+                    round_day_assignments[same_day_key] = placed_day
+
+                placed = True
+                break
             if placed:
                 break
 
         if not placed:
             unschedulable.add(match.id)
             unscheduled.append(match)
+            # Store trace for unscheduled match
+            sched_trace.append({
+                "match_id": match.id,
+                "status": "UNSCHEDULED",
+                "priority": match.priority,
+                "constraints": trace_constraints,
+                "players": match.effective_players[:6],
+                "slots_tried": slots_tried,
+                "rejections": [
+                    {"slot": _fmt_minute(venue_model, s),
+                     "court": c, "reason": r}
+                    for s, c, r in trace_rejections[-10:]  # last 10 rejections
+                ],
+            })
+        else:
+            court, minute = scheduled[match.id]
+            sched_trace.append({
+                "match_id": match.id,
+                "status": "SCHEDULED",
+                "priority": match.priority,
+                "placed": _fmt_minute(venue_model, minute),
+                "court": court,
+            })
+
+    # Write scheduling trace log
+    trace_path = os.path.join(config["paths"]["schedules_dir"], "scheduling_trace.json")
+    os.makedirs(config["paths"]["schedules_dir"], exist_ok=True)
+    with open(trace_path, "w", encoding="utf-8") as f:
+        json.dump(sched_trace, f, indent=2, ensure_ascii=False)
 
     return scheduled, unscheduled, court_sched, player_tracker
 
