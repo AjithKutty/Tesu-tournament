@@ -25,6 +25,8 @@ priorities:
       "Pool": 15
     "MS 35":
       "Pool": 15
+    "MS A":
+      "Quarter-Final": 25
 
 # Rounds that must be scheduled on a specific day (global — applies to all divisions)
 day_constraints:
@@ -50,6 +52,9 @@ division_day_constraints:
   #"MS 35":
   #  - rounds: ["Pool"]
   #    day: "Sunday"
+  "XD 35":
+    - rounds: ["Pool"]
+      day: "Sunday"
   "XD 55":
     - rounds: ["Pool"]
       day: "Sunday"
@@ -102,6 +107,19 @@ draw_formats:
       groups: 2
       advancers_per_group: 1   # 2 in playoff → Final only
 
+# ── Potential conflict avoidance ────────────────────────────────
+# Avoid scheduling matches at the same time when the same player could
+# potentially be in both (traced from bracket prerequisites).
+# Only checks for time overlap — no rest requirement applied.
+potential_conflict_avoidance:
+  # Default: check potential overlaps for R2 and QF across all categories
+  default:
+    rounds: ["Round 2", "Quarter-Final"]
+  # Junior: also check SF and Final (players often play multiple age groups)
+  categories:
+    Junior:
+      rounds: ["Semi-Final", "Final"]
+
 # ── Match durations and court blocking ────────────────────────────
 
 match_duration:
@@ -109,6 +127,9 @@ match_duration:
   categories:
     Elite: 45
     Open A: 40
+  # Per-division overrides (override category)
+  divisions:
+    "XD A": 30
 
 overrun_buffer:
   default: 0            # No buffer needed for non-Elite matches
@@ -149,7 +170,7 @@ rest_rules:
 # Maximum matches a player can have within a rolling time window.
 #match_density:
 #  max_matches: 3
-#  time_window: 240       # minutes (4 hours)
+#  time_window: 180       # minutes (3 hours)
   # Per-player exceptions:
   #player_exceptions:
   # "Ari Fingerroos": 

@@ -177,9 +177,18 @@ def _resolve_category_key(cats, category, config):
     return None
 
 
-def get_match_duration(config, category):
-    """Get match duration for a category from scheduling.match_duration."""
+def get_match_duration(config, category, div_code=None):
+    """Get match duration from scheduling.match_duration.
+
+    Resolution order: per-division override → per-category → default.
+    """
     md = config["scheduling"].get("match_duration", {})
+    # Per-division override (highest precedence)
+    if div_code:
+        divs = md.get("divisions", {})
+        if div_code in divs:
+            return divs[div_code]
+    # Per-category
     cats = md.get("categories", {})
     val = _resolve_category_key(cats, category, config)
     if val is not None:
@@ -423,6 +432,37 @@ def get_match_density(config):
         "time_window": md.get("time_window", 180),
         "player_exceptions": md.get("player_exceptions", {}),
     }
+
+
+def get_potential_conflict_avoidance(config):
+    """Get potential conflict avoidance settings.
+
+    Returns dict: category -> set of round names where all possible players
+    should be checked for time overlaps across divisions.
+    """
+    pca = config["scheduling"].get("potential_conflict_avoidance", {})
+    result = {}
+
+    # Default rounds (apply to all categories not explicitly listed)
+    default_rounds = set(pca.get("default", {}).get("rounds", []))
+
+    # Per-category overrides
+    categories = pca.get("categories", {})
+
+    # Resolve level codes to full category names
+    level_cats = config.get("divisions", {}).get("level_categories", {})
+    resolved_categories = {}
+    for key, val in categories.items():
+        rounds = set(val.get("rounds", []))
+        # Check if key is a level code
+        if key in level_cats:
+            resolved_categories[level_cats[key]] = rounds
+        else:
+            resolved_categories[key] = rounds
+
+    result["_default"] = default_rounds
+    result.update(resolved_categories)
+    return result
 
 
 def get_day_constraints(config):

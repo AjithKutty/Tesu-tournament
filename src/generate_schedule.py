@@ -25,6 +25,7 @@ from config import (load_config, get_tournament_name, resolve_priority,
                     get_overrun_buffer, compute_rest_between,
                     get_cross_division_rest, get_same_division_rest,
                     get_court_preference, get_round_completion,
+                    get_potential_conflict_avoidance,
                     get_slot_duration, build_venue_model,
                     minute_to_display as config_minute_to_display)
 
@@ -197,7 +198,7 @@ def load_all_matches(config):
         div_name = data["name"]
         category = data["category"]
         fmt = data["format"]
-        duration = get_match_duration(config, category)
+        duration = get_match_duration(config, category, div_code)
         overrun_buf = get_overrun_buffer(config, category)
 
         loader_args = (config, data, div_code, div_name, category, duration,
@@ -744,6 +745,10 @@ class PlayerTracker:
         self.config = config
         # player_name -> list of (start_minute, end_minute, div_code, category)
         self.history = defaultdict(list)
+        # Potential player history: tracks all possible players for configured
+        # rounds, used for overlap-only checks (no rest requirement)
+        # player_name -> list of (start_minute, end_minute, match_id)
+        self.potential_history = defaultdict(list)
         self.density_cfg = get_match_density(config)
 
     def can_play_at(self, players, start_minute, duration, new_div_code, new_category):
@@ -835,6 +840,25 @@ class PlayerTracker:
         end_min = match_start + duration
         for p in players:
             self.history[p].append((match_start, end_min, div_code, category))
+
+    def update_potential(self, players, match_start, duration, match_id):
+        """Record potential players for overlap-only tracking."""
+        end_min = match_start + duration
+        for p in players:
+            self.potential_history[p].append((match_start, end_min, match_id))
+
+    def check_potential_overlap(self, players, start_minute, duration):
+        """Check if any player has a potential time overlap (no rest, just overlap).
+
+        Returns (ok, conflict_detail) where ok=True means no overlap.
+        """
+        new_end = start_minute + duration
+        for p in players:
+            for prev_start, prev_end, prev_match_id in self.potential_history[p]:
+                # Pure overlap check — no rest requirement
+                if not (new_end <= prev_start or prev_end <= start_minute):
+                    return False, f"{p} potential overlap with {prev_match_id}"
+        return True, ""
 
 
 # ── Court eligibility ────────────────────────────────────────────
@@ -984,6 +1008,23 @@ def _player_conflict_detail(player_tracker, match, slot):
     return "; ".join(conflicts) if conflicts else "unknown"
 
 
+def _should_check_potential_conflicts(match, pca_config):
+    """Check if this match's round is configured for potential conflict avoidance."""
+    if not pca_config:
+        return False
+    category = match.category
+    round_name = match.round_name
+    # Strip "Playoff " prefix for matching
+    bare_round = round_name.replace("Playoff ", "") if round_name.startswith("Playoff ") else round_name
+
+    # Check category-specific config first
+    if category in pca_config:
+        return bare_round in pca_config[category]
+    # Fall back to default
+    default_rounds = pca_config.get("_default", set())
+    return bare_round in default_rounds
+
+
 def _parse_deadline(deadline_str, venue_model):
     """Parse 'Day HH:MM' to a minute offset. Returns None if invalid."""
     parts = deadline_str.split(" ", 1)
@@ -1043,6 +1084,9 @@ def schedule_matches(matches, match_by_id, config, venue_model):
 
     # Match density limits
     density_cfg = get_match_density(config)
+
+    # Potential conflict avoidance config
+    pca_config = get_potential_conflict_avoidance(config)
 
     # Scheduling trace log — records why each match was placed or rejected
     sched_trace = []
@@ -1187,27 +1231,32 @@ def schedule_matches(matches, match_by_id, config, venue_model):
 
         # Find available slot
         placed = False
-        trace_rejections = []  # (slot, court, reason) for failed attempts
+        # Trace: collect per-slot rejection info (all slots, not just last N)
+        # court_busy_by_slot: minute -> list of busy courts
+        # player_conflict_by_slot: minute -> (court, detail)
+        trace_court_busy = {}     # minute -> [court, ...]
+        trace_player_conflict = {}  # minute -> detail string
+        trace_end_reason = None
         slots_tried = 0
         for slot in all_slots:
             if slot < earliest:
                 continue
             # If same-day or day constraint limits the day, stop searching beyond it
             if latest is not None and slot >= latest:
-                trace_rejections.append(
-                    (slot, None, f"past latest bound {_fmt_minute(venue_model, latest)}")
-                )
+                trace_end_reason = f"past latest bound {_fmt_minute(venue_model, latest)}"
                 break
 
             courts = get_eligible_courts(match, slot, config, venue_model)
             slots_tried += 1
+            slot_all_busy = True
             for court in courts:
                 if not court_sched.can_book(court, slot, match.duration_min, match.overrun_buffer):
-                    trace_rejections.append(
-                        (slot, court, "court busy")
-                    )
+                    if slot not in trace_court_busy:
+                        trace_court_busy[slot] = []
+                    trace_court_busy[slot].append(court)
                     continue
 
+                slot_all_busy = False
                 # Check player availability bidirectionally using effective_players
                 # (filtered by probability threshold for placeholder matches)
                 if match.effective_players:
@@ -1215,9 +1264,19 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                         match.effective_players, slot, match.duration_min,
                         match.division_code, match.category
                     ):
-                        trace_rejections.append(
-                            (slot, court, f"player conflict: {_player_conflict_detail(player_tracker, match, slot)}")
+                        trace_player_conflict[slot] = _player_conflict_detail(
+                            player_tracker, match, slot
                         )
+                        continue
+
+                # Check potential player overlaps for configured rounds
+                check_potential = _should_check_potential_conflicts(match, pca_config)
+                if check_potential and match.effective_players:
+                    ok, detail = player_tracker.check_potential_overlap(
+                        match.effective_players, slot, match.duration_min
+                    )
+                    if not ok:
+                        trace_player_conflict[slot] = f"potential overlap: {detail}"
                         continue
 
                 # Book it — blocks duration + overrun_buffer on the court
@@ -1239,6 +1298,13 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 scheduled[match.id] = (court, slot)
                 scheduled_end[match.id] = slot + match.duration_min
 
+                # Update potential player history for configured rounds
+                if check_potential and match.effective_players:
+                    player_tracker.update_potential(
+                        match.effective_players, slot,
+                        match.duration_min, match.id
+                    )
+
                 # Record same-day assignment for this round+division
                 if same_day_key not in round_day_assignments:
                     placed_day = _day_name_for_minute(venue_model, slot)
@@ -1251,11 +1317,15 @@ def schedule_matches(matches, match_by_id, config, venue_model):
 
         # Fallback: retry with court buffer override if normal placement failed
         buffer_override_detail = None
+        trace_buffer_busy = {}        # minute -> [court, ...]
+        trace_buffer_player = {}      # minute -> detail string
+        trace_buffer_end_reason = None
         if not placed:
             for slot in all_slots:
                 if slot < earliest:
                     continue
                 if latest is not None and slot >= latest:
+                    trace_buffer_end_reason = f"past latest bound {_fmt_minute(venue_model, latest)}"
                     break
 
                 courts = get_eligible_courts(match, slot, config, venue_model)
@@ -1264,6 +1334,9 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                         court, slot, match.duration_min, match.overrun_buffer
                     )
                     if not can_override:
+                        if slot not in trace_buffer_busy:
+                            trace_buffer_busy[slot] = []
+                        trace_buffer_busy[slot].append(court)
                         continue
 
                     if match.effective_players:
@@ -1271,6 +1344,18 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                             match.effective_players, slot, match.duration_min,
                             match.division_code, match.category
                         ):
+                            trace_buffer_player[slot] = _player_conflict_detail(
+                                player_tracker, match, slot
+                            )
+                            continue
+
+                    # Check potential overlaps in buffer override pass too
+                    if check_potential and match.effective_players:
+                        ok, detail = player_tracker.check_potential_overlap(
+                            match.effective_players, slot, match.duration_min
+                        )
+                        if not ok:
+                            trace_buffer_player[slot] = f"potential overlap: {detail}"
                             continue
 
                     # Clear the buffer blocks and book
@@ -1291,6 +1376,12 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                     scheduled[match.id] = (court, slot)
                     scheduled_end[match.id] = slot + match.duration_min
 
+                    if check_potential and match.effective_players:
+                        player_tracker.update_potential(
+                            match.effective_players, slot,
+                            match.duration_min, match.id
+                        )
+
                     if same_day_key not in round_day_assignments:
                         placed_day = _day_name_for_minute(venue_model, slot)
                         round_day_assignments[same_day_key] = placed_day
@@ -1307,19 +1398,84 @@ def schedule_matches(matches, match_by_id, config, venue_model):
         if not placed:
             unschedulable.add(match.id)
             unscheduled.append(match)
-            # Store trace for unscheduled match
+
+            # Build aggregated rejection trace
+            rejections = []
+
+            # Normal pass: aggregate court-busy by time slot
+            for minute in sorted(trace_court_busy):
+                busy_courts = trace_court_busy[minute]
+                eligible = get_eligible_courts(match, minute, config, venue_model)
+                entry = {
+                    "slot": _fmt_minute(venue_model, minute),
+                    "busy_courts": busy_courts,
+                }
+                if minute in trace_player_conflict:
+                    entry["player_conflict"] = trace_player_conflict[minute]
+                    entry["free_courts"] = [c for c in eligible if c not in busy_courts]
+                elif len(busy_courts) >= len(eligible):
+                    entry["reason"] = "all courts busy"
+                else:
+                    entry["free_courts"] = [c for c in eligible if c not in busy_courts]
+                    entry["reason"] = "free courts had player conflicts"
+                    if minute in trace_player_conflict:
+                        entry["player_conflict"] = trace_player_conflict[minute]
+                rejections.append(entry)
+
+            # Slots with only player conflicts (court was free but player blocked)
+            for minute in sorted(trace_player_conflict):
+                if minute not in trace_court_busy:
+                    rejections.append({
+                        "slot": _fmt_minute(venue_model, minute),
+                        "reason": "player conflict",
+                        "player_conflict": trace_player_conflict[minute],
+                    })
+
+            if trace_end_reason:
+                rejections.append({"reason": trace_end_reason})
+
+            # Buffer override pass
+            buffer_rejections = []
+            for minute in sorted(trace_buffer_busy):
+                eligible = get_eligible_courts(match, minute, config, venue_model)
+                busy_courts = trace_buffer_busy[minute]
+                entry = {
+                    "slot": _fmt_minute(venue_model, minute),
+                    "busy_courts": busy_courts,
+                }
+                if minute in trace_buffer_player:
+                    entry["player_conflict"] = trace_buffer_player[minute]
+                    entry["free_courts"] = [c for c in eligible if c not in busy_courts]
+                elif len(busy_courts) >= len(eligible):
+                    entry["reason"] = "all courts busy (even with buffer override)"
+                else:
+                    entry["free_courts"] = [c for c in eligible if c not in busy_courts]
+                    if minute in trace_buffer_player:
+                        entry["player_conflict"] = trace_buffer_player[minute]
+                buffer_rejections.append(entry)
+
+            for minute in sorted(trace_buffer_player):
+                if minute not in trace_buffer_busy:
+                    buffer_rejections.append({
+                        "slot": _fmt_minute(venue_model, minute),
+                        "reason": "player conflict (buffer override pass)",
+                        "player_conflict": trace_buffer_player[minute],
+                    })
+
+            if trace_buffer_end_reason:
+                buffer_rejections.append({"reason": trace_buffer_end_reason})
+
             sched_trace.append({
                 "match_id": match.id,
                 "status": "UNSCHEDULED",
                 "priority": match.priority,
                 "constraints": trace_constraints,
-                "players": match.effective_players[:6],
+                "player1": match.player1,
+                "player2": match.player2,
+                "players": match.effective_players[:10],
                 "slots_tried": slots_tried,
-                "rejections": [
-                    {"slot": _fmt_minute(venue_model, s),
-                     "court": c, "reason": r}
-                    for s, c, r in trace_rejections[-10:]  # last 10 rejections
-                ],
+                "rejections": rejections,
+                "buffer_override_rejections": buffer_rejections if buffer_rejections else None,
             })
         else:
             court, minute = scheduled[match.id]
