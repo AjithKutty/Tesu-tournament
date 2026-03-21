@@ -1238,6 +1238,9 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 "priority": match.priority,
                 "placed": _fmt_minute(venue_model, minute),
                 "court": court,
+                "player1": match.player1,
+                "player2": match.player2,
+                "players": match.effective_players[:10],
             })
 
     # Write scheduling trace log
