@@ -139,6 +139,16 @@ def bypass_cookiewall(session, base_url, target_path):
     """Accept all cookies on the tournamentsoftware.com cookie wall."""
     url = base_url + target_path
     resp = session.get(url, allow_redirects=True)
+
+    # Some tournament pages (e.g. /sport/events.aspx) return 404 before
+    # cookies are set.  Fall back to /tournament/{id} which reliably
+    # triggers the cookie wall.
+    if "/cookiewall/" not in resp.url and (resp.status_code == 404 or len(resp.text) == 0):
+        m = re.search(r"[?&]id=([0-9a-fA-F-]+)", target_path)
+        if m:
+            fallback = f"/tournament/{m.group(1)}"
+            resp = session.get(base_url + fallback, allow_redirects=True)
+
     if "/cookiewall/" in resp.url:
         session.post(
             f"{base_url}/cookiewall/Save",

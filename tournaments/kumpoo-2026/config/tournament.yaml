@@ -4,5 +4,5 @@ description: "Badminton tournament organized by Tervasulka"
 input:
   source: excel
   excel_file: ""
-  web_url: ""
+  web_url: "https://badmintonfinland.tournamentsoftware.com/sport/events.aspx?id=077fa231-b428-43ba-844d-3689c1d977ed"
   full_results: false
