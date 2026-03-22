@@ -609,10 +609,12 @@ def check_potential_player_conflicts(schedule_matches, config):
             })
 
     # Check for overlapping or rest-violating matches for the same player
-    # Errors: same-division rest violation, cross-division time overlap
-    # Warnings: cross-division rest violation
+    # FAIL: any time overlap (same-div or cross-div), same-division rest violation
+    # SEVERE: cross-division rest violation where neither match is a Final
+    # WARN: cross-division rest violation where at least one match is a Final
     from config import compute_rest_between
     errors = []
+    severe_warnings = []
     warnings = []
     seen = set()
     for player, pmatches in player_potential.items():
@@ -638,14 +640,15 @@ def check_potential_player_conflicts(schedule_matches, config):
 
             same_division = (div1 == div2)
 
-            # Check overlap — always a FAIL
+            # Check overlap — always FAIL
             if m2["time"] < m1["end"]:
                 seen.add(key)
-                errors.append(
+                msg = (
                     f"Potential overlap: {player} in "
                     f"{m1['id']} ({m1['date']} {m1['time_str']}) and "
                     f"{m2['id']} ({m2['date']} {m2['time_str']})"
                 )
+                errors.append(msg)
             else:
                 # Check rest requirement
                 gap = m2["time"] - m1["end"]
@@ -662,11 +665,25 @@ def check_potential_player_conflicts(schedule_matches, config):
                         f"(needs {rest}min)"
                     )
                     if same_division:
+                        # Same division rest violation — FAIL
                         errors.append(msg)
                     else:
-                        warnings.append(msg)
+                        # Cross-division rest: check if a Final is involved
+                        involves_final = False
+                        for mid_check in (m1["id"], m2["id"]):
+                            rnd_check = mid_check.split(":")[1]
+                            bare = rnd_check.replace("Playoff ", "")
+                            if bare == "Final":
+                                involves_final = True
+                                break
+                        if involves_final:
+                            # At least one is a Final — WARN
+                            warnings.append(msg)
+                        else:
+                            # Neither is a Final — SEVERE
+                            severe_warnings.append(msg)
 
-    return errors, warnings
+    return errors, severe_warnings, warnings
 
 
 # ── Check 8: Court Buffer Violations ────────────────────────────
@@ -1033,6 +1050,7 @@ def verify(config):
     all_issues = []
     total_checks = 0
     total_failures = 0
+    total_severe_warnings = 0
     total_warnings = 0
 
     def _report_failures(issues):
@@ -1041,6 +1059,13 @@ def verify(config):
         total_failures += len(issues)
         for issue in issues:
             print(f"  FAIL: {issue}")
+
+    def _report_severe_warnings(issues):
+        nonlocal total_severe_warnings
+        all_issues.extend(issues)
+        total_severe_warnings += len(issues)
+        for issue in issues:
+            print(f"  SEVERE: {issue}")
 
     def _report_warnings(issues):
         nonlocal total_warnings
@@ -1111,12 +1136,13 @@ def verify(config):
     # Check 7: Potential player conflicts (later-round placeholder matches)
     if schedule:
         print("Check 7: Potential player conflicts...")
-        errors, warnings = check_potential_player_conflicts(schedule, config)
+        errors, severe_warns, warns = check_potential_player_conflicts(schedule, config)
         total_checks += 1
-        if errors or warnings:
+        if errors or severe_warns or warns:
             _report_failures(errors)
-            _report_warnings(warnings)
-        if not errors and not warnings:
+            _report_severe_warnings(severe_warns)
+            _report_warnings(warns)
+        if not errors and not severe_warns and not warns:
             print("  PASS")
 
     # Check 8: Court buffer violations
@@ -1140,7 +1166,14 @@ def verify(config):
 
     print()
     if all_issues:
-        print(f"RESULT: {len(all_issues)} issues ({total_failures} failures, {total_warnings} warnings) across {total_checks} checks")
+        parts = []
+        if total_failures:
+            parts.append(f"{total_failures} failures")
+        if total_severe_warnings:
+            parts.append(f"{total_severe_warnings} severe warnings")
+        if total_warnings:
+            parts.append(f"{total_warnings} warnings")
+        print(f"RESULT: {len(all_issues)} issues ({', '.join(parts)}) across {total_checks} checks")
     else:
         print(f"RESULT: All {total_checks} checks passed")
 
