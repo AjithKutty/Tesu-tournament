@@ -850,6 +850,42 @@ class PlayerTracker:
                 return False
         return True
 
+    def can_play_at_relaxed(self, players, start_minute, duration, new_div_code, new_category):
+        """Relaxed check: only enforce same-division rest and no-overlap.
+
+        Cross-division rest is NOT enforced — only time overlap is prevented.
+        Used as a fallback when normal scheduling fails.
+        """
+        if not players:
+            return True
+        new_end = start_minute + duration
+        for p in players:
+            for prev_start, prev_end, prev_div, prev_cat in self.history[p]:
+                same_div = (prev_div == new_div_code)
+                if same_div:
+                    # Same division: enforce full rest
+                    rest = compute_rest_between(
+                        self.config, prev_div, prev_cat, new_div_code, new_category,
+                        player_name=p,
+                    )
+                else:
+                    # Cross division: only prevent overlap (rest = 0)
+                    rest = 0
+
+                if prev_end <= start_minute:
+                    if rest > 0 and prev_end + rest > start_minute:
+                        return False
+                elif new_end <= prev_start:
+                    if rest > 0 and new_end + rest > prev_start:
+                        return False
+                else:
+                    # Overlapping — never allowed
+                    return False
+
+            if not self._check_density(p, start_minute, new_end):
+                return False
+        return True
+
     def _check_density(self, player, new_start, new_end):
         """Check match density limit for a player.
 
@@ -1264,6 +1300,16 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
             dl_latest = dl - m.duration_min
             latest = min(latest, dl_latest) if latest else dl_latest
 
+    # Ensure the Final can fit after the SF: tighten latest
+    # SF end + same-division rest + Final duration must be before day end
+    # So SF must start before: day_end - SF_duration - rest - Final_duration
+    from config import get_same_division_rest
+    sd_rest = get_same_division_rest(config, m1.division_code)
+    final_duration = m1.duration_min  # assume same duration as SF
+    if latest is not None:
+        sf_latest = latest - m1.duration_min - sd_rest - final_duration
+        latest = min(latest, sf_latest)
+
     # Snap earliest
     if earliest % slot_duration != 0:
         earliest = ((earliest // slot_duration) + 1) * slot_duration
@@ -1390,6 +1436,91 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
             break
         if placed:
             break
+
+    # Fallback: retry with relaxed cross-division rest
+    if not placed:
+        for slot in all_slots:
+            if slot < earliest:
+                continue
+            if latest is not None and slot >= latest:
+                break
+
+            courts = get_eligible_courts(m1, slot, config, venue_model)
+            available_courts = []
+            for court in courts:
+                if court_sched.can_book(court, slot, m1.duration_min, m1.overrun_buffer):
+                    available_courts.append(court)
+            if len(available_courts) < 2:
+                for court in courts:
+                    if court in available_courts:
+                        continue
+                    can_ovr, _ = court_sched.can_book_override_buffer(
+                        court, slot, m1.duration_min, m1.overrun_buffer
+                    )
+                    if can_ovr:
+                        available_courts.append(court)
+                    if len(available_courts) >= 2:
+                        break
+            if len(available_courts) < 2:
+                continue
+
+            from itertools import combinations as combs2
+            for c1, c2 in combs2(available_courts, 2):
+                ok1 = not m1.effective_players or player_tracker.can_play_at_relaxed(
+                    m1.effective_players, slot, m1.duration_min,
+                    m1.division_code, m1.category
+                )
+                if not ok1:
+                    continue
+                ok2 = not m2.effective_players or player_tracker.can_play_at_relaxed(
+                    m2.effective_players, slot, m2.duration_min,
+                    m2.division_code, m2.category
+                )
+                if not ok2:
+                    continue
+
+                # Book both
+                for m, court in [(m1, c1), (m2, c2)]:
+                    if not court_sched.can_book(court, slot, m.duration_min, m.overrun_buffer):
+                        _, ovr = court_sched.can_book_override_buffer(
+                            court, slot, m.duration_min, m.overrun_buffer
+                        )
+                        for bc, bm in ovr:
+                            del court_sched.booked[(bc, bm)]
+                    court_sched.book(court, slot, m.id, m.duration_min, m.overrun_buffer)
+                    if m.has_some_real_players:
+                        confirmed = set()
+                        for p_str in (m.player1, m.player2):
+                            if not p_str.startswith("Winner ") and not p_str.startswith("Slot "):
+                                confirmed.update(extract_player_names(p_str))
+                        if confirmed:
+                            player_tracker.update(
+                                list(confirmed), slot,
+                                m.duration_min, m.division_code, m.category
+                            )
+                    check_potential = _should_check_potential_conflicts(m, pca_config)
+                    if check_potential and m.effective_players:
+                        player_tracker.update_potential(
+                            m.effective_players, slot, m.duration_min, m.id,
+                            category=m.category, div_code=m.division_code,
+                        )
+                    scheduled[m.id] = (court, slot)
+                    scheduled_end[m.id] = slot + m.duration_min
+                    sf_already_placed.add(m.id)
+                    sched_trace.append({
+                        "match_id": m.id, "status": "SCHEDULED",
+                        "priority": m.priority,
+                        "placed": _fmt_minute(venue_model, slot), "court": court,
+                        "player1": m.player1, "player2": m.player2,
+                        "players": m.effective_players[:10],
+                        "warning": "SF pair: cross-division rest relaxed",
+                    })
+                if sdkey not in round_day_assignments:
+                    round_day_assignments[sdkey] = _day_name_for_minute(venue_model, slot)
+                placed = True
+                break
+            if placed:
+                break
 
     if not placed:
         for m in pair:
@@ -1963,6 +2094,87 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 if placed:
                     break
 
+        # Fallback: relax cross-division rest (only enforce same-division rest + no overlap)
+        cross_div_rest_relaxed = False
+        if not placed:
+            for attempt_buffer in (False, True):
+                for slot in all_slots:
+                    if slot < earliest:
+                        continue
+                    if latest is not None and slot >= latest:
+                        break
+                    if latest_without_rtl is not None and slot >= latest_without_rtl:
+                        break
+
+                    courts = get_eligible_courts(match, slot, config, venue_model)
+                    for court in courts:
+                        if attempt_buffer:
+                            can_bk, overridden = court_sched.can_book_override_buffer(
+                                court, slot, match.duration_min, match.overrun_buffer
+                            )
+                            if not can_bk:
+                                continue
+                        else:
+                            if not court_sched.can_book(court, slot, match.duration_min, match.overrun_buffer):
+                                continue
+                            overridden = []
+
+                        if match.effective_players:
+                            if not player_tracker.can_play_at_relaxed(
+                                match.effective_players, slot, match.duration_min,
+                                match.division_code, match.category
+                            ):
+                                continue
+                        if match.effective_players and player_tracker.potential_history:
+                            ok, _ = player_tracker.check_potential_overlap_relaxed(
+                                match.effective_players, slot, match.duration_min,
+                                category=match.category,
+                            )
+                            if not ok:
+                                continue
+
+                        # Book it
+                        for bc, bm in overridden:
+                            del court_sched.booked[(bc, bm)]
+                        court_sched.book(court, slot, match.id, match.duration_min, match.overrun_buffer)
+
+                        if match.has_some_real_players:
+                            confirmed = set()
+                            for p_str in (match.player1, match.player2):
+                                if not p_str.startswith("Winner ") and not p_str.startswith("Slot "):
+                                    confirmed.update(extract_player_names(p_str))
+                            if confirmed:
+                                player_tracker.update(
+                                    list(confirmed), slot,
+                                    match.duration_min, match.division_code, match.category
+                                )
+                        check_potential = _should_check_potential_conflicts(match, pca_config)
+                        if check_potential and match.effective_players:
+                            player_tracker.update_potential(
+                                match.effective_players, slot, match.duration_min, match.id,
+                                category=match.category, div_code=match.division_code,
+                            )
+                        scheduled[match.id] = (court, slot)
+                        scheduled_end[match.id] = slot + match.duration_min
+                        rtl_key = (match.division_code, match.round_name)
+                        if rtl_key not in round_first_start:
+                            round_first_start[rtl_key] = slot
+                        if same_day_key not in round_day_assignments:
+                            round_day_assignments[same_day_key] = _day_name_for_minute(venue_model, slot)
+
+                        cross_div_rest_relaxed = True
+                        if overridden:
+                            buffer_override_detail = [
+                                _fmt_minute(venue_model, bm) + f" court {bc}"
+                                for bc, bm in overridden
+                            ]
+                        placed = True
+                        break
+                    if placed:
+                        break
+                if placed:
+                    break
+
         if not placed:
             unschedulable.add(match.id)
             unscheduled.append(match)
@@ -2063,6 +2275,8 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 trace_entry["buffer_slots_overridden"] = buffer_override_detail
             if round_limit_overridden:
                 warnings_list.append("round time limit exceeded")
+            if cross_div_rest_relaxed:
+                warnings_list.append("cross-division rest relaxed")
             if warnings_list:
                 trace_entry["warning"] = "; ".join(warnings_list)
             sched_trace.append(trace_entry)

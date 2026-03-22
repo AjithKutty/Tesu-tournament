@@ -22,7 +22,7 @@ days:
         end_time: "20:00"
       - numbers: [9, 10, 11, 12]
         start_time: "09:15"
-        end_time: "20:00"
+        end_time: "20:30"
     sessions:
       - name: "Saturday Morning"
         start_time: "09:00"

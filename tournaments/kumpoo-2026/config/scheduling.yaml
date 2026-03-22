@@ -19,10 +19,10 @@ priorities:
   divisions:
     "BS U13":
       "Pool": 10
-    "BS U15":
+    "BS U17":
       "Pool": 10
-    #"BS U17":
-    #  "Pool": 15
+    "BS U15":
+      "Pool": 15
     "MS C":
       "Round 1": 5
     "MS B":
