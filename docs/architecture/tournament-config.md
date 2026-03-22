@@ -12,12 +12,12 @@ Each tournament lives in its own directory under `tournaments/`:
 tournaments/<tournament-name>/
 ├── config/
 │   ├── tournament.yaml          # Tournament metadata and input source
-│   ├── venue.yaml               # Days, sessions, court availability
+│   ├── venue.yaml               # Days, sessions, court availability, court buffers
 │   ├── match_rules.yaml         # Match durations and rest periods per category
-│   ├── court_preferences.yaml   # Court preferences/restrictions per category
+│   ├── court_preferences.yaml   # Court preferences/restrictions per category and round
 │   ├── divisions.yaml           # Division → category mapping, tab display, format overrides
-│   └── scheduling.yaml          # Priority ordering, SF/Final constraints
-├── input/                       # Input files (Excel workbooks, etc.)
+│   └── scheduling.yaml          # Priorities, day constraints, draw formats, scheduling rules
+├── input/                       # Input files (Excel workbooks)
 ├── scraped/                     # Cached web scrape data (avoids re-scraping)
 └── output/
     ├── divisions/               # Generated division JSON files
@@ -25,7 +25,9 @@ tournaments/<tournament-name>/
     │   └── *.json
     ├── schedules/               # Generated schedule JSON files
     │   ├── schedule_index.json
-    │   └── *.json
+    │   ├── scheduling_trace.json  # Detailed scheduling trace log
+    │   ├── divisions/             # Per-division schedule files
+    │   └── *.json                 # Per-session schedule files
     └── webpages/
         └── index.html           # Generated single-page website
 ```
@@ -42,246 +44,285 @@ description: "Badminton tournament organized by Tervasulka"
 
 input:
   source: excel                  # "excel" or "web"
-  excel_file: "Draws Kumpoo Tervasulan Eliitti 2025 vain kaaviot.XLSX"
+  excel_file: "Draws Kumpoo Tervasulan Eliitti 2025.XLSX"
   web_url: "https://badmintonfinland.tournamentsoftware.com/sport/draws.aspx?id=48aae77a-..."
   full_results: false            # When using web source, scrape match results/scores/durations
 ```
 
-### `venue.yaml` — Days, Sessions, and Court Availability
+### `venue.yaml` — Days, Sessions, Court Availability, and Court Buffers
 
 Defines the tournament schedule structure: which days, what time ranges, which courts are available on each day, and how the day is divided into sessions.
 
 ```yaml
-slot_duration: 30                # Minutes per scheduling slot
+slot_duration: 15                # Minutes per scheduling slot
+
+# Global court buffers (applied to days without their own court_buffers)
+# court_buffers:
+#   - courts: [1, 2, 3, 4, 5, 6, 7, 8]
+#     duration: 30
+#     interval: 120
+#     courts_at_once: 4
 
 days:
   - name: "Saturday"
     start_time: "09:00"
+    # Per-day court buffers (override global for this day)
+    court_buffers:
+      - courts: [1, 2, 3, 4, 5, 6, 7, 8]
+        duration: 30
+        interval: 120            # every 2 hours from day start
+        courts_at_once: 4        # rotate: 1-4 then 5-8
     courts:
-      - numbers: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-        end_time: "22:00"
+      - numbers: [1, 2, 3, 4, 5, 6, 7, 8]
+        end_time: "20:00"
+      - numbers: [9, 10, 11, 12]
+        start_time: "09:15"      # Per-group start time (optional)
+        end_time: "20:30"
     sessions:
       - name: "Saturday Morning"
         start_time: "09:00"
         end_time: "13:00"
-      - name: "Saturday Afternoon"
-        start_time: "13:00"
-        end_time: "18:00"
-      - name: "Saturday Evening"
-        start_time: "18:00"
-        end_time: "22:00"
 
   - name: "Sunday"
     start_time: "09:00"
+    court_buffers:
+      - courts: [1, 2, 3, 4]
+        duration: 30
+        interval: 120
+        courts_at_once: 2
     courts:
       - numbers: [1, 2, 3, 4]
         end_time: "16:00"
       - numbers: [5, 6, 7, 8]
         end_time: "18:00"
-    sessions:
-      - name: "Sunday Morning"
-        start_time: "09:00"
-        end_time: "13:00"
-      - name: "Sunday Afternoon"
-        start_time: "13:00"
-        end_time: "18:00"
 ```
 
 Notes:
-- Courts with different end times on the same day are listed as separate groups.
+- Courts with different start/end times on the same day are listed as separate groups.
+- Per-group `start_time` is optional (defaults to the day's `start_time`).
 - Sessions are display groupings for the website schedule grid; they don't affect scheduling logic.
 - `slot_duration` determines the scheduling granularity (all match start times are multiples of this).
+- Court buffers are per-day. Days without `court_buffers` inherit the global config. Set to empty list to disable for a day.
 
-### `match_rules.yaml` — Match Durations and Rest Periods
-
-Defines how long matches last and how much rest players get, per division category.
-
-```yaml
-default:
-  match_duration: 30             # Minutes
-  rest_period: 30                # Minutes between matches for same player
-  overrun_buffer: 15             # Extra minutes of court gap between consecutive matches
-
-categories:
-  Elite:
-    match_duration: 45
-    rest_period: 60
-    overrun_buffer: 15
-```
-
-Notes:
-- Any category not listed under `categories` uses the `default` values.
-- A match occupying more than one slot duration (e.g., 45 min with 30 min slots) blocks multiple consecutive slots on the court.
-- `overrun_buffer` creates a gap between consecutive matches on the same court. The court is blocked for `match_duration + overrun_buffer` after the match, and the buffer time before the match is also reserved. This bidirectional blocking ensures the buffer works regardless of scheduling order. Set to `0` to disable.
-
-### `court_preferences.yaml` — Court Preferences per Category
+### `court_preferences.yaml` — Court Preferences per Category and Round
 
 Controls which courts each division category prefers or is restricted to.
 
 ```yaml
 categories:
   Elite:
-    required_courts: [5, 6, 7, 8]        # Hard constraint — must use these courts
+    required_courts: [5, 6, 7, 8]
   Open A:
-    preferred_courts: [5, 6, 7, 8]       # Try these first
-    fallback_courts: [1, 2, 3, 4]        # Then these
-    last_resort_courts: [9, 10, 11, 12]  # Only if nothing else available
+    preferred_courts: [5, 6, 7, 8]
+    fallback_courts: [1, 2, 3, 4]
   Junior:
-    required_courts: [9, 10, 11, 12]     # Saturday: must use courts 9-12
-    day_overrides:
-      Sunday:                            # On Sunday (courts 9-12 unavailable):
-        required_courts: null            #   clear the hard constraint
-        preferred_courts: [1, 2, 3, 4]   #   prefer courts 1-4 instead
+    required_courts: [9, 10, 11, 12]
+    round_overrides:                  # Per-round court preference overrides
+      "Semi-Final":
+        required_courts: null         # Clear the hard constraint for SF
+        preferred_courts: [9, 10, 11, 12]
         fallback_courts: [5, 6, 7, 8]
+      "Final":
+        required_courts: null
+        preferred_courts: [5, 6, 7, 8]
+        fallback_courts: [9, 10, 11, 12]
+    day_overrides:
+      Sunday:
+        required_courts: null
+        preferred_courts: [1, 2, 3, 4]
+        fallback_courts: [5, 6, 7, 8]
+  Veterans:
+    preferred_courts: [1, 2, 3, 4]
+    fallback_courts: [5, 6, 7, 8]
 
 default:
-  preferred_courts: [1, 2, 3, 4]
-  fallback_courts: [9, 10, 11, 12]
-  last_resort_courts: [5, 6, 7, 8]
+  preferred_courts: [5, 6, 7, 8]
+  fallback_courts: [1, 2, 3, 4]
+
+# Global round preferences (override category for specific rounds)
+# Does not apply to categories with required_courts
+round_court_preferences:
+  "Final":
+    preferred_courts: [5, 6, 7, 8]
+    fallback_courts: [1, 2, 3, 4]
+  "Semi-Final":
+    preferred_courts: [5, 6, 7, 8]
+    fallback_courts: [1, 2, 3, 4]
 ```
 
 Notes:
 - `required_courts` is a hard constraint — the match will fail to schedule if none are available.
-- `preferred_courts` → `fallback_courts` → `last_resort_courts` is a soft preference chain.
-- Court numbers that don't exist on a given day (e.g., courts 9-12 on Sunday) are automatically excluded.
-- Categories not listed use the `default` preference.
-- `day_overrides` allows per-day court preferences within a category. The day name must match a day in `venue.yaml`. Day-specific values override the base category values; set a key to `null` to clear a base constraint (e.g., clearing `required_courts` on a day where those courts are unavailable).
-
-### `divisions.yaml` — Division Categories and Display
-
-Maps division codes to categories for website tab grouping and display.
-
-```yaml
-# Event code → full name mapping
-event_names:
-  MS: "Men's Singles"
-  WS: "Women's Singles"
-  MD: "Men's Doubles"
-  WD: "Women's Doubles"
-  XD: "Mixed Doubles"
-  BS: "Boys' Singles"
-  BD: "Boys' Doubles"
-
-# Level → category mapping
-level_categories:
-  A: "Open A"
-  B: "Open B"
-  C: "Open C"
-  U11: "Junior"
-  U13: "Junior"
-  U15: "Junior"
-  U17: "Junior"
-  "35": "Veterans"
-  "45": "Veterans"
-  V: "Elite"
-
-# Website tab display order and styling
-tabs:
-  - category: "Open A"
-    tab_id: "opena"
-    badge_class: "badge-open"
-  - category: "Open B"
-    tab_id: "openb"
-    badge_class: "badge-open"
-  - category: "Open C"
-    tab_id: "open"
-    badge_class: "badge-open"
-  - category: "Junior"
-    tab_id: "junior"
-    badge_class: "badge-junior"
-  - category: "Veterans"
-    tab_id: "veterans"
-    badge_class: "badge-veterans"
-  - category: "Elite"
-    tab_id: "elite"
-    badge_class: "badge-elite"
-
-# Doubles event codes (for parsing)
-doubles_events: ["MD", "WD", "XD", "BD"]
-
-# Optional: override auto-detected draw format for specific divisions
-# format_overrides:
-#   "BS U17": "group_playoff"
-#   "MS C": "elimination"
-```
-
-Notes:
-- Only categories present in the actual tournament data will appear as tabs on the website.
-- The `tabs` list defines the display order; categories not in the list but present in the data will be appended at the end.
-- `format_overrides` is optional — by default, formats are auto-detected from the input data (Excel column headers or web page metadata).
+- `round_overrides` within a category allow different courts for specific rounds (e.g., Junior Finals on center courts).
+- `round_court_preferences` apply globally but skip categories with `required_courts`.
+- Override precedence: round_overrides > day_overrides > base category > default.
 
 ### `scheduling.yaml` — Scheduling Priorities and Rules
 
-Controls the priority ordering for match scheduling and special day constraints.
+The central configuration file for all scheduling behavior.
 
 ```yaml
-# Priority levels (lower number = scheduled first)
+# Scheduling priorities (lower number = scheduled first)
 priorities:
-  elite_pool: 5
-  pool: 10
-  round_1: 20
-  group_playoff: 30
-  round_2: 40
-  quarter_final: 50
-  semi_final: 60
-  final: 70
+  rounds:                          # Base priorities by round type
+    "Round 1": 10
+    "Round 2": 20
+    "Pool": 30
+    "Quarter-Final": 50
+    "Semi-Final": 60
+    "Final": 70
 
-# Which round names map to which priority
-round_priority_map:
-  "Round 1": round_1
-  "Round 2": round_2
-  "Quarter-Final": quarter_final
-  "Semi-Final": semi_final
-  "Final": final
+  categories:                      # Per-category overrides
+    Elite:
+      "Pool": 5
 
-# Division codes that get elite_pool priority for their pool matches
-elite_divisions: ["MS V", "WS V", "XD V"]
+  divisions:                       # Per-division overrides (highest precedence)
+    "MS C":
+      "Round 1": 5
+    "MD A":
+      "Quarter-Final": 15
 
-# Day constraints — force rounds onto a specific day
-# Global constraints apply to all divisions:
+  day_overrides:                   # Different priorities on different days
+    Sunday:
+      rounds:                      # Round-level defaults for Sunday
+        "Quarter-Final": 25
+        "Semi-Final": 35
+        "Final": 45
+      divisions:                   # Division-specific overrides for Sunday
+        "MS C":
+          "Quarter-Final": 20
+
+# Global day constraints
 day_constraints:
   - rounds: ["Semi-Final", "Final"]
-    day: "Sunday"                # Must match a day name from venue.yaml
+    day: "Sunday"
 
-# Per-division overrides — pin specific division rounds/stages to a day.
-# These override global constraints when both apply to the same round.
-# Round names: "Round 1", "Round 2", "Quarter-Final", "Semi-Final", "Final",
-#              "Pool" (round-robin), "Group" (group stage), "Playoff Round 1", etc.
+# Per-division day constraints
 division_day_constraints:
-  "BS U17":
-    - rounds: ["Group"]
-      day: "Saturday"
   "MS C":
-    - rounds: ["Round 1"]
+    - rounds: ["Quarter-Final", "Semi-Final", "Final"]
+      day: "Sunday"
+  "BS U13":
+    - rounds: ["Semi-Final", "Final"]
       day: "Saturday"
+
+# Semi-final same-time scheduling
+semi_final_same_time: true         # Both SFs of a division at same time slot
+
+# Round completion
+round_completion:
+  enabled: true
+  exceptions: ["MD C"]             # Divisions exempt from the rule
+
+# Potential conflict avoidance
+potential_conflict_avoidance:
+  default:
+    rounds: ["Round 2", "Quarter-Final", "Semi-Final", "Final"]
+  categories:
+    Junior:
+      rounds: ["Semi-Final", "Final"]
+
+# Round time limits (soft constraint)
+round_time_limit:
+  rounds:
+    "Quarter-Final": 120
+  categories:
+    Junior:
+      "Pool": 300
+
+# Time deadlines
+time_deadlines:
+  - rounds: ["Round 1"]
+    divisions: ["MS C", "MS B"]
+    deadline: "Saturday 12:00"
+
+# Draw format overrides (for entries-only input)
+draw_formats:
+  default: elimination
+  categories:
+    Veterans: round_robin
+  divisions:
+    "BS U17":
+      format: group_playoff
+      groups: 4
+      advancers_per_group: 2
+
+# Match durations
+match_duration:
+  default: 30
+  categories:
+    Elite: 45
+    "Open A": 40
+  divisions:
+    "XD A": 30
+
+# Overrun buffer
+overrun_buffer:
+  default: 0
+  categories:
+    Elite: 15
+
+# Rest rules
+rest_rules:
+  same_division_rest:
+    default: 30
+    divisions:
+      "MS V": 180
+  same_category_rest:
+    default: 30
+    categories:
+      Elite: 120
+  cross_division_rest: 30
+  player_exceptions:
+    "Player Name":
+      - between: ["MS A", "MD A"]
+        rest: 0
+
+# Match density
+match_density:
+  max_matches: 3
+  time_window: 180
+  player_exceptions:
+    "Player Name":
+      max_matches: 4
+      time_window: 180
 ```
 
-Notes:
-- **Same-day rule**: All matches in the same round of the same division are automatically scheduled on a single day. No configuration is needed for this — it is always enforced. If the matches cannot fit on the assigned day, the scheduler reports a hard error.
-- **Global `day_constraints`**: Apply to all divisions. A round name listed here is pinned to the given day for every division.
-- **`division_day_constraints`**: Per-division overrides. When a division has its own constraint for a round, it takes precedence over the global constraint. Round names include `"Pool"` (for round-robin divisions), `"Group"` (for all group-stage matches in group+playoff divisions), and standard elimination round names.
-- **`draw_formats`**: Controls which draw format `parse_entries.py` uses when generating draws from an entries-only Excel file (no bracket data). Resolution order: per-division override → per-category default → global default → fallback (round_robin if ≤6, elimination otherwise). The `group_playoff` format accepts `groups` (number of groups) and `advancers_per_group` (how many players advance from each group to the elimination playoff).
+### `divisions.yaml` — Division Categories and Display
+
+Maps division codes to categories for website tab grouping and display. (See existing documentation — unchanged.)
 
 ## Config Resolution Rules
 
-1. **Missing config file**: If a config file is missing, sensible defaults are used (e.g., all courts have equal preference, 30 min match/rest, no day constraints).
-2. **Missing category**: Categories not explicitly listed in `match_rules.yaml` or `court_preferences.yaml` use the `default` section.
-3. **Court availability**: Courts listed in preferences but not available on a particular day (per `venue.yaml`) are silently skipped.
-4. **Tab generation**: The website only creates tabs for categories that have at least one division in the tournament data. Tab order follows `divisions.yaml`; unlisted categories are appended alphabetically.
+1. **Missing config file**: Sensible defaults are used.
+2. **Missing category**: Uses the `default` section.
+3. **Court availability**: Courts not available on a day are silently skipped.
+4. **Category key aliases**: Both level codes (`"A"`) and full names (`"Open A"`) work in `match_duration`, `overrun_buffer`, and `same_category_rest`.
+5. **Priority resolution**: day_overrides.divisions > day_overrides.rounds > divisions > categories > rounds > fallback.
+6. **Day inference**: When SF/Final has an explicit day constraint, earlier rounds (QF, R2) in the same division have their priorities resolved with the inferred day for day_overrides.
 
-## CLI Changes
+## Input Modes
 
-The `main.py` CLI accepts a `--tournament` argument pointing to the tournament directory:
+The system supports three input modes:
+
+1. **Excel draws**: `parse_tournament.py` reads bracket/group draws from Excel. Supports dynamic column layout detection (works with both 2025-style and 2026-style column formats).
+2. **Web scraping**: `parse_web.py` scrapes from tournamentsoftware.com. Falls back to entries-only mode when draws aren't published.
+3. **Entries only**: `parse_entries.py` reads player lists and generates random draws using `draw_formats` config. Used automatically when Excel/web parsing finds no draws.
+
+All three produce identical JSON output format — downstream pipeline is shared.
+
+## CLI
 
 ```bash
-# Run full pipeline for a tournament:
-python src/main.py --tournament tournaments/kumpoo-2025
+# Full pipeline:
+python src/main.py --tournament tournaments/kumpoo-2026
+python src/main.py --tournament tournaments/kumpoo-2026 --source web
+python src/main.py --tournament tournaments/kumpoo-2026 --source excel --seed 42
 
-# Override input source via CLI (takes precedence over tournament.yaml):
-python src/main.py --tournament tournaments/kumpoo-2025 --source web --url "..."
-
-# Individual scripts also accept --tournament:
-python src/parse_tournament.py --tournament tournaments/kumpoo-2025
-python src/generate_schedule.py --tournament tournaments/kumpoo-2025
-python src/generate_website.py --tournament tournaments/kumpoo-2025
+# Individual scripts:
+python src/parse_tournament.py --tournament tournaments/kumpoo-2026
+python src/parse_web.py --tournament tournaments/kumpoo-2026
+python src/parse_entries.py --tournament tournaments/kumpoo-2026 --seed 42
+python src/generate_schedule.py --tournament tournaments/kumpoo-2026
+python src/verify_schedule.py --tournament tournaments/kumpoo-2026
+python src/generate_website.py --tournament tournaments/kumpoo-2026
 ```

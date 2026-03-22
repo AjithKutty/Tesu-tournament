@@ -5,8 +5,8 @@ priorities:
   rounds:
     "Round 1": 10
     "Round 2": 20
-    "Pool": 30
-    "Quarter-Final": 50
+    "Pool": 50
+    "Quarter-Final": 40
     "Semi-Final": 60
     "Final": 70
 
@@ -44,7 +44,7 @@ priorities:
       rounds:
         "Quarter-Final": 25
         "Semi-Final": 35
-        "Final": 45
+        "Final": 60
       divisions:
         "MS C":
           "Quarter-Final": 20   # Earlier than other QFs
@@ -54,6 +54,8 @@ priorities:
           "Quarter-Final": 20
         "MD C":
           "Semi-Final": 30
+        "MD A":
+          "Semi-Final": 50
 # Rounds that must be scheduled on a specific day (global — applies to all divisions)
 day_constraints:
   - rounds: ["Semi-Final", "Final"]
@@ -76,7 +78,7 @@ division_day_constraints:
     - rounds: ["Semi-Final", "Final"]
       day: "Sunday"
   "XD B":
-    - rounds: ["Quarter-Final", "Semi-Final", "Final"]
+    - rounds: ["Semi-Final", "Final"]
       day: "Sunday"
   "XD 35":
     - rounds: ["Pool"]
