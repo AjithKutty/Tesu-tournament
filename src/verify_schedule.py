@@ -10,9 +10,10 @@ Checks:
   3. Schedule coverage: all playable matches appear in the schedule
   4. Player conflicts: no player is double-booked
   5. No double-bye matches
-  6. Same-day rule: all matches in the same round+division are on the same day
+  6. Scheduling constraints: same-day rule, pool time limits, time deadlines, round completion, SF same-time
   7. Potential player conflicts: same player could be in overlapping later-round matches
   8. Court buffer violations: matches scheduled over court buffer break slots
+  9. Court preference violations: matches on less-preferred courts when better were available
 """
 
 import argparse
@@ -558,23 +559,32 @@ def check_court_buffer_violations(schedules_dir):
     return issues
 
 
-# ── Check 6: Same-Day Rule ──────────────────────────────────────
+# ── Check 6: Scheduling Constraints ─────────────────────────────
 
-def check_same_day_rule(schedule_matches):
-    """Check that all matches in the same round+division are on the same day.
+def check_scheduling_constraints(schedule_matches, config):
+    """Check scheduling constraints:
+    - Same-day rule: all matches in same round+division on same day
+    - Pool time limit: pool matches finish within configured window (WARN)
+    - Time deadlines: rounds finish by configured deadline
+    - Round completion: later rounds start after previous rounds finish
+    - Semi-final same-time: both SF matches at same time
 
-    Groups "Group X Pool" rounds together (all group pools in a division
-    must be on the same day).
+    Returns (errors, warnings) — pool time limit violations are warnings.
     """
     issues = []
+    warnings = []
     from collections import defaultdict
+    from config import (get_round_time_limit, get_time_deadlines,
+                        get_round_completion, build_venue_model)
 
-    # Build (division, round_group) -> set of dates
+    # Build (division, round_group) -> {date: [match_descs]}
     round_days = defaultdict(lambda: defaultdict(list))
+    # Build (division, round_group) -> [(start_minutes, end_minutes)]
+    round_times = defaultdict(list)
+
     for m in schedule_matches:
         div = m["division"]
         rnd = m["round"]
-        # Group all group-pool rounds together
         if " Pool" in rnd and rnd != "Pool":
             round_group = "Group Pool"
         else:
@@ -583,15 +593,293 @@ def check_same_day_rule(schedule_matches):
         round_days[(div, round_group)][date].append(
             f"M{m['match_num']} at {m['time']}"
         )
+        t = _time_to_minutes(m["_date"], m["time"])
+        dur = m.get("duration_min", 30)
+        round_times[(div, round_group)].append((t, t + dur, m["time"], m["match_num"]))
 
+    # 1. Same-day rule
     for (div, round_group), day_matches in sorted(round_days.items()):
         if len(day_matches) > 1:
             day_list = ", ".join(
                 f"{d} ({len(ids)} matches)" for d, ids in day_matches.items()
             )
             issues.append(
-                f"{div}: {round_group} split across days: {day_list}"
+                f"Same-day: {div} {round_group} split across days: {day_list}"
             )
+
+    # 2. Round time limits (applies to any round, not just pools)
+    round_groups = defaultdict(list)
+    for m in schedule_matches:
+        div = m["division"]
+        rnd = m["round"]
+        round_groups[(div, rnd)].append({
+            "start": _time_to_minutes(m["_date"], m["time"]),
+            "end": _time_to_minutes(m["_date"], m["time"]) + m.get("duration_min", 30),
+            "category": m.get("category", ""),
+        })
+
+    for (div, rnd), entries in sorted(round_groups.items()):
+        if not entries:
+            continue
+        category = entries[0]["category"]
+        limit = get_round_time_limit(config, rnd, category, div)
+        if limit is None:
+            continue
+        first_start = min(e["start"] for e in entries)
+        last_end = max(e["end"] for e in entries)
+        span = last_end - first_start
+        if span > limit:
+            warnings.append(
+                f"Round time limit: {div} {rnd} spans {span}min "
+                f"(limit {limit}min)"
+            )
+
+    # 3. Time deadlines
+    deadlines = get_time_deadlines(config)
+    if deadlines:
+        venue_model = build_venue_model(config)
+        for dl in deadlines:
+            dl_str = dl.get("deadline", "")
+            parts = dl_str.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            day_name, time_str = parts
+            dl_h, dl_m = map(int, time_str.split(":"))
+            dl_minutes = _time_to_minutes(day_name, time_str)
+
+            rounds = dl.get("rounds", [])
+            divisions = dl.get("divisions")
+            for m in schedule_matches:
+                if m["round"] not in rounds:
+                    continue
+                if divisions and m["division"] not in divisions:
+                    continue
+                t = _time_to_minutes(m["_date"], m["time"])
+                end = t + m.get("duration_min", 30)
+                if end > dl_minutes and m["_date"] == day_name:
+                    issues.append(
+                        f"Time deadline: {m['division']} {m['round']} M{m['match_num']} "
+                        f"ends at {m['_date']} {_add_minutes(m['time'], m.get('duration_min', 30))} "
+                        f"(deadline: {dl_str})"
+                    )
+
+    # 4. Round completion
+    rc_enabled, rc_exceptions = get_round_completion(config)
+    if rc_enabled:
+        round_order = ["Round 1", "Round 2", "Quarter-Final", "Semi-Final", "Final"]
+        div_round_end = defaultdict(int)  # (div, round) -> latest end time
+        div_round_start = defaultdict(lambda: float('inf'))  # (div, round) -> earliest start
+
+        for m in schedule_matches:
+            div = m["division"]
+            rnd = m["round"]
+            if div in rc_exceptions:
+                continue
+            t = _time_to_minutes(m["_date"], m["time"])
+            end = t + m.get("duration_min", 30)
+            div_round_end[(div, rnd)] = max(div_round_end[(div, rnd)], end)
+            div_round_start[(div, rnd)] = min(div_round_start[(div, rnd)], t)
+
+        for div_rnd, start in sorted(div_round_start.items()):
+            div, rnd = div_rnd
+            if rnd not in round_order:
+                continue
+            idx = round_order.index(rnd)
+            if idx == 0:
+                continue
+            for prev_idx in range(idx - 1, -1, -1):
+                prev_rnd = round_order[prev_idx]
+                if (div, prev_rnd) in div_round_end:
+                    prev_end = div_round_end[(div, prev_rnd)]
+                    if start < prev_end:
+                        issues.append(
+                            f"Round completion: {div} {rnd} starts before "
+                            f"{prev_rnd} finishes"
+                        )
+                    break
+
+    # 5. Semi-final same-time
+    sf_same_time = config["scheduling"].get("semi_final_same_time", False)
+    if sf_same_time:
+        sf_times = defaultdict(list)
+        for m in schedule_matches:
+            rnd = m["round"]
+            bare = rnd.replace("Playoff ", "") if rnd.startswith("Playoff ") else rnd
+            if bare == "Semi-Final":
+                sf_times[(m["division"], rnd)].append(m["time"])
+
+        for (div, rnd), times in sorted(sf_times.items()):
+            if len(times) >= 2 and len(set(times)) > 1:
+                issues.append(
+                    f"SF same-time: {div} {rnd} at different times: {times}"
+                )
+
+    return issues, warnings
+
+
+def _add_minutes(time_str, minutes):
+    """Add minutes to HH:MM, return HH:MM."""
+    hh, mm = map(int, time_str.split(":"))
+    mm += minutes
+    while mm >= 60:
+        hh += 1
+        mm -= 60
+    return f"{hh:02d}:{mm:02d}"
+
+
+# ── Check 9: Court Preference Violations ────────────────────────
+
+def _to_venue_minute(venue_model, day_str, time_str):
+    """Convert (day, HH:MM) to venue model minute offset."""
+    for day in venue_model["days"]:
+        if day["name"] == day_str:
+            start_h, start_m = map(int, day["start_time"].split(":"))
+            h, m = map(int, time_str.split(":"))
+            offset = (h - start_h) * 60 + (m - start_m)
+            return day["start_minute"] + offset
+    return 0
+
+
+def check_court_preferences(schedule_matches, config):
+    """Check if matches are on optimal courts given their preferences.
+
+    For each match, determines the preferred court order and checks if
+    a more-preferred court was available (not occupied) at that time slot.
+    """
+    from collections import defaultdict
+    from config import get_court_preference, build_venue_model
+
+    issues = []
+    venue_model = build_venue_model(config)
+    slot_duration = venue_model["slot_duration"]
+    round_prefs = config["court_preferences"].get("round_court_preferences", {})
+
+    # Build court occupancy: (date, time, court) -> match_desc
+    occupancy = {}
+    for m in schedule_matches:
+        dur = m.get("duration_min", 30)
+        slots = (dur + slot_duration - 1) // slot_duration
+        t = m["time"]
+        for s in range(slots):
+            occupancy[(m["_date"], t, m["court"])] = (
+                f"{m['division']} {m['round']} M{m['match_num']}"
+            )
+            # Advance time
+            hh, mm = map(int, t.split(":"))
+            mm += slot_duration
+            while mm >= 60:
+                hh += 1
+                mm -= 60
+            t = f"{hh:02d}:{mm:02d}"
+
+    # Check each match
+    for m in schedule_matches:
+        category = m.get("category", "")
+        court = m["court"]
+        day = m["_date"]
+        time = m["time"]
+        rnd = m.get("round", "")
+        dur = m.get("duration_min", 30)
+
+        # Get the court preference for this match
+        pref = get_court_preference(config, category, day_name=day, round_name=rnd)
+
+        # Apply round preferences (same logic as get_eligible_courts)
+        bare_round = rnd.replace("Playoff ", "") if rnd.startswith("Playoff ") else rnd
+        if bare_round in round_prefs and not pref.get("required_courts"):
+            pref = dict(pref)
+            rp = round_prefs[bare_round]
+            for key in ("preferred_courts", "fallback_courts", "last_resort_courts"):
+                if key in rp:
+                    pref[key] = rp[key]
+
+        # If required_courts, just check the match is on one of them
+        if pref.get("required_courts"):
+            if court not in pref["required_courts"]:
+                issues.append(
+                    f"Required court: {m['division']} {rnd} M{m['match_num']} "
+                    f"on court {court} (required: {pref['required_courts']})"
+                )
+            continue
+
+        # Build preference order
+        preferred = pref.get("preferred_courts") or []
+        fallback = pref.get("fallback_courts") or []
+
+        # If match is on a preferred court, it's fine
+        if court in preferred:
+            continue
+
+        # Match is on a fallback/other court — check if a preferred court was free
+        slots_needed = (dur + slot_duration - 1) // slot_duration
+        for pc in preferred:
+            # Check if this preferred court was free for all slots of the match
+            all_free = True
+            t_check = time
+            for s in range(slots_needed):
+                if (day, t_check, pc) in occupancy:
+                    occ = occupancy[(day, t_check, pc)]
+                    # It's occupied by another match (not this one)
+                    if occ != f"{m['division']} {rnd} M{m['match_num']}":
+                        all_free = False
+                        break
+                # Check court exists at this time (available in venue)
+                vm_min = _to_venue_minute(venue_model, day, t_check)
+                court_exists = any(
+                    crt == pc and s <= vm_min < e
+                    for crt, s, e in venue_model["court_windows"]
+                )
+                if not court_exists:
+                    all_free = False
+                    break
+                # Advance
+                hh, mm = map(int, t_check.split(":"))
+                mm += slot_duration
+                while mm >= 60:
+                    hh += 1
+                    mm -= 60
+                t_check = f"{hh:02d}:{mm:02d}"
+
+            if all_free:
+                issues.append(
+                    f"Court preference: {m['division']} {rnd} M{m['match_num']} "
+                    f"at {day} {time} on court {court} — "
+                    f"preferred court {pc} was available"
+                )
+                break  # report only the best available preferred court
+        else:
+            # No preferred court was free from matches — check if one was
+            # only blocked by court buffers (could have been overridden)
+            for pc in preferred:
+                only_buffer_blocking = True
+                t_check = time
+                for s_idx in range(slots_needed):
+                    vm_min = _to_venue_minute(venue_model, day, t_check)
+                    court_exists = any(
+                        crt == pc and s <= vm_min < e
+                        for crt, s, e in venue_model["court_windows"]
+                    )
+                    if not court_exists:
+                        only_buffer_blocking = False
+                        break
+                    if (day, t_check, pc) in occupancy:
+                        only_buffer_blocking = False
+                        break
+                    # Advance
+                    hh, mm = map(int, t_check.split(":"))
+                    mm += slot_duration
+                    while mm >= 60:
+                        hh += 1
+                        mm -= 60
+                    t_check = f"{hh:02d}:{mm:02d}"
+
+                if only_buffer_blocking:
+                    issues.append(
+                        f"Court preference: {m['division']} {rnd} M{m['match_num']} "
+                        f"at {day} {time} on court {court} — "
+                        f"preferred court {pc} available with buffer override"
+                    )
+                    break
 
     return issues
 
@@ -667,16 +955,19 @@ def verify(config):
     else:
         print("  PASS")
 
-    # Check 6: Same-day rule
+    # Check 6: Scheduling constraints (same-day, pool time limit, deadlines, round completion, SF same-time)
     if schedule:
-        print("Check 6: Same-day rule...")
-        issues = check_same_day_rule(schedule)
+        print("Check 6: Scheduling constraints...")
+        errors, warnings = check_scheduling_constraints(schedule, config)
         total_checks += 1
-        if issues:
-            all_issues.extend(issues)
-            for issue in issues:
-                print(f"  FAIL: {issue}")
-        else:
+        if errors or warnings:
+            all_issues.extend(errors)
+            all_issues.extend(warnings)
+            for e in errors:
+                print(f"  FAIL: {e}")
+            for w in warnings:
+                print(f"  WARN: {w}")
+        if not errors and not warnings:
             print("  PASS")
 
     # Check 7: Potential player conflicts (later-round placeholder matches)
@@ -701,6 +992,18 @@ def verify(config):
             print(f"  WARN: {issue}")
     else:
         print("  PASS")
+
+    # Check 9: Court preference violations
+    if schedule:
+        print("Check 9: Court preference violations...")
+        issues = check_court_preferences(schedule, config)
+        total_checks += 1
+        if issues:
+            all_issues.extend(issues)
+            for issue in issues:
+                print(f"  WARN: {issue}")
+        else:
+            print("  PASS")
 
     print()
     if all_issues:

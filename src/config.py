@@ -295,12 +295,13 @@ def compute_rest_between(config, div_code_a, category_a, div_code_b, category_b,
     return rest
 
 
-def get_court_preference(config, category, day_name=None):
-    """Get court preference chain for a category, optionally for a specific day.
+def get_court_preference(config, category, day_name=None, round_name=None):
+    """Get court preference chain for a category.
 
-    If day_name is provided and the category has a day_overrides section
-    with an entry for that day, the day-specific preferences are used
-    (merged on top of the category defaults).
+    Overrides applied in order (later overrides earlier):
+      1. Base category preference (or default)
+      2. Day-specific overrides (day_overrides)
+      3. Round-specific overrides (round_overrides within the category)
 
     Returns dict with keys: required_courts, preferred_courts,
     fallback_courts, last_resort_courts (each a list or None).
@@ -329,6 +330,17 @@ def get_court_preference(config, category, day_name=None):
             for key in ("required_courts", "preferred_courts", "fallback_courts", "last_resort_courts"):
                 if key in day_entry:
                     result[key] = day_entry[key]
+
+    # Apply round-specific overrides (e.g., Junior SF/Final on different courts)
+    if round_name and category in cats:
+        round_overrides = cats[category].get("round_overrides", {})
+        # Strip "Playoff " prefix for matching
+        bare_round = round_name.replace("Playoff ", "") if round_name.startswith("Playoff ") else round_name
+        if bare_round in round_overrides:
+            rnd_entry = round_overrides[bare_round]
+            for key in ("required_courts", "preferred_courts", "fallback_courts", "last_resort_courts"):
+                if key in rnd_entry:
+                    result[key] = rnd_entry[key]
 
     return result
 
@@ -476,6 +488,66 @@ def get_potential_conflict_avoidance(config):
     result["_default"] = default_rounds
     result.update(resolved_categories)
     return result
+
+
+def get_round_time_limit(config, round_name, category, div_code=None):
+    """Get time limit for a round in minutes.
+
+    All matches of this round within a division/group must finish within
+    this many minutes of the first match starting. Returns None if no limit.
+
+    Checks round_time_limit config first, falls back to pool_time_limit
+    for backwards compatibility with pool-only configs.
+
+    Resolution: per-division → per-category → per-round → default.
+    """
+    # Strip "Playoff " for matching
+    bare_round = round_name.replace("Playoff ", "") if round_name.startswith("Playoff ") else round_name
+
+    rtl = config["scheduling"].get("round_time_limit", {})
+
+    # Per-division override (can be a dict of round -> limit)
+    if div_code:
+        divs = rtl.get("divisions", {})
+        if div_code in divs:
+            div_cfg = divs[div_code]
+            if isinstance(div_cfg, dict) and bare_round in div_cfg:
+                return div_cfg[bare_round]
+            elif isinstance(div_cfg, (int, float)):
+                return div_cfg  # single value applies to all rounds
+
+    # Per-category override (can be a dict of round -> limit)
+    cats = rtl.get("categories", {})
+    cat_val = _resolve_category_key(cats, category, config)
+    if cat_val is not None:
+        if isinstance(cat_val, dict) and bare_round in cat_val:
+            return cat_val[bare_round]
+        elif isinstance(cat_val, (int, float)):
+            return cat_val
+
+    # Per-round default
+    rounds_cfg = rtl.get("rounds", {})
+    if bare_round in rounds_cfg:
+        return rounds_cfg[bare_round]
+
+    # Global default
+    default = rtl.get("default")
+    if default is not None:
+        return default
+
+    # Backwards compatibility: check pool_time_limit for pool rounds
+    if "Pool" in round_name:
+        ptl = config["scheduling"].get("pool_time_limit", {})
+        if div_code:
+            divs = ptl.get("divisions", {})
+            if div_code in divs:
+                return divs[div_code]
+        cat_val = _resolve_category_key(ptl.get("categories", {}), category, config)
+        if cat_val is not None:
+            return cat_val
+        return ptl.get("default")
+
+    return None
 
 
 def get_day_constraints(config):

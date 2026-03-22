@@ -17,6 +17,12 @@ priorities:
 
   # Per-division overrides (highest precedence)
   divisions:
+    "BS U13":
+      "Pool": 10
+    "BS U15":
+      "Pool": 10
+    #"BS U17":
+    #  "Pool": 15
     "MS C":
       "Round 1": 5
     "MS B":
@@ -31,10 +37,22 @@ priorities:
   # Per-day overrides — different priorities on different days
   day_overrides:
     Sunday:
+      #rounds:
+      #  "Quarter-Final": 25
+      #  "Pool": 30
+      #  "Semi-Final": 35
+      #  "Final": 40
       divisions:
         "MS C":
-          "Quarter-Final": 25   # Schedule MD C QF early on Sunday
-
+          "Quarter-Final": 20   # Schedule MS C QF early on Sunday
+        "MS B":
+          "Quarter-Final": 20   # Schedule MS B QF early on Sunday
+        "XD C":
+          "Quarter-Final": 20   # Schedule XC C QF early on Sunday
+        "XD B":
+          "Quarter-Final": 25   # Schedule XD B QF early on Sunday
+        "MD C":
+          "Semi-Final": 30   # Schedule MD C QF early on Sunday
 # Rounds that must be scheduled on a specific day (global — applies to all divisions)
 day_constraints:
   - rounds: ["Semi-Final", "Final"]
@@ -50,15 +68,12 @@ division_day_constraints:
   "MS B":
     - rounds: ["Quarter-Final", "Semi-Final", "Final"]
       day: "Sunday"
-  "MD B":
-    - rounds: ["Quarter-Final", "Semi-Final", "Final"]
-      day: "Sunday"
   "XD C":
     - rounds: ["Quarter-Final", "Semi-Final", "Final"]
       day: "Sunday"
-  #"MS 35":
-  #  - rounds: ["Pool"]
-  #    day: "Sunday"
+  "XD B":
+    - rounds: ["Quarter-Final", "Semi-Final", "Final"]
+      day: "Sunday"
   "XD 35":
     - rounds: ["Pool"]
       day: "Sunday"
@@ -74,6 +89,22 @@ division_day_constraints:
   "BS U17":
     - rounds: ["Semi-Final", "Final"]
       day: "Saturday"
+
+# Round time limit: all matches in a round (per division/group) must finish
+# within this many minutes of the first match starting. Soft constraint —
+# scheduler overrides if needed, verifier reports warnings.
+round_time_limit:
+  # Per-round defaults
+  rounds:
+    "Quarter-Final": 120   # QF matches within 2 hours
+  # Per-category overrides (can specify per-round within category)
+  categories:
+    Junior:
+      "Pool": 300          # Junior pool matches within 5 hours
+  # Per-division overrides
+  # divisions:
+  #   "XD B":
+  #     "Quarter-Final": 90
 
 # Semi-final same-time: both SF matches of a division must start at the same time
 semi_final_same_time: true

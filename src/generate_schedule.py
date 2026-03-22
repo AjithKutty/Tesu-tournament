@@ -25,7 +25,7 @@ from config import (load_config, get_tournament_name, resolve_priority,
                     get_overrun_buffer, compute_rest_between,
                     get_cross_division_rest, get_same_division_rest,
                     get_court_preference, get_round_completion,
-                    get_potential_conflict_avoidance,
+                    get_potential_conflict_avoidance, get_round_time_limit,
                     get_slot_duration, build_venue_model,
                     minute_to_display as config_minute_to_display)
 
@@ -880,7 +880,20 @@ def get_eligible_courts(match, time_minute, config, venue_model):
     """Get ordered list of courts to try for a match at a given time."""
     category = match.category
     day_name = _day_name_for_minute(venue_model, time_minute)
-    pref = get_court_preference(config, category, day_name=day_name)
+    pref = get_court_preference(config, category, day_name=day_name,
+                                round_name=match.round_name)
+
+    # Per-round court preference override (e.g., Finals on courts 5-8).
+    # Only applies when category doesn't have required_courts (which is a
+    # hard constraint, e.g., Junior on Saturday must use courts 9-12).
+    bare_round = match.round_name.replace("Playoff ", "") if match.round_name.startswith("Playoff ") else match.round_name
+    round_prefs = config["court_preferences"].get("round_court_preferences", {})
+    if bare_round in round_prefs and not pref.get("required_courts"):
+        pref = dict(pref)  # copy to avoid mutating cached config
+        rp = round_prefs[bare_round]
+        for key in ("preferred_courts", "fallback_courts", "last_resort_courts"):
+            if key in rp:
+                pref[key] = rp[key]
 
     # Build ordered court list from preference chain
     ordered = []
@@ -1306,6 +1319,10 @@ def schedule_matches(matches, match_by_id, config, venue_model):
     # Potential conflict avoidance config
     pca_config = get_potential_conflict_avoidance(config)
 
+    # Pool time limit: track earliest start per pool group
+    # Key: (div_code, pool_key) -> earliest_start_minute
+    round_first_start = {}  # populated when first pool match of a group is placed
+
     # Scheduling trace log — records why each match was placed or rejected
     sched_trace = []
 
@@ -1449,6 +1466,22 @@ def schedule_matches(matches, match_by_id, config, venue_model):
             else:
                 latest = min(latest, dl_latest)
 
+        # Round time limit: match must finish within time_limit of the round's first match
+        # This is a soft constraint — saved separately so we can retry without it
+        # Use per-group key for pool rounds (not merged across groups)
+        round_time_limited = False
+        latest_without_rtl = latest  # save the latest before round limit
+        rtl_key = (match.division_code, match.round_name)
+        rtl = get_round_time_limit(config, match.round_name, match.category, match.division_code)
+        if rtl is not None and rtl_key in round_first_start:
+            rtl_deadline = round_first_start[rtl_key] + rtl
+            rtl_latest = rtl_deadline - match.duration_min
+            if latest is None:
+                latest = rtl_latest
+            else:
+                latest = min(latest, rtl_latest)
+            round_time_limited = True
+
         # Snap to next slot boundary
         if earliest % slot_duration != 0:
             earliest = ((earliest // slot_duration) + 1) * slot_duration
@@ -1505,11 +1538,23 @@ def schedule_matches(matches, match_by_id, config, venue_model):
             courts = get_eligible_courts(match, slot, config, venue_model)
             slots_tried += 1
             slot_all_busy = True
+            # For matches with round court preferences (e.g., Finals on 5-8),
+            # try buffer override on preferred courts before accepting fallback
+            has_round_pref = bare_round in config["court_preferences"].get("round_court_preferences", {})
+            court_overrides = {}  # court -> overridden buffer slots
             for court in courts:
                 if not court_sched.can_book(court, slot, match.duration_min, match.overrun_buffer):
-                    if slot not in trace_court_busy:
-                        trace_court_busy[slot] = []
-                    trace_court_busy[slot].append(court)
+                    # Only try inline buffer override for courts with round preferences
+                    if has_round_pref:
+                        can_ovr, ovr_slots = court_sched.can_book_override_buffer(
+                            court, slot, match.duration_min, match.overrun_buffer
+                        )
+                        if can_ovr:
+                            court_overrides[court] = ovr_slots
+                    if court not in court_overrides:
+                        if slot not in trace_court_busy:
+                            trace_court_busy[slot] = []
+                        trace_court_busy[slot].append(court)
                     continue
 
                 slot_all_busy = False
@@ -1563,7 +1608,11 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                         match.duration_min, match.id
                     )
 
-                # Record SF same-time for this division
+                # Record pool first start time
+                rtl_key = (match.division_code, match.round_name)
+                if rtl_key not in round_first_start:
+                    round_first_start[rtl_key] = slot
+
                 # Record same-day assignment for this round+division
                 if same_day_key not in round_day_assignments:
                     placed_day = _day_name_for_minute(venue_model, slot)
@@ -1571,6 +1620,58 @@ def schedule_matches(matches, match_by_id, config, venue_model):
 
                 placed = True
                 break
+
+            # If no court was directly available but some preferred courts
+            # could work with buffer override, try those before moving to next slot
+            if not placed and court_overrides:
+                for court, ovr_slots in court_overrides.items():
+                    if match.effective_players:
+                        if not player_tracker.can_play_at(
+                            match.effective_players, slot, match.duration_min,
+                            match.division_code, match.category
+                        ):
+                            break  # player blocked — no point trying other courts
+                    if match.effective_players and player_tracker.potential_history:
+                        ok, _ = player_tracker.check_potential_overlap(
+                            match.effective_players, slot, match.duration_min
+                        )
+                        if not ok:
+                            break
+
+                    # Override buffers and book
+                    for bc, bm in ovr_slots:
+                        del court_sched.booked[(bc, bm)]
+                    court_sched.book(court, slot, match.id, match.duration_min, match.overrun_buffer)
+
+                    if match.has_some_real_players:
+                        confirmed = set()
+                        for p_str in (match.player1, match.player2):
+                            if not p_str.startswith("Winner ") and not p_str.startswith("Slot "):
+                                confirmed.update(extract_player_names(p_str))
+                        if confirmed:
+                            player_tracker.update(
+                                list(confirmed), slot,
+                                match.duration_min, match.division_code, match.category
+                            )
+                    if check_potential and match.effective_players:
+                        player_tracker.update_potential(
+                            match.effective_players, slot, match.duration_min, match.id
+                        )
+                    scheduled[match.id] = (court, slot)
+                    scheduled_end[match.id] = slot + match.duration_min
+                    if "Pool" in match.round_name:
+                        ptl_key = (match.division_code, match.round_name)
+                        if ptl_key not in round_first_start:
+                            round_first_start[ptl_key] = slot
+                    if same_day_key not in round_day_assignments:
+                        round_day_assignments[same_day_key] = _day_name_for_minute(venue_model, slot)
+                    buffer_override_detail = [
+                        _fmt_minute(venue_model, bm) + f" court {bc}"
+                        for bc, bm in ovr_slots
+                    ]
+                    placed = True
+                    break
+
             if placed:
                 break
 
@@ -1641,10 +1742,10 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                             match.duration_min, match.id
                         )
 
-                    if bare_round == "Semi-Final":
-                        sf_key = (match.division_code, match.round_name)
-                        if sf_key not in sf_same_time:
-                            sf_same_time[sf_key] = slot
+                    if "Pool" in match.round_name:
+                        ptl_key = (match.division_code, match.round_name)
+                        if ptl_key not in round_first_start:
+                            round_first_start[ptl_key] = slot
 
                     if same_day_key not in round_day_assignments:
                         placed_day = _day_name_for_minute(venue_model, slot)
@@ -1656,6 +1757,87 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                     ]
                     placed = True
                     break
+                if placed:
+                    break
+
+        # Fallback: if pool time limit was the blocker, retry without it
+        round_limit_overridden = False
+        if not placed and round_time_limited:
+            # Retry the full scheduling (normal + buffer override) with relaxed latest
+            relaxed_latest = latest_without_rtl
+            for attempt_buffer in (False, True):
+                for slot in all_slots:
+                    if slot < earliest:
+                        continue
+                    if relaxed_latest is not None and slot >= relaxed_latest:
+                        break
+
+                    courts = get_eligible_courts(match, slot, config, venue_model)
+                    for court in courts:
+                        if attempt_buffer:
+                            can_book, overridden = court_sched.can_book_override_buffer(
+                                court, slot, match.duration_min, match.overrun_buffer
+                            )
+                            if not can_book:
+                                continue
+                        else:
+                            if not court_sched.can_book(court, slot, match.duration_min, match.overrun_buffer):
+                                continue
+                            overridden = []
+
+                        if match.effective_players:
+                            if not player_tracker.can_play_at(
+                                match.effective_players, slot, match.duration_min,
+                                match.division_code, match.category
+                            ):
+                                continue
+                        if match.effective_players and player_tracker.potential_history:
+                            ok, _ = player_tracker.check_potential_overlap(
+                                match.effective_players, slot, match.duration_min
+                            )
+                            if not ok:
+                                continue
+
+                        # Clear buffers if needed
+                        for bc, bm in overridden:
+                            del court_sched.booked[(bc, bm)]
+                        court_sched.book(court, slot, match.id, match.duration_min, match.overrun_buffer)
+
+                        if match.has_some_real_players:
+                            confirmed = set()
+                            for p_str in (match.player1, match.player2):
+                                if not p_str.startswith("Winner ") and not p_str.startswith("Slot "):
+                                    confirmed.update(extract_player_names(p_str))
+                            if confirmed:
+                                player_tracker.update(
+                                    list(confirmed), slot,
+                                    match.duration_min, match.division_code, match.category
+                                )
+                        check_potential = _should_check_potential_conflicts(match, pca_config)
+                        if check_potential and match.effective_players:
+                            player_tracker.update_potential(
+                                match.effective_players, slot, match.duration_min, match.id
+                            )
+                        scheduled[match.id] = (court, slot)
+                        scheduled_end[match.id] = slot + match.duration_min
+
+                        rfs_key = (match.division_code, match.round_name)
+                        if rfs_key not in round_first_start:
+                            round_first_start[rfs_key] = slot
+
+                        if same_day_key not in round_day_assignments:
+                            round_day_assignments[same_day_key] = _day_name_for_minute(venue_model, slot)
+
+                        round_limit_overridden = True
+                        if overridden:
+                            buffer_override_detail = [
+                                _fmt_minute(venue_model, bm) + f" court {bc}"
+                                for bc, bm in overridden
+                            ]
+                        placed = True
+                        break
+                    if placed:
+                        break
                 if placed:
                     break
 
@@ -1753,9 +1935,14 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 "player2": match.player2,
                 "players": match.effective_players[:10],
             }
+            warnings_list = []
             if buffer_override_detail:
-                trace_entry["warning"] = "court buffer overridden"
+                warnings_list.append("court buffer overridden")
                 trace_entry["buffer_slots_overridden"] = buffer_override_detail
+            if round_limit_overridden:
+                warnings_list.append("round time limit exceeded")
+            if warnings_list:
+                trace_entry["warning"] = "; ".join(warnings_list)
             sched_trace.append(trace_entry)
 
     # Write scheduling trace log

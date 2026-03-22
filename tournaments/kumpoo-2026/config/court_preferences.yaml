@@ -9,12 +9,34 @@ categories:
     fallback_courts: [1, 2, 3, 4]
   Junior:
     required_courts: [9, 10, 11, 12]
-    day_overrides:
-      Sunday:
-        required_courts: null
-        preferred_courts: [1, 2, 3, 4]
-        fallback_courts: [5, 6, 7, 8]
+    # day_overrides:
+    #   Sunday:
+    #     required_courts: null
+    #     preferred_courts: [1, 2, 3, 4]
+    #     fallback_courts: [5, 6, 7, 8]
+    #round_overrides:
+    #  "Semi-Final":
+    #    required_courts: null
+    #    preferred_courts: [9, 10, 11, 12]
+    #    fallback_courts: [5, 6, 7, 8]
+    #  "Final":
+    #    required_courts: null
+    #    preferred_courts: [5, 6, 7, 8]
+    #    fallback_courts: [9, 10, 11, 12]
+  Veterans:
+    preferred_courts: [1, 2, 3, 4]
+    fallback_courts: [5, 6, 7, 8]
 
 default:
   preferred_courts: [5, 6, 7, 8]
   fallback_courts: [1, 2, 3, 4]
+
+# Per-round court preferences (override category preferences for specific rounds).
+# Does not apply to categories with required_courts (e.g., Junior on Saturday).
+round_court_preferences:
+  "Final":
+    preferred_courts: [5, 6, 7, 8]
+    fallback_courts: [1, 2, 3, 4]
+  "Semi-Final":
+    preferred_courts: [5, 6, 7, 8]
+    fallback_courts: [1, 2, 3, 4]
