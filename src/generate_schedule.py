@@ -955,21 +955,26 @@ class PlayerTracker:
             )
 
     def check_potential_overlap(self, players, start_minute, duration,
-                                category=None, div_code=None):
+                                category=None, div_code=None, scope="all"):
         """Check potential player conflicts with rest enforcement.
 
-        Within the same category: enforces rest between potential matches
-        (using compute_rest_between for same-division, cross-division rest
-        for different divisions within category).
-
-        Cross-category: only checks time overlap (no rest).
+        scope="all": check across ALL categories (from default config).
+          Same-category: enforce rest. Cross-category: enforce no-overlap.
+        scope="same_category": only check within same category (from
+          category-specific config). Cross-category is ignored entirely.
 
         Returns (ok, conflict_detail) where ok=True means no conflict.
         """
         new_end = start_minute + duration
         for p in players:
             for prev_start, prev_end, prev_match_id, prev_cat, prev_div in self.potential_history[p]:
-                if category and prev_cat and category == prev_cat:
+                same_cat = (category and prev_cat and category == prev_cat)
+                diff_cat = (category and prev_cat and category != prev_cat)
+
+                if scope == "same_category" and diff_cat:
+                    continue  # Category-specific: ignore cross-category
+
+                if same_cat:
                     # Same category: enforce rest
                     rest = compute_rest_between(
                         self.config,
@@ -990,24 +995,25 @@ class PlayerTracker:
                             )
                     else:
                         return False, f"{p} potential overlap with {prev_match_id}"
-                elif category and prev_cat and category != prev_cat:
-                    # Cross-category: overlap check only (no rest)
+                elif diff_cat:
+                    # Cross-category (scope="all"): enforce no-overlap only
                     if not (new_end <= prev_start or prev_end <= start_minute):
                         return False, f"{p} potential overlap with {prev_match_id}"
         return True, ""
 
     def check_potential_overlap_relaxed(self, players, start_minute, duration,
                                         category=None):
-        """Fallback: only check time overlaps within same category (no rest).
+        """Fallback: check time overlaps within same category only (no rest).
 
-        Used when the full rest check fails — allows scheduling with
-        reduced rest but still prevents double-booking.
+        Used when the full check (with cross-category overlap and same-
+        category rest) fails. Relaxes to same-category overlap-only, accepting
+        the risk of cross-category overlaps. The verifier will report these.
         """
         new_end = start_minute + duration
         for p in players:
             for prev_start, prev_end, prev_match_id, prev_cat, prev_div in self.potential_history[p]:
                 if category and prev_cat and category != prev_cat:
-                    continue
+                    continue  # Cross-category: accept in relaxed mode
                 if not (new_end <= prev_start or prev_end <= start_minute):
                     return False, f"{p} potential overlap with {prev_match_id}"
         return True, ""
@@ -1174,20 +1180,30 @@ def _player_conflict_detail(player_tracker, match, slot):
 
 
 def _should_check_potential_conflicts(match, pca_config):
-    """Check if this match's round is configured for potential conflict avoidance."""
+    """Check if this match's round is configured for potential conflict avoidance.
+
+    Returns (should_check, scope) where scope is:
+      "all" — from default config, check across all categories
+      "same_category" — from category-specific config, check within category only
+      None — not configured
+    """
     if not pca_config:
-        return False
+        return False, None
     category = match.category
     round_name = match.round_name
-    # Strip "Playoff " prefix for matching
     bare_round = round_name.replace("Playoff ", "") if round_name.startswith("Playoff ") else round_name
 
     # Check category-specific config first
     if category in pca_config:
-        return bare_round in pca_config[category]
-    # Fall back to default
+        if bare_round in pca_config[category]:
+            return True, "same_category"
+
+    # Fall back to default (applies across all categories)
     default_rounds = pca_config.get("_default", set())
-    return bare_round in default_rounds
+    if bare_round in default_rounds:
+        return True, "all"
+
+    return False, None
 
 
 def _parse_deadline(deadline_str, venue_model):
@@ -1356,12 +1372,15 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                 ):
                     ok1 = False
                 if ok1 and player_tracker.potential_history:
-                    ok_p, _ = player_tracker.check_potential_overlap(
-                        m1.effective_players, slot, m1.duration_min,
-                        category=m1.category, div_code=m1.division_code,
-                    )
-                    if not ok_p:
-                        ok1 = False
+                    _, sf_scope = _should_check_potential_conflicts(m1, pca_config)
+                    if sf_scope:
+                        ok_p, _ = player_tracker.check_potential_overlap(
+                            m1.effective_players, slot, m1.duration_min,
+                            category=m1.category, div_code=m1.division_code,
+                            scope=sf_scope,
+                        )
+                        if not ok_p:
+                            ok1 = False
             if not ok1:
                 continue
 
@@ -1373,10 +1392,13 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                 ):
                     ok2 = False
                 if ok2 and player_tracker.potential_history:
-                    ok_p, _ = player_tracker.check_potential_overlap(
-                        m2.effective_players, slot, m2.duration_min,
-                        category=m2.category, div_code=m2.division_code,
-                    )
+                    _, sf_scope2 = _should_check_potential_conflicts(m2, pca_config)
+                    if sf_scope2:
+                        ok_p, _ = player_tracker.check_potential_overlap(
+                            m2.effective_players, slot, m2.duration_min,
+                            category=m2.category, div_code=m2.division_code,
+                            scope=sf_scope2,
+                        )
                     if not ok_p:
                         ok2 = False
             if not ok2:
@@ -1405,7 +1427,7 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                             m.duration_min, m.division_code, m.category
                         )
 
-                check_potential = _should_check_potential_conflicts(m, pca_config)
+                check_potential, pca_scope = _should_check_potential_conflicts(m, pca_config)
                 if check_potential and m.effective_players:
                     player_tracker.update_potential(
                         m.effective_players, slot, m.duration_min, m.id,
@@ -1498,7 +1520,7 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                                 list(confirmed), slot,
                                 m.duration_min, m.division_code, m.category
                             )
-                    check_potential = _should_check_potential_conflicts(m, pca_config)
+                    check_potential, pca_scope = _should_check_potential_conflicts(m, pca_config)
                     if check_potential and m.effective_players:
                         player_tracker.update_potential(
                             m.effective_players, slot, m.duration_min, m.id,
@@ -1818,11 +1840,12 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 # Check potential player overlaps — always check against
                 # potential_history (populated by configured rounds), so that
                 # e.g. a Pool match won't overlap with a R2 match's potential players
-                check_potential = _should_check_potential_conflicts(match, pca_config)
+                check_potential, pca_scope = _should_check_potential_conflicts(match, pca_config)
                 if match.effective_players and player_tracker.potential_history:
                     ok, detail = player_tracker.check_potential_overlap(
                         match.effective_players, slot, match.duration_min,
                         category=match.category, div_code=match.division_code,
+                        scope=pca_scope or "all",
                     )
                     if not ok:
                         trace_player_conflict[slot] = f"potential overlap: {detail}"
@@ -2065,7 +2088,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                                     list(confirmed), slot,
                                     match.duration_min, match.division_code, match.category
                                 )
-                        check_potential = _should_check_potential_conflicts(match, pca_config)
+                        check_potential, pca_scope = _should_check_potential_conflicts(match, pca_config)
                         if check_potential and match.effective_players:
                             player_tracker.update_potential(
                                 match.effective_players, slot, match.duration_min, match.id,
@@ -2148,7 +2171,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                                     list(confirmed), slot,
                                     match.duration_min, match.division_code, match.category
                                 )
-                        check_potential = _should_check_potential_conflicts(match, pca_config)
+                        check_potential, pca_scope = _should_check_potential_conflicts(match, pca_config)
                         if check_potential and match.effective_players:
                             player_tracker.update_potential(
                                 match.effective_players, slot, match.duration_min, match.id,

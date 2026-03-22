@@ -1032,15 +1032,29 @@ def verify(config):
 
     all_issues = []
     total_checks = 0
+    total_failures = 0
+    total_warnings = 0
+
+    def _report_failures(issues):
+        nonlocal total_failures
+        all_issues.extend(issues)
+        total_failures += len(issues)
+        for issue in issues:
+            print(f"  FAIL: {issue}")
+
+    def _report_warnings(issues):
+        nonlocal total_warnings
+        all_issues.extend(issues)
+        total_warnings += len(issues)
+        for issue in issues:
+            print(f"  WARN: {issue}")
 
     # Check 1: Bracket completeness
     print("Check 1: Bracket completeness...")
     issues = check_bracket_completeness(divisions)
     total_checks += 1
     if issues:
-        all_issues.extend(issues)
-        for issue in issues:
-            print(f"  FAIL: {issue}")
+        _report_failures(issues)
     else:
         print("  PASS")
 
@@ -1050,9 +1064,7 @@ def verify(config):
         issues = check_round_ordering(schedule)
         total_checks += 1
         if issues:
-            all_issues.extend(issues)
-            for issue in issues:
-                print(f"  FAIL: {issue}")
+            _report_failures(issues)
         else:
             print("  PASS")
 
@@ -1061,9 +1073,7 @@ def verify(config):
         issues = check_schedule_coverage(divisions, schedule)
         total_checks += 1
         if issues:
-            all_issues.extend(issues)
-            for issue in issues:
-                print(f"  FAIL: {issue}")
+            _report_failures(issues)
         else:
             print("  PASS")
 
@@ -1072,9 +1082,7 @@ def verify(config):
         issues = check_player_conflicts(schedule)
         total_checks += 1
         if issues:
-            all_issues.extend(issues)
-            for issue in issues:
-                print(f"  FAIL: {issue}")
+            _report_failures(issues)
         else:
             print("  PASS")
     else:
@@ -1085,9 +1093,7 @@ def verify(config):
     issues = check_double_byes(divisions)
     total_checks += 1
     if issues:
-        all_issues.extend(issues)
-        for issue in issues:
-            print(f"  FAIL: {issue}")
+        _report_failures(issues)
     else:
         print("  PASS")
 
@@ -1097,12 +1103,8 @@ def verify(config):
         errors, warnings = check_scheduling_constraints(schedule, config)
         total_checks += 1
         if errors or warnings:
-            all_issues.extend(errors)
-            all_issues.extend(warnings)
-            for e in errors:
-                print(f"  FAIL: {e}")
-            for w in warnings:
-                print(f"  WARN: {w}")
+            _report_failures(errors)
+            _report_warnings(warnings)
         if not errors and not warnings:
             print("  PASS")
 
@@ -1112,12 +1114,8 @@ def verify(config):
         errors, warnings = check_potential_player_conflicts(schedule, config)
         total_checks += 1
         if errors or warnings:
-            all_issues.extend(errors)
-            all_issues.extend(warnings)
-            for e in errors:
-                print(f"  FAIL: {e}")
-            for w in warnings:
-                print(f"  WARN: {w}")
+            _report_failures(errors)
+            _report_warnings(warnings)
         if not errors and not warnings:
             print("  PASS")
 
@@ -1126,9 +1124,7 @@ def verify(config):
     issues = check_court_buffer_violations(schedules_dir)
     total_checks += 1
     if issues:
-        all_issues.extend(issues)
-        for issue in issues:
-            print(f"  WARN: {issue}")
+        _report_warnings(issues)
     else:
         print("  PASS")
 
@@ -1138,15 +1134,13 @@ def verify(config):
         issues = check_court_preferences(schedule, config)
         total_checks += 1
         if issues:
-            all_issues.extend(issues)
-            for issue in issues:
-                print(f"  WARN: {issue}")
+            _report_warnings(issues)
         else:
             print("  PASS")
 
     print()
     if all_issues:
-        print(f"RESULT: {len(all_issues)} issues found across {total_checks} checks")
+        print(f"RESULT: {len(all_issues)} issues ({total_failures} failures, {total_warnings} warnings) across {total_checks} checks")
     else:
         print(f"RESULT: All {total_checks} checks passed")
 

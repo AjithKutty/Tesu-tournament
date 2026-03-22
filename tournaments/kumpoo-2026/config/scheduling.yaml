@@ -33,6 +33,8 @@ priorities:
       "Pool": 15
     "MS A":
       "Quarter-Final": 25
+    #"MD A":
+    #  "Quarter-Final": 15
 
   # Per-day overrides — different priorities on different days
   # Round-level overrides apply to all divisions on that day.
@@ -68,7 +70,7 @@ division_day_constraints:
     - rounds: ["Quarter-Final", "Semi-Final", "Final"]
       day: "Sunday"
   "MD A":
-    - rounds: ["Quarter-Final", "Semi-Final", "Final"]
+    - rounds: ["Semi-Final", "Final"]
       day: "Sunday"
   "XD C":
     - rounds: ["Quarter-Final", "Semi-Final", "Final"]
