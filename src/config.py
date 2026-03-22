@@ -333,14 +333,16 @@ def get_court_preference(config, category, day_name=None):
     return result
 
 
-def resolve_priority(config, round_name, category, div_code):
+def resolve_priority(config, round_name, category, div_code, day_name=None):
     """Resolve the scheduling priority for a specific match.
 
     Checks in order (highest precedence first):
-      1. Per-division override in priorities.divisions
-      2. Per-category override in priorities.categories
-      3. Base round priority in priorities.rounds
-      4. Fallback default (50)
+      1. Per-day per-division override in priorities.day_overrides.<day>.divisions
+      2. Per-day base override in priorities.day_overrides.<day>.rounds
+      3. Per-division override in priorities.divisions
+      4. Per-category override in priorities.categories
+      5. Base round priority in priorities.rounds
+      6. Fallback default (50)
 
     Supports both new hierarchical format and legacy flat format.
     """
@@ -351,8 +353,19 @@ def resolve_priority(config, round_name, category, div_code):
         base_rounds = prio_cfg.get("rounds", {})
         cat_overrides = prio_cfg.get("categories", {})
         div_overrides = prio_cfg.get("divisions", {})
+        day_overrides = prio_cfg.get("day_overrides", {})
 
-        # Division override (highest precedence)
+        # Per-day overrides (highest precedence)
+        if day_name and day_name in day_overrides:
+            day_cfg = day_overrides[day_name]
+            day_div = day_cfg.get("divisions", {})
+            day_rounds = day_cfg.get("rounds", {})
+            if div_code in day_div and round_name in day_div[div_code]:
+                return day_div[div_code][round_name]
+            if round_name in day_rounds:
+                return day_rounds[round_name]
+
+        # Division override
         if div_code in div_overrides and round_name in div_overrides[div_code]:
             return div_overrides[div_code][round_name]
 

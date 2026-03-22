@@ -28,6 +28,13 @@ priorities:
     "MS A":
       "Quarter-Final": 25
 
+  # Per-day overrides — different priorities on different days
+  day_overrides:
+    Sunday:
+      divisions:
+        "MS C":
+          "Quarter-Final": 25   # Schedule MD C QF early on Sunday
+
 # Rounds that must be scheduled on a specific day (global — applies to all divisions)
 day_constraints:
   - rounds: ["Semi-Final", "Final"]
@@ -67,6 +74,9 @@ division_day_constraints:
   "BS U17":
     - rounds: ["Semi-Final", "Final"]
       day: "Saturday"
+
+# Semi-final same-time: both SF matches of a division must start at the same time
+semi_final_same_time: true
 
 # Round completion: all matches in a round must finish before the next round
 # starts (per division). Does not apply to round-robin pool matches.

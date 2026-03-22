@@ -233,10 +233,11 @@ def _load_elimination_matches(config, data, div_code, div_name, category, durati
 
     for rnd in rounds:
         round_name = rnd["name"]
-        priority = resolve_priority(config, round_name, category, div_code)
         day_constraint = _resolve_day_constraint(
             div_code, round_name, global_day_map, division_day_map
         )
+        priority = resolve_priority(config, round_name, category, div_code,
+                                    day_name=day_constraint)
 
         for m in rnd["matches"]:
             match_id = make_match_id(div_code, round_name, m["match"])
@@ -312,7 +313,8 @@ def _load_roundrobin_matches(config, data, div_code, div_name, category, duratio
     day_constraint = _resolve_day_constraint(
         div_code, "Pool", global_day_map, division_day_map
     )
-    pool_priority = resolve_priority(config, "Pool", category, div_code)
+    pool_priority = resolve_priority(config, "Pool", category, div_code,
+                                     day_name=day_constraint)
     for m in data.get("matches", []):
         match_id = make_match_id(div_code, "Pool", m["match"])
         p1 = m.get("player1", "")
@@ -345,7 +347,8 @@ def _load_group_playoff_matches(config, data, div_code, div_name, category, dura
     group_day_constraint = _resolve_day_constraint(
         div_code, "Group A Pool", global_day_map, division_day_map
     )
-    pool_priority = resolve_priority(config, "Pool", category, div_code)
+    pool_priority = resolve_priority(config, "Pool", category, div_code,
+                                     day_name=group_day_constraint)
 
     for group in data.get("groups", []):
         group_name = group["name"]
@@ -376,10 +379,6 @@ def _load_group_playoff_matches(config, data, div_code, div_name, category, dura
         for rnd in playoff["rounds"]:
             round_name = rnd["name"]
             playoff_round_label = f"Playoff {round_name}"
-            priority = resolve_priority(config, playoff_round_label, category, div_code)
-            # Also try bare round name if playoff-specific isn't configured
-            bare_priority = resolve_priority(config, round_name, category, div_code)
-            priority = min(priority, bare_priority)
 
             day_constraint = _resolve_day_constraint(
                 div_code, playoff_round_label, global_day_map, division_day_map
@@ -388,6 +387,12 @@ def _load_group_playoff_matches(config, data, div_code, div_name, category, dura
                 day_constraint = _resolve_day_constraint(
                     div_code, round_name, global_day_map, division_day_map
                 )
+
+            priority = resolve_priority(config, playoff_round_label, category,
+                                        div_code, day_name=day_constraint)
+            bare_priority = resolve_priority(config, round_name, category,
+                                            div_code, day_name=day_constraint)
+            priority = min(priority, bare_priority)
 
             for m in rnd["matches"]:
                 match_id = make_match_id(div_code, f"Playoff {round_name}", m["match"])
@@ -1067,6 +1072,219 @@ def _build_time_deadline_map(config, venue_model):
     return result
 
 
+def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
+                      all_slots, slot_duration, config, venue_model,
+                      court_sched, player_tracker, pca_config,
+                      scheduled, scheduled_end, sf_already_placed,
+                      unschedulable, unscheduled, sched_trace,
+                      round_day_assignments, same_day_key,
+                      day_start_minutes, day_end_minutes,
+                      min_prereq_rest, deadline_map,
+                      rc_enabled, rc_exceptions, div_round_matches):
+    """Schedule both SF matches of a division at the same time slot.
+
+    Finds a slot where two courts are available and both matches' player
+    constraints are satisfied.
+    """
+    m1, m2 = pair
+
+    # Compute earliest for each match from prerequisites
+    earliest = earliest_base
+    for m in pair:
+        for prereq_id in m.prerequisites:
+            if prereq_id in scheduled_end:
+                earliest = max(earliest, scheduled_end[prereq_id] + min_prereq_rest)
+
+    # Round-completion constraint
+    if rc_enabled and m1.division_code not in (rc_exceptions or set()):
+        prev_round = _get_previous_round(
+            m1.division_code, m1.round_name, div_round_matches
+        )
+        if prev_round:
+            prev_ids = div_round_matches[(m1.division_code, prev_round)]
+            if any(mid in unschedulable for mid in prev_ids):
+                for m in pair:
+                    unschedulable.add(m.id)
+                    unscheduled.append(m)
+                    sched_trace.append({
+                        "match_id": m.id, "status": "UNSCHEDULED",
+                        "reason": f"previous round incomplete (SF pair)",
+                    })
+                return True  # handled
+            if prev_ids:
+                latest_prev = max(scheduled_end.get(mid, 0) for mid in prev_ids)
+                earliest = max(earliest, latest_prev)
+
+    # Day constraint
+    latest = latest_base
+    effective_day = day_constraint or m1.day_constraint
+    sdkey = _get_same_day_key(m1)
+    if sdkey in round_day_assignments:
+        assigned_day = round_day_assignments[sdkey]
+        ds = day_start_minutes.get(assigned_day, 0)
+        de = day_end_minutes.get(assigned_day, ds + 24 * 60)
+        earliest = max(earliest, ds)
+        latest = de
+    elif effective_day:
+        ds = day_start_minutes.get(effective_day, 0)
+        de = day_end_minutes.get(effective_day, ds + 24 * 60)
+        earliest = max(earliest, ds)
+        latest = de
+
+    # Time deadline
+    for m in pair:
+        dl = deadline_map.get((m.division_code, m.round_name))
+        if dl is None:
+            dl = deadline_map.get((None, m.round_name))
+        if dl is not None:
+            dl_latest = dl - m.duration_min
+            latest = min(latest, dl_latest) if latest else dl_latest
+
+    # Snap earliest
+    if earliest % slot_duration != 0:
+        earliest = ((earliest // slot_duration) + 1) * slot_duration
+
+    # Search for a slot with 2 available courts
+    placed = False
+    for slot in all_slots:
+        if slot < earliest:
+            continue
+        if latest is not None and slot >= latest:
+            break
+
+        courts = get_eligible_courts(m1, slot, config, venue_model)
+        available_courts = []
+        for court in courts:
+            if court_sched.can_book(court, slot, m1.duration_min, m1.overrun_buffer):
+                available_courts.append(court)
+
+        if len(available_courts) < 2:
+            # Try with buffer override
+            for court in courts:
+                if court in available_courts:
+                    continue
+                can_ovr, _ = court_sched.can_book_override_buffer(
+                    court, slot, m1.duration_min, m1.overrun_buffer
+                )
+                if can_ovr:
+                    available_courts.append(court)
+                if len(available_courts) >= 2:
+                    break
+
+        if len(available_courts) < 2:
+            continue
+
+        # Try all 2-court combinations for the pair
+        from itertools import combinations
+        for c1, c2 in combinations(available_courts, 2):
+            # Check player constraints for both matches
+            ok1 = True
+            if m1.effective_players:
+                if not player_tracker.can_play_at(
+                    m1.effective_players, slot, m1.duration_min,
+                    m1.division_code, m1.category
+                ):
+                    ok1 = False
+                if ok1 and player_tracker.potential_history:
+                    ok_p, _ = player_tracker.check_potential_overlap(
+                        m1.effective_players, slot, m1.duration_min
+                    )
+                    if not ok_p:
+                        ok1 = False
+            if not ok1:
+                continue
+
+            ok2 = True
+            if m2.effective_players:
+                if not player_tracker.can_play_at(
+                    m2.effective_players, slot, m2.duration_min,
+                    m2.division_code, m2.category
+                ):
+                    ok2 = False
+                if ok2 and player_tracker.potential_history:
+                    ok_p, _ = player_tracker.check_potential_overlap(
+                        m2.effective_players, slot, m2.duration_min
+                    )
+                    if not ok_p:
+                        ok2 = False
+            if not ok2:
+                continue
+
+            # Book both matches
+            for m, court in [(m1, c1), (m2, c2)]:
+                # Override buffer if needed
+                if not court_sched.can_book(court, slot, m.duration_min, m.overrun_buffer):
+                    _, overridden = court_sched.can_book_override_buffer(
+                        court, slot, m.duration_min, m.overrun_buffer
+                    )
+                    for bc, bm in overridden:
+                        del court_sched.booked[(bc, bm)]
+
+                court_sched.book(court, slot, m.id, m.duration_min, m.overrun_buffer)
+
+                if m.has_some_real_players:
+                    confirmed = set()
+                    for p_str in (m.player1, m.player2):
+                        if not p_str.startswith("Winner ") and not p_str.startswith("Slot "):
+                            confirmed.update(extract_player_names(p_str))
+                    if confirmed:
+                        player_tracker.update(
+                            list(confirmed), slot,
+                            m.duration_min, m.division_code, m.category
+                        )
+
+                check_potential = _should_check_potential_conflicts(m, pca_config)
+                if check_potential and m.effective_players:
+                    player_tracker.update_potential(
+                        m.effective_players, slot, m.duration_min, m.id
+                    )
+
+                scheduled[m.id] = (court, slot)
+                scheduled_end[m.id] = slot + m.duration_min
+                sf_already_placed.add(m.id)
+
+                sched_trace.append({
+                    "match_id": m.id,
+                    "status": "SCHEDULED",
+                    "priority": m.priority,
+                    "placed": _fmt_minute(venue_model, slot),
+                    "court": court,
+                    "player1": m.player1,
+                    "player2": m.player2,
+                    "players": m.effective_players[:10],
+                    "note": "SF pair scheduling",
+                })
+
+            # Record same-day
+            if sdkey not in round_day_assignments:
+                round_day_assignments[sdkey] = _day_name_for_minute(venue_model, slot)
+
+            placed = True
+            break
+        if placed:
+            break
+
+    if not placed:
+        for m in pair:
+            unschedulable.add(m.id)
+            unscheduled.append(m)
+            sched_trace.append({
+                "match_id": m.id,
+                "status": "UNSCHEDULED",
+                "priority": m.priority,
+                "reason": "SF pair: no slot with 2 available courts meeting all constraints",
+                "constraints": [
+                    f"earliest={_fmt_minute(venue_model, earliest)}",
+                    f"latest={_fmt_minute(venue_model, latest)}" if latest else None,
+                ],
+                "player1": m.player1,
+                "player2": m.player2,
+                "players": m.effective_players[:10],
+            })
+
+    return True  # handled (whether placed or not)
+
+
 def schedule_matches(matches, match_by_id, config, venue_model):
     """Main scheduling loop. Returns (scheduled_dict, unscheduled_list)."""
     # Compute probabilities and filter effective players
@@ -1111,6 +1329,21 @@ def schedule_matches(matches, match_by_id, config, venue_model):
     day_end_minutes = {}
     for day in venue_model["days"]:
         day_end_minutes[day["name"]] = day["end_minute"]
+
+    # Semi-final same-time enforcement: both SF matches of a division
+    # are scheduled together as a pair (when enabled in config).
+    sf_same_time_enabled = config["scheduling"].get("semi_final_same_time", False)
+    # Build SF pairs: (div_code, round_name) -> [match, match]
+    sf_pairs = {}
+    sf_already_placed = set()  # match IDs already placed as part of a pair
+    if sf_same_time_enabled:
+        for m in matches:
+            bare = m.round_name.replace("Playoff ", "") if m.round_name.startswith("Playoff ") else m.round_name
+            if bare == "Semi-Final":
+                key = (m.division_code, m.round_name)
+                if key not in sf_pairs:
+                    sf_pairs[key] = []
+                sf_pairs[key].append(m)
 
     # Minimum rest for prerequisite gaps (cross-division baseline)
     min_prereq_rest = get_cross_division_rest(config)
@@ -1220,6 +1453,29 @@ def schedule_matches(matches, match_by_id, config, venue_model):
         if earliest % slot_duration != 0:
             earliest = ((earliest // slot_duration) + 1) * slot_duration
 
+        # Semi-final pair scheduling: skip if already placed as part of a pair
+        bare_round = match.round_name.replace("Playoff ", "") if match.round_name.startswith("Playoff ") else match.round_name
+        if match.id in sf_already_placed:
+            continue
+
+        # If this is a SF match in a pair, schedule both together
+        if sf_same_time_enabled and bare_round == "Semi-Final":
+            sf_key = (match.division_code, match.round_name)
+            pair = sf_pairs.get(sf_key, [])
+            if len(pair) == 2:
+                placed = _schedule_sf_pair(
+                    pair, earliest, latest, match.day_constraint,
+                    all_slots, slot_duration, config, venue_model,
+                    court_sched, player_tracker, pca_config,
+                    scheduled, scheduled_end, sf_already_placed,
+                    unschedulable, unscheduled, sched_trace,
+                    round_day_assignments, same_day_key,
+                    day_start_minutes, day_end_minutes,
+                    min_prereq_rest, deadline_map,
+                    rc_enabled, rc_exceptions, div_round_matches,
+                )
+                continue  # pair handler deals with both matches
+
         # Collect trace info for this match
         trace_constraints = []
         if earliest > 0:
@@ -1307,6 +1563,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                         match.duration_min, match.id
                     )
 
+                # Record SF same-time for this division
                 # Record same-day assignment for this round+division
                 if same_day_key not in round_day_assignments:
                     placed_day = _day_name_for_minute(venue_model, slot)
@@ -1383,6 +1640,11 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                             match.effective_players, slot,
                             match.duration_min, match.id
                         )
+
+                    if bare_round == "Semi-Final":
+                        sf_key = (match.division_code, match.round_name)
+                        if sf_key not in sf_same_time:
+                            sf_same_time[sf_key] = slot
 
                     if same_day_key not in round_day_assignments:
                         placed_day = _day_name_for_minute(venue_model, slot)
