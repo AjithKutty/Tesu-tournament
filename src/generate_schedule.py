@@ -2301,6 +2301,8 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 "player2": match.player2,
                 "players": match.effective_players,
             }
+            if "Pool" in match.round_name:
+                trace_entry["pool_round"] = match.pool_round + 1  # display as 1-based
             warnings_list = []
             if buffer_override_detail:
                 warnings_list.append("court buffer overridden")
@@ -2459,6 +2461,8 @@ def write_schedules(matches, match_by_id, scheduled, unscheduled, warnings, conf
             "duration_min": match.duration_min,
             "category": match.category,
         }
+        if "Pool" in match.round_name:
+            rec["pool_round"] = match.pool_round + 1  # display as 1-based
         if match.player1.startswith("Winner ") or match.player1.startswith("Slot "):
             rec["notes"] = "Players TBD based on earlier results"
         records.append((minute, rec))

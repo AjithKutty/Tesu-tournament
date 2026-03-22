@@ -259,19 +259,38 @@ def render_rr_matches(matches, div_code="", round_prefix="Pool", schedule_lookup
     if not matches:
         return ""
 
-    cards = []
-    for m in matches:
-        p1 = h(m.get("player1", ""))
-        p2 = h(m.get("player2", ""))
+    # Group matches by pool_round if available
+    has_rounds = any("pool_round" in m for m in matches)
 
-        sched_html = ""
-        if schedule_lookup and div_code:
-            info = schedule_lookup.get((div_code, round_prefix, m.get("match")))
-            if info:
-                day = info["date"][:3]
-                sched_html = f'<span class="match-schedule">{day} {info["time"]} Ct {info["court"]}</span>'
+    if has_rounds:
+        # Organize matches by round
+        rounds_map = {}
+        for m in matches:
+            pr = m.get("pool_round", 0)
+            rounds_map.setdefault(pr, []).append(m)
+        sorted_rounds = sorted(rounds_map.keys())
+    else:
+        sorted_rounds = [None]
+        rounds_map = {None: matches}
 
-        cards.append(f"""<div class="rr-match">
+    all_cards = []
+    for pr in sorted_rounds:
+        round_matches = rounds_map[pr]
+        if has_rounds and pr is not None:
+            all_cards.append(f'<div class="rr-round-header">Round {pr}</div>')
+
+        for m in round_matches:
+            p1 = h(m.get("player1", ""))
+            p2 = h(m.get("player2", ""))
+
+            sched_html = ""
+            if schedule_lookup and div_code:
+                info = schedule_lookup.get((div_code, round_prefix, m.get("match")))
+                if info:
+                    day = info["date"][:3]
+                    sched_html = f'<span class="match-schedule">{day} {info["time"]} Ct {info["court"]}</span>'
+
+            all_cards.append(f"""<div class="rr-match">
 <span class="p1">{p1}</span>
 <span class="vs">VS</span>
 <span class="p2">{p2}</span>
@@ -280,7 +299,7 @@ def render_rr_matches(matches, div_code="", round_prefix="Pool", schedule_lookup
 
     return f"""<div class="section-title">Matches</div>
 <div class="rr-matches">
-{"".join(cards)}
+{"".join(all_cards)}
 </div>"""
 
 
@@ -597,6 +616,7 @@ CSS = """:root {
   .conn-cell.conn-bot::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 50%; border-bottom: 2px solid var(--border); border-right: 2px solid var(--border); border-bottom-right-radius: 4px; }
   .conn-cell.conn-bot::before { content: ''; position: absolute; top: 0; right: -12px; width: 12px; border-top: 2px solid var(--border); }
   .rr-matches { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.4rem; margin-top: 0.5rem; }
+  .rr-round-header { grid-column: 1 / -1; font-weight: 700; font-size: 0.85rem; color: var(--primary); margin-top: 0.5rem; padding: 0.2rem 0.4rem; border-bottom: 2px solid var(--primary-light); }
   .rr-match { display: flex; align-items: center; gap: 0.5rem; background: var(--bg); border-radius: 6px; padding: 0.4rem 0.7rem; font-size: 0.82rem; border: 1px solid var(--border); }
   .rr-match .vs { font-weight: 700; color: var(--accent-dark); font-size: 0.7rem; flex-shrink: 0; }
   .rr-match .p1, .rr-match .p2 { flex: 1; }
@@ -740,13 +760,15 @@ def render_schedule_grid(session_data, badge_lookup, slot_duration=30):
                 div_code = h(m["division"])
                 rnd = h(m.get("round", ""))
                 mnum = m.get("match_num", "")
+                pool_round = m.get("pool_round")
+                round_label = f"{rnd} R{pool_round}" if pool_round else rnd
                 p1 = h(m["player1"])
                 p2 = h(m["player2"])
                 dur = m.get("duration_min", slot_duration)
                 span = (dur + slot_duration - 1) // slot_duration
                 rowspan = f' rowspan="{span}"' if span > 1 else ""
                 cells += f'''<td class="sched-cell"{rowspan}>
-<div class="sched-div"><span class="badge {badge}">{div_code}</span><span class="sched-round">{rnd} M{mnum}</span><span class="sched-time">{t}</span></div>
+<div class="sched-div"><span class="badge {badge}">{div_code}</span><span class="sched-round">{round_label} M{mnum}</span><span class="sched-time">{t}</span></div>
 <div class="sched-p" title="{p1}">{p1}</div>
 <div class="sched-vs">vs</div>
 <div class="sched-p" title="{p2}">{p2}</div>
