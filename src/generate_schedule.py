@@ -1951,6 +1951,28 @@ def write_schedules(matches, match_by_id, scheduled, unscheduled, warnings, conf
     with open(index_path, "w", encoding="utf-8") as f:
         json.dump(index, f, indent=2, ensure_ascii=False)
 
+    # Per-division schedule files
+    div_dir = os.path.join(schedules_dir, "divisions")
+    os.makedirs(div_dir, exist_ok=True)
+    div_records = defaultdict(list)
+    for minute, rec in records:
+        day, _ = config_minute_to_display(venue_model, minute)
+        div_rec = dict(rec)
+        div_rec["day"] = day
+        div_records[rec["division"]].append(div_rec)
+
+    for div_code, div_matches in sorted(div_records.items()):
+        div_json = {
+            "division": div_code,
+            "division_name": div_matches[0]["division_name"] if div_matches else div_code,
+            "category": div_matches[0]["category"] if div_matches else "",
+            "match_count": len(div_matches),
+            "matches": div_matches,
+        }
+        filename = div_code.replace(" ", "_") + ".json"
+        with open(os.path.join(div_dir, filename), "w", encoding="utf-8") as f:
+            json.dump(div_json, f, indent=2, ensure_ascii=False)
+
     return session_data
 
 

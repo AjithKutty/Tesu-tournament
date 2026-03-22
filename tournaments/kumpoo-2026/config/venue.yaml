@@ -1,19 +1,22 @@
 slot_duration: 15  # Minutes per scheduling slot
 
-# Periodic court buffers — block courts at regular intervals for breaks/maintenance.
-# courts: which courts are in the rotation pool
-# duration: how long each buffer lasts (minutes)
-# interval: how often buffers occur (minutes, measured from day start)
-# courts_at_once: how many courts to block per interval (rotates through the pool)
-court_buffers:
-  - courts: [1, 2, 3, 4, 5, 6, 7, 8]
-    duration: 30
-    interval: 120        # every 2 hours
-    courts_at_once: 4    # block 4 courts at a time, rotating (1-4, then 5-8, etc.)
+# Global court buffers (applied to days without their own court_buffers).
+# Set to empty list to disable globally: court_buffers: []
+# court_buffers:
+#   - courts: [1, 2, 3, 4, 5, 6, 7, 8]
+#     duration: 30
+#     interval: 120
+#     courts_at_once: 4
 
 days:
   - name: "Saturday"
     start_time: "09:00"
+    # Per-day court buffers (overrides global court_buffers for this day)
+    court_buffers:
+      - courts: [1, 2, 3, 4, 5, 6, 7, 8]
+        duration: 30
+        interval: 120        # every 2 hours
+        courts_at_once: 4    # block 4 courts at a time, rotating
     courts:
       - numbers: [1, 2, 3, 4, 5, 6, 7, 8]
         end_time: "20:00"
@@ -33,15 +36,20 @@ days:
 
   - name: "Sunday"
     start_time: "09:00"
+    court_buffers:
+      - courts: [1, 2, 3, 4, 5, 6, 7, 8]
+        duration: 30
+        interval: 120        # every 2 hours
+        courts_at_once: 2    # block 4 courts at a time, rotating
     courts:
       - numbers: [1, 2, 3, 4]
         end_time: "16:00"
       - numbers: [5, 6, 7, 8]
-        end_time: "16:00"
+        end_time: "18:00"
     sessions:
       - name: "Sunday Morning"
         start_time: "09:00"
         end_time: "13:00"
       - name: "Sunday Afternoon"
         start_time: "13:00"
-        end_time: "16:00"
+        end_time: "18:00"

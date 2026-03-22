@@ -124,11 +124,11 @@ draw_formats:
 potential_conflict_avoidance:
   # Default: check potential overlaps for R2 and QF across all categories
   default:
-    rounds: ["Round 2", "Quarter-Final"]
+    rounds: ["Round 2", "Quarter-Final", "Semi-Final", "Final"]
   # Junior: also check SF and Final (players often play multiple age groups)
-  categories:
-    Junior:
-      rounds: ["Semi-Final", "Final"]
+  #categories:
+  #  Junior:
+  #    rounds: ["Semi-Final", "Final"]
 
 # ── Match durations and court blocking ────────────────────────────
 

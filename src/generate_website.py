@@ -626,6 +626,7 @@ CSS = """:root {
   .sched-div { margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
   .sched-div .badge { font-size: 0.6rem; padding: 0.1rem 0.4rem; }
   .sched-round { font-size: 0.6rem; color: var(--text-light); }
+  .sched-time { font-size: 0.6rem; color: var(--accent-dark); font-weight: 600; }
   .sched-p { font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
   .sched-vs { font-size: 0.55rem; color: var(--accent-dark); font-weight: 700; }
   .sched-empty { border: 1px solid #edf2f7; background: var(--bg); }
@@ -745,7 +746,7 @@ def render_schedule_grid(session_data, badge_lookup, slot_duration=30):
                 span = (dur + slot_duration - 1) // slot_duration
                 rowspan = f' rowspan="{span}"' if span > 1 else ""
                 cells += f'''<td class="sched-cell"{rowspan}>
-<div class="sched-div"><span class="badge {badge}">{div_code}</span><span class="sched-round">{rnd} M{mnum}</span></div>
+<div class="sched-div"><span class="badge {badge}">{div_code}</span><span class="sched-round">{rnd} M{mnum}</span><span class="sched-time">{t}</span></div>
 <div class="sched-p" title="{p1}">{p1}</div>
 <div class="sched-vs">vs</div>
 <div class="sched-p" title="{p2}">{p2}</div>

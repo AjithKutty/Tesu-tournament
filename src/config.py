@@ -600,42 +600,55 @@ def build_venue_model(config):
     all_slots.sort()
 
     # Build court buffer blocks: list of (court, minute) to pre-block
+    # Per-day court_buffers (in each day config) take precedence over
+    # global court_buffers. Days without their own use the global config.
     court_buffer_blocks = []
-    buffers_config = config["venue"].get("court_buffers", [])
-    for buf in buffers_config:
-        pool = buf.get("courts", [])
-        duration = buf.get("duration", 30)
-        interval = buf.get("interval", 120)
-        at_once = buf.get("courts_at_once", len(pool))
-        buffer_slots = (duration + slot_duration - 1) // slot_duration
+    global_buffers = config["venue"].get("court_buffers", [])
 
-        # Apply buffers to each day
-        for day in days:
-            day_start = day["start_minute"]
-            day_end = day["end_minute"]
-            # Available courts from the pool on this day
+    # Build day_name -> day_config lookup
+    day_cfg_lookup = {dc["name"]: dc for dc in days_config}
+
+    def _generate_buffers(buffers_list, day):
+        """Generate buffer blocks for a day from a list of buffer configs."""
+        blocks = []
+        day_start = day["start_minute"]
+        day_end = day["end_minute"]
+        for buf in buffers_list:
+            pool = buf.get("courts", [])
+            duration = buf.get("duration", 30)
+            interval = buf.get("interval", 120)
+            at_once = buf.get("courts_at_once", len(pool))
+            buf_slots = (duration + slot_duration - 1) // slot_duration
+
             day_pool = [c for c in pool
                         if any(crt == c and s <= day_start < e
                                for crt, s, e in court_windows)]
             if not day_pool:
                 continue
 
-            # Generate buffer times at each interval from day start
             rotation_idx = 0
             t = day_start + interval
             while t < day_end:
-                # Pick which courts to block (rotate through pool)
                 start_idx = (rotation_idx * at_once) % len(day_pool)
                 blocked_courts = []
                 for i in range(at_once):
                     blocked_courts.append(day_pool[(start_idx + i) % len(day_pool)])
-
                 for court in blocked_courts:
-                    for s in range(buffer_slots):
-                        court_buffer_blocks.append((court, t + s * slot_duration))
-
+                    for s in range(buf_slots):
+                        blocks.append((court, t + s * slot_duration))
                 rotation_idx += 1
                 t += interval
+        return blocks
+
+    for day in days:
+        day_cfg = day_cfg_lookup.get(day["name"], {})
+        day_buffers = day_cfg.get("court_buffers")
+        if day_buffers is not None:
+            # Per-day config (even if empty list — means no buffers for this day)
+            court_buffer_blocks.extend(_generate_buffers(day_buffers, day))
+        else:
+            # Fall back to global config
+            court_buffer_blocks.extend(_generate_buffers(global_buffers, day))
 
     return {
         "slot_duration": slot_duration,
