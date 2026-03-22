@@ -443,12 +443,135 @@ def check_player_conflicts(schedule_matches):
 
 # ── Check 7: Potential Player Conflicts ─────────────────────────
 
-def check_potential_player_conflicts(schedule_matches, schedules_dir):
+def _build_possible_players(divisions_dir):
+    """Build match_id -> set of all possible players from division JSON data.
+
+    Traces through bracket prerequisites to find all players who could
+    reach each match. Independent of the scheduling trace.
+    """
+    import re
+    idx_path = os.path.join(divisions_dir, "tournament_index.json")
+    if not os.path.exists(idx_path):
+        return {}
+
+    with open(idx_path, encoding="utf-8") as f:
+        index = json.load(f)
+
+    # First pass: collect all match data and direct players
+    match_players = {}  # match_id -> set of confirmed player names
+    match_prereqs = {}  # match_id -> [prereq_match_ids]
+    has_placeholder = {}  # match_id -> bool
+
+    def extract_names(player_str):
+        if not player_str or player_str == "Bye" or player_str.startswith("Bye"):
+            return []
+        if player_str.startswith("Winner ") or player_str.startswith("Slot "):
+            return []
+        return [n.strip() for n in player_str.split(" / ") if n.strip()]
+
+    def parse_winner_ref(player_str, div_code, prefix=""):
+        m = re.match(r"Winner\s+(\w+)-M(\d+)", player_str)
+        if not m:
+            return None
+        abbrev_to_round = {
+            "R1": "Round 1", "R2": "Round 2", "QF": "Quarter-Final",
+            "SF": "Semi-Final", "F": "Final",
+        }
+        round_name = abbrev_to_round.get(m.group(1), m.group(1))
+        match_num = int(m.group(2))
+        return f"{div_code}:{prefix}{round_name}:M{match_num}"
+
+    for entry in index["divisions"]:
+        if entry["draw_type"] != "main_draw":
+            continue
+        filepath = os.path.join(divisions_dir, entry["file"])
+        with open(filepath, encoding="utf-8") as f:
+            data = json.load(f)
+
+        div_code = data["code"]
+        fmt = data["format"]
+
+        if fmt == "elimination":
+            for rnd in data.get("rounds", []):
+                for match in rnd["matches"]:
+                    mid = f"{div_code}:{rnd['name']}:M{match['match']}"
+                    p1, p2 = match.get("player1", ""), match.get("player2", "")
+                    names = set(extract_names(p1) + extract_names(p2))
+                    match_players[mid] = names
+                    is_ph = p1.startswith("Winner ") or p1.startswith("Slot ") or \
+                            p2.startswith("Winner ") or p2.startswith("Slot ")
+                    has_placeholder[mid] = is_ph
+                    prereqs = []
+                    for ps in (p1, p2):
+                        ref = parse_winner_ref(ps, div_code)
+                        if ref:
+                            prereqs.append(ref)
+                    match_prereqs[mid] = prereqs
+
+        elif fmt == "round_robin":
+            for match in data.get("matches", []):
+                mid = f"{div_code}:Pool:M{match['match']}"
+                p1, p2 = match.get("player1", ""), match.get("player2", "")
+                match_players[mid] = set(extract_names(p1) + extract_names(p2))
+                has_placeholder[mid] = False
+                match_prereqs[mid] = []
+
+        elif fmt == "group_playoff":
+            for group in data.get("groups", []):
+                gname = group["name"]
+                for match in group.get("matches", []):
+                    mid = f"{div_code}:{gname} Pool:M{match['match']}"
+                    p1, p2 = match.get("player1", ""), match.get("player2", "")
+                    match_players[mid] = set(extract_names(p1) + extract_names(p2))
+                    has_placeholder[mid] = False
+                    match_prereqs[mid] = []
+            playoff = data.get("playoff")
+            if playoff:
+                for rnd in playoff.get("rounds", []):
+                    for match in rnd["matches"]:
+                        mid = f"{div_code}:Playoff {rnd['name']}:M{match['match']}"
+                        p1, p2 = match.get("player1", ""), match.get("player2", "")
+                        names = set(extract_names(p1) + extract_names(p2))
+                        match_players[mid] = names
+                        is_ph = p1.startswith("Winner ") or p1.startswith("Slot ") or \
+                                p2.startswith("Winner ") or p2.startswith("Slot ")
+                        has_placeholder[mid] = is_ph
+                        prereqs = []
+                        for ps in (p1, p2):
+                            ref = parse_winner_ref(ps, div_code, prefix="Playoff ")
+                            if ref:
+                                prereqs.append(ref)
+                        match_prereqs[mid] = prereqs
+
+    # Second pass: trace through prerequisites to resolve all possible players
+    def get_all_players(mid, visited=None):
+        if visited is None:
+            visited = set()
+        if mid in visited:
+            return set()
+        visited.add(mid)
+        if mid not in match_players:
+            return set()
+        if not has_placeholder.get(mid, False):
+            return set(match_players[mid])
+        result = set(match_players[mid])
+        for prereq in match_prereqs.get(mid, []):
+            result |= get_all_players(prereq, visited)
+        return result
+
+    all_possible = {}
+    for mid in match_players:
+        all_possible[mid] = get_all_players(mid)
+
+    return all_possible, has_placeholder
+
+
+def check_potential_player_conflicts(schedule_matches, config):
     """Check for potential double-bookings in later-round matches.
 
-    Uses the scheduling trace to find all possible players for each match
-    (including placeholder matches where the winner is unknown), and flags
-    cases where the same player could be in two overlapping matches.
+    Independently traces all possible players from division JSON data
+    (not from the scheduling trace). Flags cases where the same player
+    could be in two overlapping matches across divisions.
 
     Only reports conflicts involving at least one placeholder match —
     confirmed double-bookings are caught by check_player_conflicts.
@@ -456,15 +579,10 @@ def check_potential_player_conflicts(schedule_matches, schedules_dir):
     issues = []
     from collections import defaultdict
 
-    # Load scheduling trace for the possible-players info
-    trace_path = os.path.join(schedules_dir, "scheduling_trace.json")
-    if not os.path.exists(trace_path):
-        return issues
+    divisions_dir = config["paths"]["divisions_dir"]
+    all_possible, has_placeholder_map = _build_possible_players(divisions_dir)
 
-    with open(trace_path, encoding="utf-8") as f:
-        trace = json.load(f)
-
-    # Build match_id -> (time_minutes, duration, possible_players, desc)
+    # Build match_id -> scheduling info
     match_info = {}
     for m in schedule_matches:
         match_id = f"{m['division']}:{m['round']}:M{m['match_num']}"
@@ -473,61 +591,69 @@ def check_potential_player_conflicts(schedule_matches, schedules_dir):
         match_info[match_id] = {
             "time": t, "dur": dur,
             "date": m["_date"], "time_str": m["time"],
-            "desc": f"{m['division']} {m['round']} M{m['match_num']}",
+            "division": m["division"],
+            "category": m.get("category", ""),
+            "players": all_possible.get(match_id, set()),
+            "has_placeholder": has_placeholder_map.get(match_id, False),
         }
 
-    # Merge possible players from trace
-    for entry in trace:
-        mid = entry.get("match_id")
-        if mid in match_info and entry.get("status") == "SCHEDULED":
-            match_info[mid]["players"] = set(entry.get("players", []))
-            # Track if this match has placeholders
-            p1 = entry.get("player1", "")
-            p2 = entry.get("player2", "")
-            match_info[mid]["has_placeholder"] = (
-                p1.startswith("Winner ") or p1.startswith("Slot ") or
-                p2.startswith("Winner ") or p2.startswith("Slot ")
-            )
-
-    # Build player -> list of (time, end, match_id, has_placeholder) for potential matches
+    # Build player -> list of match entries sorted by time
     player_potential = defaultdict(list)
     for mid, info in match_info.items():
         for player in info.get("players", []):
-            player_potential[player].append((
-                info["time"], info["time"] + info["dur"],
-                mid, info.get("has_placeholder", False),
-                info["date"], info["time_str"],
-            ))
+            player_potential[player].append({
+                "time": info["time"], "end": info["time"] + info["dur"],
+                "id": mid, "placeholder": info.get("has_placeholder", False),
+                "date": info["date"], "time_str": info["time_str"],
+                "division": info["division"], "category": info["category"],
+            })
 
-    # Check for overlapping matches for the same player
+    # Check for overlapping or rest-violating matches for the same player
+    from config import compute_rest_between
     seen = set()
-    for player, matches in player_potential.items():
-        matches.sort()
-        for i in range(len(matches) - 1):
-            t1, end1, id1, placeholder1, date1, time1 = matches[i]
-            t2, end2, id2, placeholder2, date2, time2 = matches[i + 1]
-            if t2 < end1:
-                # Only report if at least one match has a placeholder
-                if not (placeholder1 or placeholder2):
-                    continue
+    for player, pmatches in player_potential.items():
+        pmatches.sort(key=lambda x: x["time"])
+        for i in range(len(pmatches) - 1):
+            m1 = pmatches[i]
+            m2 = pmatches[i + 1]
+            # Only report if at least one match has a placeholder
+            if not (m1["placeholder"] or m2["placeholder"]):
+                continue
 
-                # Skip same-division same-round conflicts — structurally
-                # impossible (a player advances to only one match per round
-                # within a division, e.g., can't be in both SF-M1 and SF-M2)
-                div1 = id1.split(":")[0]
-                div2 = id2.split(":")[0]
-                rnd1 = id1.split(":")[1]
-                rnd2 = id2.split(":")[1]
-                if div1 == div2 and rnd1 == rnd2:
-                    continue
+            # Skip same-division same-round conflicts
+            div1 = m1["id"].split(":")[0]
+            div2 = m2["id"].split(":")[0]
+            rnd1 = m1["id"].split(":")[1]
+            rnd2 = m2["id"].split(":")[1]
+            if div1 == div2 and rnd1 == rnd2:
+                continue
 
-                key = (min(id1, id2), max(id1, id2), player)
-                if key not in seen:
+            key = (min(m1["id"], m2["id"]), max(m1["id"], m2["id"]), player)
+            if key in seen:
+                continue
+
+            # Check overlap
+            if m2["time"] < m1["end"]:
+                seen.add(key)
+                issues.append(
+                    f"Potential overlap: {player} in "
+                    f"{m1['id']} ({m1['date']} {m1['time_str']}) and "
+                    f"{m2['id']} ({m2['date']} {m2['time_str']})"
+                )
+            else:
+                # Check rest requirement
+                gap = m2["time"] - m1["end"]
+                rest = compute_rest_between(
+                    config, m1["division"], m1["category"],
+                    m2["division"], m2["category"], player_name=player,
+                )
+                if gap < rest:
                     seen.add(key)
                     issues.append(
-                        f"Potential conflict: {player} could be in "
-                        f"{id1} ({date1} {time1}) and "
-                        f"{id2} ({date2} {time2})"
+                        f"Potential rest: {player} has {gap}min gap between "
+                        f"{m1['id']} ({m1['date']} {m1['time_str']}) and "
+                        f"{m2['id']} ({m2['date']} {m2['time_str']}) "
+                        f"(needs {rest}min)"
                     )
 
     return issues
@@ -973,7 +1099,7 @@ def verify(config):
     # Check 7: Potential player conflicts (later-round placeholder matches)
     if schedule:
         print("Check 7: Potential player conflicts...")
-        issues = check_potential_player_conflicts(schedule, schedules_dir)
+        issues = check_potential_player_conflicts(schedule, config)
         total_checks += 1
         if issues:
             all_issues.extend(issues)

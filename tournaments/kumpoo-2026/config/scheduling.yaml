@@ -35,24 +35,23 @@ priorities:
       "Quarter-Final": 25
 
   # Per-day overrides — different priorities on different days
+  # Round-level overrides apply to all divisions on that day.
+  # Division-level overrides take precedence over round-level.
   day_overrides:
     Sunday:
-      #rounds:
-      #  "Quarter-Final": 25
-      #  "Pool": 30
-      #  "Semi-Final": 35
-      #  "Final": 40
+      rounds:
+        "Quarter-Final": 25
+        "Semi-Final": 35
+        "Final": 45
       divisions:
         "MS C":
-          "Quarter-Final": 20   # Schedule MS C QF early on Sunday
+          "Quarter-Final": 20   # Earlier than other QFs
         "MS B":
-          "Quarter-Final": 20   # Schedule MS B QF early on Sunday
+          "Quarter-Final": 20
         "XD C":
-          "Quarter-Final": 20   # Schedule XC C QF early on Sunday
-        "XD B":
-          "Quarter-Final": 25   # Schedule XD B QF early on Sunday
+          "Quarter-Final": 20
         "MD C":
-          "Semi-Final": 30   # Schedule MD C QF early on Sunday
+          "Semi-Final": 30
 # Rounds that must be scheduled on a specific day (global — applies to all divisions)
 day_constraints:
   - rounds: ["Semi-Final", "Final"]
@@ -66,6 +65,9 @@ division_day_constraints:
     - rounds: ["Quarter-Final", "Semi-Final", "Final"]
       day: "Sunday"
   "MS B":
+    - rounds: ["Quarter-Final", "Semi-Final", "Final"]
+      day: "Sunday"
+  "MD A":
     - rounds: ["Quarter-Final", "Semi-Final", "Final"]
       day: "Sunday"
   "XD C":

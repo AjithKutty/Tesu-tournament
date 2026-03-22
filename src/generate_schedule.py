@@ -217,10 +217,67 @@ def load_all_matches(config):
         for m in matches:
             match_by_id[m.id] = m
 
+    # Infer effective day for matches without explicit day constraints.
+    # If a later round in the same division has a day constraint, earlier
+    # rounds will likely end up on the same day (due to round-completion).
+    # Use this inferred day to resolve day-specific priorities.
+    _infer_day_and_resolve_priorities(all_matches, config)
+
     # Resolve known_players for later rounds by tracing back through brackets
     _resolve_known_players(all_matches, match_by_id)
 
     return all_matches, match_by_id
+
+
+def _infer_day_and_resolve_priorities(all_matches, config):
+    """Infer effective day for matches and re-resolve priorities with day_overrides.
+
+    For elimination rounds, if SF/Final has a day constraint, earlier rounds
+    (QF, R2) in the same division are inferred to be on the same day when
+    they have no explicit constraint. Their priorities are then re-resolved
+    using the day-specific overrides.
+    """
+    # Build div_code -> {round_name -> day_constraint} from existing matches
+    div_round_days = defaultdict(dict)
+    for m in all_matches:
+        if m.day_constraint:
+            div_round_days[m.division_code][m.round_name] = m.day_constraint
+
+    # Round order for inference (later rounds inform earlier)
+    round_order = ["Round 1", "Round 2", "Quarter-Final", "Semi-Final", "Final"]
+    playoff_order = ["Playoff Quarter-Final", "Playoff Semi-Final", "Playoff Final"]
+
+    for m in all_matches:
+        if m.day_constraint:
+            continue  # already has explicit day
+
+        div_days = div_round_days.get(m.division_code, {})
+        if not div_days:
+            continue
+
+        # Check if a later round in this division has a day constraint
+        bare = m.round_name.replace("Playoff ", "") if m.round_name.startswith("Playoff ") else m.round_name
+        order = playoff_order if m.round_name.startswith("Playoff ") else round_order
+
+        if bare not in order:
+            continue
+
+        idx = order.index(bare if not m.round_name.startswith("Playoff ") else m.round_name)
+        inferred_day = None
+        for later_idx in range(idx + 1, len(order)):
+            later_round = order[later_idx]
+            if later_round in div_days:
+                inferred_day = div_days[later_round]
+                break
+
+        if inferred_day:
+            # Re-resolve priority with the inferred day
+            new_priority = resolve_priority(
+                config, m.round_name, m.category, m.division_code,
+                day_name=inferred_day,
+            )
+            if new_priority != m.priority:
+                m.priority = new_priority
 
 
 def _load_elimination_matches(config, data, div_code, div_name, category, duration,
@@ -432,11 +489,14 @@ def _load_group_playoff_matches(config, data, div_code, div_name, category, dura
 
 
 def _resolve_known_players(all_matches, match_by_id):
-    """For later-round matches with 'Winner ...' players, trace back to find
-    all possible players (worst-case conflict set)."""
-    # Build a map from match_id to its known_players
-    # For matches that already have known players (R1/pool), skip
-    # For later rounds, trace back recursively
+    """For later-round matches with 'Winner ...' or 'Slot ...' players, trace
+    back through prerequisites to find all possible players (worst-case
+    conflict set). Handles mixed matches where one side is confirmed and
+    the other is a placeholder."""
+
+    def _has_placeholder(match):
+        return (match.player1.startswith("Winner ") or match.player1.startswith("Slot ") or
+                match.player2.startswith("Winner ") or match.player2.startswith("Slot "))
 
     def get_all_possible_players(match_id, visited=None):
         if visited is None:
@@ -449,17 +509,20 @@ def _resolve_known_players(all_matches, match_by_id):
         if m is None:
             return []
 
-        if m.known_players:
+        # If this match has no placeholders, return its known players
+        if not _has_placeholder(m):
             return list(m.known_players)
 
-        # Trace through prerequisites
-        players = []
+        # Has placeholders — collect confirmed players from this match
+        # plus trace through prerequisites for placeholder sides
+        players = list(m.known_players)  # confirmed players from this match
         for prereq_id in m.prerequisites:
-            players.extend(get_all_possible_players(prereq_id, visited))
+            prereq_players = get_all_possible_players(prereq_id, visited)
+            players.extend(prereq_players)
         return players
 
     for match in all_matches:
-        if not match.known_players and match.prerequisites:
+        if _has_placeholder(match) and match.prerequisites:
             match.known_players = list(set(get_all_possible_players(match.id)))
 
 
@@ -846,21 +909,69 @@ class PlayerTracker:
         for p in players:
             self.history[p].append((match_start, end_min, div_code, category))
 
-    def update_potential(self, players, match_start, duration, match_id):
-        """Record potential players for overlap-only tracking."""
+    def update_potential(self, players, match_start, duration, match_id,
+                         category=None, div_code=None):
+        """Record potential players for overlap and rest tracking."""
         end_min = match_start + duration
         for p in players:
-            self.potential_history[p].append((match_start, end_min, match_id))
+            self.potential_history[p].append(
+                (match_start, end_min, match_id, category, div_code)
+            )
 
-    def check_potential_overlap(self, players, start_minute, duration):
-        """Check if any player has a potential time overlap (no rest, just overlap).
+    def check_potential_overlap(self, players, start_minute, duration,
+                                category=None, div_code=None):
+        """Check potential player conflicts with rest enforcement.
 
-        Returns (ok, conflict_detail) where ok=True means no overlap.
+        Within the same category: enforces rest between potential matches
+        (using compute_rest_between for same-division, cross-division rest
+        for different divisions within category).
+
+        Cross-category: only checks time overlap (no rest).
+
+        Returns (ok, conflict_detail) where ok=True means no conflict.
         """
         new_end = start_minute + duration
         for p in players:
-            for prev_start, prev_end, prev_match_id in self.potential_history[p]:
-                # Pure overlap check — no rest requirement
+            for prev_start, prev_end, prev_match_id, prev_cat, prev_div in self.potential_history[p]:
+                if category and prev_cat and category == prev_cat:
+                    # Same category: enforce rest
+                    rest = compute_rest_between(
+                        self.config,
+                        prev_div or "", prev_cat or "",
+                        div_code or "", category or "",
+                        player_name=p,
+                    )
+                    if prev_end <= start_minute:
+                        if prev_end + rest > start_minute:
+                            return False, (
+                                f"{p} needs {rest}min rest after {prev_match_id} "
+                                f"(ends +{prev_end - start_minute + rest}min short)"
+                            )
+                    elif new_end <= prev_start:
+                        if new_end + rest > prev_start:
+                            return False, (
+                                f"{p} too close before {prev_match_id}"
+                            )
+                    else:
+                        return False, f"{p} potential overlap with {prev_match_id}"
+                elif category and prev_cat and category != prev_cat:
+                    # Cross-category: overlap check only (no rest)
+                    if not (new_end <= prev_start or prev_end <= start_minute):
+                        return False, f"{p} potential overlap with {prev_match_id}"
+        return True, ""
+
+    def check_potential_overlap_relaxed(self, players, start_minute, duration,
+                                        category=None):
+        """Fallback: only check time overlaps within same category (no rest).
+
+        Used when the full rest check fails — allows scheduling with
+        reduced rest but still prevents double-booking.
+        """
+        new_end = start_minute + duration
+        for p in players:
+            for prev_start, prev_end, prev_match_id, prev_cat, prev_div in self.potential_history[p]:
+                if category and prev_cat and category != prev_cat:
+                    continue
                 if not (new_end <= prev_start or prev_end <= start_minute):
                     return False, f"{p} potential overlap with {prev_match_id}"
         return True, ""
@@ -1200,7 +1311,8 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                     ok1 = False
                 if ok1 and player_tracker.potential_history:
                     ok_p, _ = player_tracker.check_potential_overlap(
-                        m1.effective_players, slot, m1.duration_min
+                        m1.effective_players, slot, m1.duration_min,
+                        category=m1.category, div_code=m1.division_code,
                     )
                     if not ok_p:
                         ok1 = False
@@ -1216,7 +1328,8 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                     ok2 = False
                 if ok2 and player_tracker.potential_history:
                     ok_p, _ = player_tracker.check_potential_overlap(
-                        m2.effective_players, slot, m2.duration_min
+                        m2.effective_players, slot, m2.duration_min,
+                        category=m2.category, div_code=m2.division_code,
                     )
                     if not ok_p:
                         ok2 = False
@@ -1249,7 +1362,8 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                 check_potential = _should_check_potential_conflicts(m, pca_config)
                 if check_potential and m.effective_players:
                     player_tracker.update_potential(
-                        m.effective_players, slot, m.duration_min, m.id
+                        m.effective_players, slot, m.duration_min, m.id,
+                        category=m.category, div_code=m.division_code,
                     )
 
                 scheduled[m.id] = (court, slot)
@@ -1576,7 +1690,8 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 check_potential = _should_check_potential_conflicts(match, pca_config)
                 if match.effective_players and player_tracker.potential_history:
                     ok, detail = player_tracker.check_potential_overlap(
-                        match.effective_players, slot, match.duration_min
+                        match.effective_players, slot, match.duration_min,
+                        category=match.category, div_code=match.division_code,
                     )
                     if not ok:
                         trace_player_conflict[slot] = f"potential overlap: {detail}"
@@ -1605,7 +1720,8 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 if check_potential and match.effective_players:
                     player_tracker.update_potential(
                         match.effective_players, slot,
-                        match.duration_min, match.id
+                        match.duration_min, match.id,
+                        category=match.category, div_code=match.division_code,
                     )
 
                 # Record pool first start time
@@ -1633,7 +1749,8 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                             break  # player blocked — no point trying other courts
                     if match.effective_players and player_tracker.potential_history:
                         ok, _ = player_tracker.check_potential_overlap(
-                            match.effective_players, slot, match.duration_min
+                            match.effective_players, slot, match.duration_min,
+                            category=match.category, div_code=match.division_code,
                         )
                         if not ok:
                             break
@@ -1655,7 +1772,8 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                             )
                     if check_potential and match.effective_players:
                         player_tracker.update_potential(
-                            match.effective_players, slot, match.duration_min, match.id
+                            match.effective_players, slot, match.duration_min, match.id,
+                            category=match.category,
                         )
                     scheduled[match.id] = (court, slot)
                     scheduled_end[match.id] = slot + match.duration_min
@@ -1712,7 +1830,8 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                     # Check potential overlaps in buffer override pass too
                     if match.effective_players and player_tracker.potential_history:
                         ok, detail = player_tracker.check_potential_overlap(
-                            match.effective_players, slot, match.duration_min
+                            match.effective_players, slot, match.duration_min,
+                            category=match.category, div_code=match.division_code,
                         )
                         if not ok:
                             trace_buffer_player[slot] = f"potential overlap: {detail}"
@@ -1739,7 +1858,8 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                     if check_potential and match.effective_players:
                         player_tracker.update_potential(
                             match.effective_players, slot,
-                            match.duration_min, match.id
+                            match.duration_min, match.id,
+                            category=match.category,
                         )
 
                     if "Pool" in match.round_name:
@@ -1792,8 +1912,9 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                             ):
                                 continue
                         if match.effective_players and player_tracker.potential_history:
-                            ok, _ = player_tracker.check_potential_overlap(
-                                match.effective_players, slot, match.duration_min
+                            ok, _ = player_tracker.check_potential_overlap_relaxed(
+                                match.effective_players, slot, match.duration_min,
+                                category=match.category,
                             )
                             if not ok:
                                 continue
@@ -1816,7 +1937,8 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                         check_potential = _should_check_potential_conflicts(match, pca_config)
                         if check_potential and match.effective_players:
                             player_tracker.update_potential(
-                                match.effective_players, slot, match.duration_min, match.id
+                                match.effective_players, slot, match.duration_min, match.id,
+                                category=match.category,
                             )
                         scheduled[match.id] = (court, slot)
                         scheduled_end[match.id] = slot + match.duration_min
