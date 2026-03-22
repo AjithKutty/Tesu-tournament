@@ -609,7 +609,11 @@ def check_potential_player_conflicts(schedule_matches, config):
             })
 
     # Check for overlapping or rest-violating matches for the same player
+    # Errors: same-division rest violation, cross-division time overlap
+    # Warnings: cross-division rest violation
     from config import compute_rest_between
+    errors = []
+    warnings = []
     seen = set()
     for player, pmatches in player_potential.items():
         pmatches.sort(key=lambda x: x["time"])
@@ -632,10 +636,12 @@ def check_potential_player_conflicts(schedule_matches, config):
             if key in seen:
                 continue
 
-            # Check overlap
+            same_division = (div1 == div2)
+
+            # Check overlap — always a FAIL
             if m2["time"] < m1["end"]:
                 seen.add(key)
-                issues.append(
+                errors.append(
                     f"Potential overlap: {player} in "
                     f"{m1['id']} ({m1['date']} {m1['time_str']}) and "
                     f"{m2['id']} ({m2['date']} {m2['time_str']})"
@@ -649,14 +655,18 @@ def check_potential_player_conflicts(schedule_matches, config):
                 )
                 if gap < rest:
                     seen.add(key)
-                    issues.append(
+                    msg = (
                         f"Potential rest: {player} has {gap}min gap between "
                         f"{m1['id']} ({m1['date']} {m1['time_str']}) and "
                         f"{m2['id']} ({m2['date']} {m2['time_str']}) "
                         f"(needs {rest}min)"
                     )
+                    if same_division:
+                        errors.append(msg)
+                    else:
+                        warnings.append(msg)
 
-    return issues
+    return errors, warnings
 
 
 # ── Check 8: Court Buffer Violations ────────────────────────────
@@ -1099,13 +1109,16 @@ def verify(config):
     # Check 7: Potential player conflicts (later-round placeholder matches)
     if schedule:
         print("Check 7: Potential player conflicts...")
-        issues = check_potential_player_conflicts(schedule, config)
+        errors, warnings = check_potential_player_conflicts(schedule, config)
         total_checks += 1
-        if issues:
-            all_issues.extend(issues)
-            for issue in issues:
-                print(f"  WARN: {issue}")
-        else:
+        if errors or warnings:
+            all_issues.extend(errors)
+            all_issues.extend(warnings)
+            for e in errors:
+                print(f"  FAIL: {e}")
+            for w in warnings:
+                print(f"  WARN: {w}")
+        if not errors and not warnings:
             print("  PASS")
 
     # Check 8: Court buffer violations
