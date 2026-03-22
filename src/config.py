@@ -692,6 +692,15 @@ def build_venue_model(config):
             at_once = buf.get("courts_at_once", len(pool))
             buf_slots = (duration + slot_duration - 1) // slot_duration
 
+            # Optional end_time: stop generating buffers at or after this time
+            buf_end_time = buf.get("end_time")
+            if buf_end_time:
+                eh, em = map(int, buf_end_time.split(":"))
+                dsh, dsm = map(int, day["start_time"].split(":"))
+                effective_end = day_start + (eh - dsh) * 60 + (em - dsm)
+            else:
+                effective_end = day_end
+
             day_pool = [c for c in pool
                         if any(crt == c and s <= day_start < e
                                for crt, s, e in court_windows)]
@@ -700,7 +709,7 @@ def build_venue_model(config):
 
             rotation_idx = 0
             t = day_start + interval
-            while t < day_end:
+            while t < effective_end:
                 start_idx = (rotation_idx * at_once) % len(day_pool)
                 blocked_courts = []
                 for i in range(at_once):

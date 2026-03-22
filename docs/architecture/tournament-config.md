@@ -62,6 +62,7 @@ slot_duration: 15                # Minutes per scheduling slot
 #     duration: 30
 #     interval: 120
 #     courts_at_once: 4
+#     end_time: "17:00"          # optional: stop generating buffers after this time
 
 days:
   - name: "Saturday"
@@ -72,6 +73,7 @@ days:
         duration: 30
         interval: 120            # every 2 hours from day start
         courts_at_once: 4        # rotate: 1-4 then 5-8
+        end_time: "17:00"        # no buffers generated at or after 17:00
     courts:
       - numbers: [1, 2, 3, 4, 5, 6, 7, 8]
         end_time: "20:00"
@@ -103,6 +105,7 @@ Notes:
 - Sessions are display groupings for the website schedule grid; they don't affect scheduling logic.
 - `slot_duration` determines the scheduling granularity (all match start times are multiples of this).
 - Court buffers are per-day. Days without `court_buffers` inherit the global config. Set to empty list to disable for a day.
+- Each court buffer entry supports an optional `end_time` (e.g., `"17:00"`) — buffers are not generated at or after this time. Omit to generate buffers until the day ends.
 
 ### `court_preferences.yaml` — Court Preferences per Category and Round
 
