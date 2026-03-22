@@ -1269,9 +1269,11 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                         )
                         continue
 
-                # Check potential player overlaps for configured rounds
+                # Check potential player overlaps — always check against
+                # potential_history (populated by configured rounds), so that
+                # e.g. a Pool match won't overlap with a R2 match's potential players
                 check_potential = _should_check_potential_conflicts(match, pca_config)
-                if check_potential and match.effective_players:
+                if match.effective_players and player_tracker.potential_history:
                     ok, detail = player_tracker.check_potential_overlap(
                         match.effective_players, slot, match.duration_min
                     )
@@ -1350,7 +1352,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                             continue
 
                     # Check potential overlaps in buffer override pass too
-                    if check_potential and match.effective_players:
+                    if match.effective_players and player_tracker.potential_history:
                         ok, detail = player_tracker.check_potential_overlap(
                             match.effective_players, slot, match.duration_min
                         )
