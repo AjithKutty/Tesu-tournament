@@ -728,20 +728,36 @@ def check_scheduling_constraints(schedule_matches, config):
     warnings = []
     from collections import defaultdict
     from config import (get_round_time_limit, get_time_deadlines,
-                        get_round_completion, build_venue_model)
+                        get_round_completion, build_venue_model,
+                        get_pool_round_same_day)
 
     # Build (division, round_group) -> {date: [match_descs]}
+    # Pool-round-aware: when pool_round_same_day is enabled, each pool round
+    # (R1, R2, R3) is a separate same-day unit
     round_days = defaultdict(lambda: defaultdict(list))
-    # Build (division, round_group) -> [(start_minutes, end_minutes)]
     round_times = defaultdict(list)
 
     for m in schedule_matches:
         div = m["division"]
         rnd = m["round"]
-        if " Pool" in rnd and rnd != "Pool":
-            round_group = "Group Pool"
+        category = m.get("category", "")
+
+        if "Pool" in rnd:
+            use_pool_round = get_pool_round_same_day(config, category, div)
+            if use_pool_round and "pool_round" in m:
+                pr = m["pool_round"]
+                if " Pool" in rnd and rnd != "Pool":
+                    round_group = f"Group Pool R{pr}"
+                else:
+                    round_group = f"Pool R{pr}"
+            else:
+                if " Pool" in rnd and rnd != "Pool":
+                    round_group = "Group Pool"
+                else:
+                    round_group = rnd
         else:
             round_group = rnd
+
         date = m["_date"]
         round_days[(div, round_group)][date].append(
             f"M{m['match_num']} at {m['time']}"
@@ -761,6 +777,7 @@ def check_scheduling_constraints(schedule_matches, config):
             )
 
     # 2. Round time limits (applies to any round, not just pools)
+    # Hard limits → FAIL (issues), soft limits → WARN (warnings)
     round_groups = defaultdict(list)
     for m in schedule_matches:
         div = m["division"]
@@ -775,17 +792,20 @@ def check_scheduling_constraints(schedule_matches, config):
         if not entries:
             continue
         category = entries[0]["category"]
-        limit = get_round_time_limit(config, rnd, category, div)
-        if limit is None:
+        rtl_result = get_round_time_limit(config, rnd, category, div)
+        if rtl_result is None:
             continue
+        limit, is_hard = rtl_result
         first_start = min(e["start"] for e in entries)
         last_end = max(e["end"] for e in entries)
         span = last_end - first_start
         if span > limit:
-            warnings.append(
-                f"Round time limit: {div} {rnd} spans {span}min "
-                f"(limit {limit}min)"
-            )
+            msg = (f"Round time limit: {div} {rnd} spans {span}min "
+                   f"(limit {limit}min)")
+            if is_hard:
+                issues.append(msg)
+            else:
+                warnings.append(msg)
 
     # 3. Time deadlines
     deadlines = get_time_deadlines(config)

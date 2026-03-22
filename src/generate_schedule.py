@@ -26,7 +26,7 @@ from config import (load_config, get_tournament_name, resolve_priority,
                     get_cross_division_rest, get_same_division_rest,
                     get_court_preference, get_round_completion,
                     get_potential_conflict_avoidance, get_round_time_limit,
-                    get_slot_duration, build_venue_model,
+                    get_pool_round_same_day, get_slot_duration, build_venue_model,
                     minute_to_display as config_minute_to_display)
 
 
@@ -1083,18 +1083,37 @@ def get_eligible_courts(match, time_minute, config, venue_model):
 
 # ── Scheduling algorithm ─────────────────────────────────────────
 
-def _get_same_day_key(match):
+def _get_same_day_key(match, config=None):
     """Return the grouping key for same-day enforcement.
 
     All matches sharing a key must be scheduled on the same day.
-    For group+playoff divisions, all group pools share one key (so all
-    group-stage matches land on the same day regardless of group letter).
+
+    When pool_round_same_day is enabled for this match's category,
+    each pool round (R1, R2, R3) gets a separate same-day key.
+    Otherwise, all pool matches share one key (legacy behavior).
+
+    For group+playoff divisions, all group pools share one key per round.
     """
     div_code = match.division_code
     round_name = match.round_name
-    # Group pool rounds like "Group A Pool", "Group B Pool" → shared key
-    if " Pool" in round_name and round_name != "Pool":
-        return (div_code, "Group Pool")
+
+    if "Pool" in round_name:
+        use_pool_round = False
+        if config is not None:
+            use_pool_round = get_pool_round_same_day(
+                config, match.category, match.division_code
+            )
+
+        if use_pool_round:
+            pr_label = f"R{match.pool_round + 1}"
+            if " Pool" in round_name and round_name != "Pool":
+                return (div_code, "Group Pool", pr_label)
+            return (div_code, "Pool", pr_label)
+        else:
+            if " Pool" in round_name and round_name != "Pool":
+                return (div_code, "Group Pool")
+            return (div_code, round_name)
+
     return (div_code, round_name)
 
 
@@ -1303,7 +1322,7 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
     # Day constraint
     latest = latest_base
     effective_day = day_constraint or m1.day_constraint
-    sdkey = _get_same_day_key(m1)
+    sdkey = _get_same_day_key(m1, config)
     if sdkey in round_day_assignments:
         assigned_day = round_day_assignments[sdkey]
         ds = day_start_minutes.get(assigned_day, 0)
@@ -1614,6 +1633,17 @@ def schedule_matches(matches, match_by_id, config, venue_model):
         for m in matches:
             div_round_matches[(m.division_code, m.round_name)].append(m.id)
 
+    # Pool round completion: register per-pool-round entries when pool_round_same_day
+    # is enabled, so R1 must finish before R2 starts, etc.
+    pool_round_completion = set()  # set of div_codes with pool round completion
+    for m in matches:
+        if "Pool" not in m.round_name:
+            continue
+        if get_pool_round_same_day(config, m.category, m.division_code):
+            pool_round_completion.add(m.division_code)
+            pool_round_key = f"{m.round_name}:R{m.pool_round + 1}"
+            div_round_matches[(m.division_code, pool_round_key)].append(m.id)
+
     all_slots = venue_model["all_slots"]
     slot_duration = venue_model["slot_duration"]
     day_start_minutes = venue_model["day_start_minutes"]
@@ -1711,12 +1741,33 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                     )
                     earliest = max(earliest, latest_prev_end)
 
+        # Pool round completion: previous pool round must finish before this one starts
+        if "Pool" in match.round_name and match.division_code in pool_round_completion:
+            if match.pool_round > 0:
+                prev_pr_key = f"{match.round_name}:R{match.pool_round}"  # previous round (1-based)
+                prev_pr_ids = div_round_matches.get((match.division_code, prev_pr_key), [])
+                if prev_pr_ids:
+                    prev_pr_failed = any(mid in unschedulable for mid in prev_pr_ids)
+                    if prev_pr_failed:
+                        failed_ids = [mid for mid in prev_pr_ids if mid in unschedulable]
+                        unschedulable.add(match.id)
+                        unscheduled.append(match)
+                        sched_trace.append({
+                            "match_id": match.id, "status": "UNSCHEDULED",
+                            "reason": f"previous pool round incomplete: R{match.pool_round} has unscheduled {failed_ids}",
+                        })
+                        continue
+                    latest_prev_pr = max(
+                        scheduled_end.get(mid, 0) for mid in prev_pr_ids
+                    )
+                    earliest = max(earliest, latest_prev_pr)
+
         # Day constraint from config (e.g. SF/Final must be on Sunday)
         effective_day = match.day_constraint
 
         # Same-day enforcement: if another match in this round+division
         # was already placed on a day, this match must go on that same day
-        same_day_key = _get_same_day_key(match)
+        same_day_key = _get_same_day_key(match, config)
         if same_day_key in round_day_assignments:
             assigned_day = round_day_assignments[same_day_key]
             day_start = day_start_minutes.get(assigned_day, 0)
@@ -1743,20 +1794,24 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 latest = min(latest, dl_latest)
 
         # Round time limit: match must finish within time_limit of the round's first match
-        # This is a soft constraint — saved separately so we can retry without it
+        # Soft limits can be relaxed in fallback; hard limits are never relaxed
         # Use per-group key for pool rounds (not merged across groups)
         round_time_limited = False
+        round_time_hard = False
         latest_without_rtl = latest  # save the latest before round limit
         rtl_key = (match.division_code, match.round_name)
-        rtl = get_round_time_limit(config, match.round_name, match.category, match.division_code)
-        if rtl is not None and rtl_key in round_first_start:
-            rtl_deadline = round_first_start[rtl_key] + rtl
-            rtl_latest = rtl_deadline - match.duration_min
-            if latest is None:
-                latest = rtl_latest
-            else:
-                latest = min(latest, rtl_latest)
-            round_time_limited = True
+        rtl_result = get_round_time_limit(config, match.round_name, match.category, match.division_code)
+        if rtl_result is not None:
+            rtl, rtl_is_hard = rtl_result
+            if rtl_key in round_first_start:
+                rtl_deadline = round_first_start[rtl_key] + rtl
+                rtl_latest = rtl_deadline - match.duration_min
+                if latest is None:
+                    latest = rtl_latest
+                else:
+                    latest = min(latest, rtl_latest)
+                round_time_limited = True
+                round_time_hard = rtl_is_hard
 
         # Snap to next slot boundary
         if earliest % slot_duration != 0:
@@ -2043,9 +2098,10 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 if placed:
                     break
 
-        # Fallback: if pool time limit was the blocker, retry without it
+        # Fallback: if soft time limit was the blocker, retry without it
+        # Hard limits are never relaxed — match stays unscheduled or uses later fallbacks
         round_limit_overridden = False
-        if not placed and round_time_limited:
+        if not placed and round_time_limited and not round_time_hard:
             # Retry the full scheduling (normal + buffer override) with relaxed latest
             relaxed_latest = latest_without_rtl
             for attempt_buffer in (False, True):
@@ -2127,15 +2183,15 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                     break
 
         # Fallback: relax cross-division rest (only enforce same-division rest + no overlap)
+        # For hard time limits, keep the limit enforced (use latest, not latest_without_rtl)
         cross_div_rest_relaxed = False
+        cross_div_latest = latest if round_time_hard else latest_without_rtl
         if not placed:
             for attempt_buffer in (False, True):
                 for slot in all_slots:
                     if slot < earliest:
                         continue
-                    if latest is not None and slot >= latest:
-                        break
-                    if latest_without_rtl is not None and slot >= latest_without_rtl:
+                    if cross_div_latest is not None and slot >= cross_div_latest:
                         break
 
                     courts = get_eligible_courts(match, slot, config, venue_model)
@@ -2343,7 +2399,7 @@ def validate_schedule(matches, match_by_id, scheduled, court_sched, player_track
             continue
         _, minute = scheduled[match.id]
         day_name = _day_name_for_minute(venue_model, minute)
-        key = _get_same_day_key(match)
+        key = _get_same_day_key(match, config)
         if key not in round_day_map:
             round_day_map[key] = defaultdict(list)
         round_day_map[key][day_name].append(match.id)

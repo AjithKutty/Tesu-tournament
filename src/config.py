@@ -490,14 +490,34 @@ def get_potential_conflict_avoidance(config):
     return result
 
 
+def _parse_time_limit_value(val):
+    """Parse a time limit value that may be int or dict.
+
+    Returns (limit, is_hard) or None.
+    - Plain int/float: (val, False) — soft limit (WARN)
+    - Dict with 'limit' key: (limit, hard) — respects 'hard' flag
+    """
+    if isinstance(val, (int, float)):
+        return (val, False)
+    if isinstance(val, dict):
+        limit = val.get("limit")
+        if limit is not None:
+            return (limit, bool(val.get("hard", False)))
+    return None
+
+
 def get_round_time_limit(config, round_name, category, div_code=None):
     """Get time limit for a round in minutes.
 
     All matches of this round within a division/group must finish within
-    this many minutes of the first match starting. Returns None if no limit.
+    this many minutes of the first match starting.
 
-    Checks round_time_limit config first, falls back to pool_time_limit
-    for backwards compatibility with pool-only configs.
+    Returns (limit_minutes, is_hard) or None.
+    - is_hard=True: verifier reports as FAIL, scheduler does not relax
+    - is_hard=False: verifier reports as WARN, scheduler may relax
+
+    Plain int values in config are treated as soft limits (backward compat).
+    Dict values with {limit: N, hard: true} are hard limits.
 
     Resolution: per-division → per-category → per-round → default.
     """
@@ -512,28 +532,36 @@ def get_round_time_limit(config, round_name, category, div_code=None):
         if div_code in divs:
             div_cfg = divs[div_code]
             if isinstance(div_cfg, dict) and bare_round in div_cfg:
-                return div_cfg[bare_round]
+                result = _parse_time_limit_value(div_cfg[bare_round])
+                if result is not None:
+                    return result
             elif isinstance(div_cfg, (int, float)):
-                return div_cfg  # single value applies to all rounds
+                return (div_cfg, False)
 
     # Per-category override (can be a dict of round -> limit)
     cats = rtl.get("categories", {})
     cat_val = _resolve_category_key(cats, category, config)
     if cat_val is not None:
         if isinstance(cat_val, dict) and bare_round in cat_val:
-            return cat_val[bare_round]
+            result = _parse_time_limit_value(cat_val[bare_round])
+            if result is not None:
+                return result
         elif isinstance(cat_val, (int, float)):
-            return cat_val
+            return (cat_val, False)
 
     # Per-round default
     rounds_cfg = rtl.get("rounds", {})
     if bare_round in rounds_cfg:
-        return rounds_cfg[bare_round]
+        result = _parse_time_limit_value(rounds_cfg[bare_round])
+        if result is not None:
+            return result
 
     # Global default
     default = rtl.get("default")
     if default is not None:
-        return default
+        result = _parse_time_limit_value(default)
+        if result is not None:
+            return result
 
     # Backwards compatibility: check pool_time_limit for pool rounds
     if "Pool" in round_name:
@@ -541,13 +569,45 @@ def get_round_time_limit(config, round_name, category, div_code=None):
         if div_code:
             divs = ptl.get("divisions", {})
             if div_code in divs:
-                return divs[div_code]
+                return (divs[div_code], False)
         cat_val = _resolve_category_key(ptl.get("categories", {}), category, config)
         if cat_val is not None:
-            return cat_val
-        return ptl.get("default")
+            return (cat_val, False)
+        default = ptl.get("default")
+        if default is not None:
+            return (default, False)
 
     return None
+
+
+def get_pool_round_same_day(config, category, div_code=None):
+    """Check if pool round same-day grouping is enabled.
+
+    When True, each pool round (R1, R2, R3) within a division is a
+    separate same-day unit. When False, all pool matches share one key.
+
+    Resolution: per-division → per-category → default → True.
+    """
+    cfg = config["scheduling"].get("pool_round_same_day", {})
+
+    # Plain bool value (e.g., pool_round_same_day: true)
+    if isinstance(cfg, bool):
+        return cfg
+
+    # Per-division override
+    if div_code:
+        divs = cfg.get("divisions", {})
+        if div_code in divs:
+            return bool(divs[div_code])
+
+    # Per-category
+    cats = cfg.get("categories", {})
+    cat_val = _resolve_category_key(cats, category, config)
+    if cat_val is not None:
+        return bool(cat_val)
+
+    # Default (if config key exists but no default specified, fallback to True)
+    return bool(cfg.get("default", True))
 
 
 def get_day_constraints(config):

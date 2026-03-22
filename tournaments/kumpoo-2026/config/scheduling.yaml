@@ -96,17 +96,28 @@ division_day_constraints:
     - rounds: ["Semi-Final", "Final"]
       day: "Saturday"
 
+# Pool round same-day: when enabled, each pool round (R1, R2, R3) is a
+# separate same-day unit. When disabled, all pool matches share one same-day key.
+pool_round_same_day:
+  default: true
+  categories:
+    Junior: false           # Junior uses pool time limit instead
+    "Open A": false         # Open A players have heavy cross-division scheduling
+
 # Round time limit: all matches in a round (per division/group) must finish
-# within this many minutes of the first match starting. Soft constraint —
-# scheduler overrides if needed, verifier reports warnings.
+# within this many minutes of the first match starting.
+# Plain number = soft limit (WARN in verifier, scheduler may relax).
+# Dict with {limit, hard: true} = hard limit (FAIL in verifier, never relaxed).
 round_time_limit:
   # Per-round defaults
   rounds:
-    "Quarter-Final": 120   # QF matches within 2 hours
+    "Quarter-Final": 120   # QF matches within 2 hours (soft)
   # Per-category overrides (can specify per-round within category)
   categories:
     Junior:
-      "Pool": 300          # Junior pool matches within 5 hours
+      "Pool":              # Junior pool matches within 5 hours (hard)
+        limit: 300
+        hard: true
   # Per-division overrides
   # divisions:
   #   "XD B":
