@@ -1446,7 +1446,7 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                     "court": court,
                     "player1": m.player1,
                     "player2": m.player2,
-                    "players": m.effective_players[:10],
+                    "players": m.effective_players,
                     "note": "SF pair scheduling",
                 })
 
@@ -1534,7 +1534,7 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                         "priority": m.priority,
                         "placed": _fmt_minute(venue_model, slot), "court": court,
                         "player1": m.player1, "player2": m.player2,
-                        "players": m.effective_players[:10],
+                        "players": m.effective_players,
                         "warning": "SF pair: cross-division rest relaxed",
                     })
                 if sdkey not in round_day_assignments:
@@ -1559,7 +1559,7 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                 ],
                 "player1": m.player1,
                 "player2": m.player2,
-                "players": m.effective_players[:10],
+                "players": m.effective_players,
             })
 
     return True  # handled (whether placed or not)
@@ -2275,7 +2275,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 "constraints": trace_constraints,
                 "player1": match.player1,
                 "player2": match.player2,
-                "players": match.effective_players[:10],
+                "players": match.effective_players,
                 "slots_tried": slots_tried,
                 "rejections": rejections,
                 "buffer_override_rejections": buffer_rejections if buffer_rejections else None,
@@ -2290,7 +2290,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 "court": court,
                 "player1": match.player1,
                 "player2": match.player2,
-                "players": match.effective_players[:10],
+                "players": match.effective_players,
             }
             warnings_list = []
             if buffer_override_detail:

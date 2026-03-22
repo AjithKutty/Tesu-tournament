@@ -73,7 +73,7 @@ division_day_constraints:
     - rounds: ["Semi-Final", "Final"]
       day: "Sunday"
   "XD C":
-    - rounds: ["Quarter-Final", "Semi-Final", "Final"]
+    - rounds: ["Semi-Final", "Final"]
       day: "Sunday"
   "XD B":
     - rounds: ["Quarter-Final", "Semi-Final", "Final"]
