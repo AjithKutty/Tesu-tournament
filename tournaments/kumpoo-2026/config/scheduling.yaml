@@ -20,6 +20,7 @@ priorities:
     "MS C":
       "Round 1": 5
       "Round 2": 12
+      "Quarter-Final": 36
     "MS B":
       "Round 1": 6
       "Round 2": 13
@@ -66,15 +67,16 @@ priorities:
         "Final": 60
       divisions:
         "MS C":
-          "Quarter-Final": 5    # Singles QF highest on Sunday
           "Semi-Final": 10      # Large singles SF early
         "MS B":
-          "Quarter-Final": 7    # Singles QF next
+          "Quarter-Final": 5    # Singles QF highest on Sunday
           "Semi-Final": 12      # Large singles SF early
         "MD C":
           "Semi-Final": 15      # Large doubles SF early
         "MD B":
           "Semi-Final": 17      # Large doubles SF early
+        "MS 35":
+          "Pool": 20            # Veterans singles pool earlier on Sunday
 
 # Earliest start time: rounds won't be scheduled before this time.
 # Ensures Finals are in the afternoon, not squeezed into morning gaps.
@@ -92,7 +94,7 @@ day_constraints:
 #              "Pool" (round-robin), "Group" (group stage), "Playoff Round 1", etc.
 division_day_constraints:
   "MS C":
-    - rounds: ["Quarter-Final", "Semi-Final", "Final"]
+    - rounds: ["Semi-Final", "Final"]
       day: "Sunday"
   "MS B":
     - rounds: ["Quarter-Final", "Semi-Final", "Final"]

@@ -490,6 +490,9 @@ def _load_group_playoff_matches(config, data, div_code, div_name, category, dura
                     prerequisites=prereqs, is_elite=False,
                     overrun_buffer=overrun_buf,
                 )
+                # Ensure playoff matches sort after all pool matches
+                # (pool_round is used as secondary sort key)
+                match.pool_round = 99
                 matches.append(match)
 
             is_first_playoff_round = False
@@ -1157,9 +1160,12 @@ _PLAYOFF_ROUND_ORDER = [
 
 
 def _get_previous_round(div_code, round_name, div_round_matches):
-    """Get the previous round name for a match, within the same division.
+    """Get the previous round name(s) for a match, within the same division.
 
     Returns None if this is the first round or a pool round.
+    For the first playoff round, returns all pool round names (as a list)
+    so that group_playoff divisions wait for ALL pool matches to finish.
+    For elimination rounds, returns a single round name string.
     """
     # Skip pool/group rounds — round completion doesn't apply
     if "Pool" in round_name:
@@ -1180,6 +1186,15 @@ def _get_previous_round(div_code, round_name, div_round_matches):
         prev = order[i]
         if (div_code, prev) in div_round_matches:
             return prev
+
+    # For playoff rounds with no earlier playoff round, link to ALL group pools.
+    # Returns a list of round names so the caller checks all pool matches.
+    if round_name.startswith("Playoff "):
+        pool_rounds = [rnd for (dc, rnd) in div_round_matches
+                       if dc == div_code and "Pool" in rnd]
+        if pool_rounds:
+            return pool_rounds
+
     return None
 
 
@@ -1346,7 +1361,10 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
             m1.division_code, m1.round_name, div_round_matches
         )
         if prev_round:
-            prev_ids = div_round_matches[(m1.division_code, prev_round)]
+            prev_rounds = prev_round if isinstance(prev_round, list) else [prev_round]
+            prev_ids = []
+            for pr in prev_rounds:
+                prev_ids.extend(div_round_matches.get((m1.division_code, pr), []))
             if any(mid in unschedulable for mid in prev_ids):
                 for m in pair:
                     unschedulable.add(m.id)
@@ -1773,7 +1791,11 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 match.division_code, match.round_name, div_round_matches
             )
             if prev_round:
-                prev_match_ids = div_round_matches[(match.division_code, prev_round)]
+                # prev_round may be a string or list of strings (for pool→playoff)
+                prev_rounds = prev_round if isinstance(prev_round, list) else [prev_round]
+                prev_match_ids = []
+                for pr in prev_rounds:
+                    prev_match_ids.extend(div_round_matches.get((match.division_code, pr), []))
                 # Check if any previous-round match failed to schedule
                 prev_failed = any(mid in unschedulable for mid in prev_match_ids)
                 if prev_failed:
@@ -1782,7 +1804,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                     unscheduled.append(match)
                     sched_trace.append({
                         "match_id": match.id, "status": "UNSCHEDULED",
-                        "reason": f"previous round incomplete: {prev_round} has unscheduled {failed_ids}",
+                        "reason": f"previous round incomplete: {prev_rounds} has unscheduled {failed_ids}",
                     })
                     continue
                 # All previous-round matches should be scheduled by now
