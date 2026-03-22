@@ -1,61 +1,87 @@
 # Scheduling priorities (lower number = scheduled first).
 # Use round names directly. Override per category or per division.
+#
+# Saturday strategy: large elimination divisions first (singles > doubles),
+# then Junior pools, then medium elimination, then other pools.
+# Sunday strategy: QFs first (singles), then pools, SFs, Finals last.
 priorities:
-  # Base priorities by round type
+  # Base priorities by round type (defaults for divisions not explicitly listed)
   rounds:
-    "Round 1": 10
-    "Round 2": 20
+    "Round 1": 25
+    "Round 2": 35
     "Pool": 50
-    "Quarter-Final": 40
+    "Quarter-Final": 45
     "Semi-Final": 60
     "Final": 70
 
-  # Per-category overrides
-  categories:
-    Elite:
-      "Pool": 5
-
   # Per-division overrides (highest precedence)
   divisions:
-    "BS U13":
-      "Pool": 10
-    "BS U17":
-      "Pool": 10
-    "BS U15":
-      "Pool": 15
+    # --- Tier 1: Large elimination R1 (singles before doubles) ---
     "MS C":
       "Round 1": 5
+      "Round 2": 12
     "MS B":
-      "Round 1": 5
-    "WD C":
-      "Pool": 15
-    "MS 35":
-      "Pool": 15
+      "Round 1": 6
+      "Round 2": 13
+    "MD C":
+      "Round 1": 8
+      "Round 2": 15
+      "Quarter-Final": 38
+    "MD B":
+      "Round 1": 9
+      "Round 2": 16
+      "Quarter-Final": 39
+    # --- Tier 3: Junior pool matches (exception — higher than other pools) ---
+    "BS U13":
+      "Pool": 18
+    "BS U17":
+      "Pool": 18
+    "BS U15":
+      "Pool": 19
+    # --- Tier 4: Medium elimination (singles before doubles) ---
     "MS A":
-      "Quarter-Final": 25
-    #"MD A":
-    #  "Quarter-Final": 15
+      "Round 1": 20
+      "Round 2": 30
+      "Quarter-Final": 40
+    "XD C":
+      "Round 1": 22
+      "Round 2": 32
+      "Quarter-Final": 41
+    "MD A":
+      "Round 1": 23
+      "Round 2": 33
+      "Quarter-Final": 42
+    "XD B":
+      "Round 1": 24
+      "Round 2": 34
+      "Quarter-Final": 43
 
-  # Per-day overrides — different priorities on different days
-  # Round-level overrides apply to all divisions on that day.
-  # Division-level overrides take precedence over round-level.
+  # Per-day overrides — use divisions-only for QFs to avoid
+  # affecting inferred priorities of non-Sunday QFs.
   day_overrides:
     Sunday:
       rounds:
-        "Quarter-Final": 25
-        "Semi-Final": 35
+        "Pool": 25
+        "Semi-Final": 40
         "Final": 60
       divisions:
         "MS C":
-          "Quarter-Final": 20   # Earlier than other QFs
+          "Quarter-Final": 5    # Singles QF highest on Sunday
+          "Semi-Final": 10      # Large singles SF early
         "MS B":
-          "Quarter-Final": 20
-        "XD C":
-          "Quarter-Final": 20
+          "Quarter-Final": 7    # Singles QF next
+          "Semi-Final": 12      # Large singles SF early
         "MD C":
-          "Semi-Final": 30
-        "MD A":
-          "Semi-Final": 50
+          "Semi-Final": 15      # Large doubles SF early
+        "MD B":
+          "Semi-Final": 17      # Large doubles SF early
+
+# Earliest start time: rounds won't be scheduled before this time.
+# Ensures Finals are in the afternoon, not squeezed into morning gaps.
+earliest_start:
+  - rounds: ["Final"]
+    time: "Sunday 14:00"
+
 # Rounds that must be scheduled on a specific day (global — applies to all divisions)
 day_constraints:
   - rounds: ["Semi-Final", "Final"]

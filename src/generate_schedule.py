@@ -21,8 +21,8 @@ from datetime import date
 
 from config import (load_config, get_tournament_name, resolve_priority,
                     get_day_constraints, get_division_day_constraints,
-                    get_match_duration, get_time_deadlines, get_match_density,
-                    get_overrun_buffer, compute_rest_between,
+                    get_match_duration, get_time_deadlines, get_earliest_start,
+                    get_match_density, get_overrun_buffer, compute_rest_between,
                     get_cross_division_rest, get_same_division_rest,
                     get_court_preference, get_round_completion,
                     get_potential_conflict_avoidance, get_round_time_limit,
@@ -967,8 +967,11 @@ class PlayerTracker:
                                 category=None, div_code=None, scope="all"):
         """Check potential player conflicts with rest enforcement.
 
+        Enforces compute_rest_between() for all pairs (same logic as
+        can_play_at for confirmed players), ensuring cross_division_rest
+        is respected for potential players too.
+
         scope="all": check across ALL categories (from default config).
-          Same-category: enforce rest. Cross-category: enforce no-overlap.
         scope="same_category": only check within same category (from
           category-specific config). Cross-category is ignored entirely.
 
@@ -977,11 +980,45 @@ class PlayerTracker:
         new_end = start_minute + duration
         for p in players:
             for prev_start, prev_end, prev_match_id, prev_cat, prev_div in self.potential_history[p]:
-                same_cat = (category and prev_cat and category == prev_cat)
                 diff_cat = (category and prev_cat and category != prev_cat)
 
                 if scope == "same_category" and diff_cat:
                     continue  # Category-specific: ignore cross-category
+
+                # Enforce rest for all pairs (cross_division_rest as minimum)
+                rest = compute_rest_between(
+                    self.config,
+                    prev_div or "", prev_cat or "",
+                    div_code or "", category or "",
+                    player_name=p,
+                )
+                if prev_end <= start_minute:
+                    if prev_end + rest > start_minute:
+                        return False, (
+                            f"{p} needs {rest}min rest after {prev_match_id} "
+                            f"(ends +{prev_end - start_minute + rest}min short)"
+                        )
+                elif new_end <= prev_start:
+                    if new_end + rest > prev_start:
+                        return False, (
+                            f"{p} too close before {prev_match_id}"
+                        )
+                else:
+                    return False, f"{p} potential overlap with {prev_match_id}"
+        return True, ""
+
+    def check_potential_overlap_relaxed(self, players, start_minute, duration,
+                                        category=None, div_code=None):
+        """Fallback: same-category rest + cross-category overlap prevention.
+
+        Relaxes cross-category rest to overlap-only, but still prevents
+        actual time overlaps across all categories. Same-category pairs
+        still get full rest enforcement via compute_rest_between().
+        """
+        new_end = start_minute + duration
+        for p in players:
+            for prev_start, prev_end, prev_match_id, prev_cat, prev_div in self.potential_history[p]:
+                same_cat = (category and prev_cat and category == prev_cat)
 
                 if same_cat:
                     # Same category: enforce rest
@@ -991,39 +1028,21 @@ class PlayerTracker:
                         div_code or "", category or "",
                         player_name=p,
                     )
-                    if prev_end <= start_minute:
-                        if prev_end + rest > start_minute:
-                            return False, (
-                                f"{p} needs {rest}min rest after {prev_match_id} "
-                                f"(ends +{prev_end - start_minute + rest}min short)"
-                            )
-                    elif new_end <= prev_start:
-                        if new_end + rest > prev_start:
-                            return False, (
-                                f"{p} too close before {prev_match_id}"
-                            )
-                    else:
-                        return False, f"{p} potential overlap with {prev_match_id}"
-                elif diff_cat:
-                    # Cross-category (scope="all"): enforce no-overlap only
-                    if not (new_end <= prev_start or prev_end <= start_minute):
-                        return False, f"{p} potential overlap with {prev_match_id}"
-        return True, ""
+                else:
+                    # Cross-category: overlap prevention only
+                    rest = 0
 
-    def check_potential_overlap_relaxed(self, players, start_minute, duration,
-                                        category=None):
-        """Fallback: check time overlaps within same category only (no rest).
-
-        Used when the full check (with cross-category overlap and same-
-        category rest) fails. Relaxes to same-category overlap-only, accepting
-        the risk of cross-category overlaps. The verifier will report these.
-        """
-        new_end = start_minute + duration
-        for p in players:
-            for prev_start, prev_end, prev_match_id, prev_cat, prev_div in self.potential_history[p]:
-                if category and prev_cat and category != prev_cat:
-                    continue  # Cross-category: accept in relaxed mode
-                if not (new_end <= prev_start or prev_end <= start_minute):
+                if prev_end <= start_minute:
+                    if rest > 0 and prev_end + rest > start_minute:
+                        return False, (
+                            f"{p} needs {rest}min rest after {prev_match_id}"
+                        )
+                elif new_end <= prev_start:
+                    if rest > 0 and new_end + rest > prev_start:
+                        return False, (
+                            f"{p} too close before {prev_match_id}"
+                        )
+                else:
                     return False, f"{p} potential overlap with {prev_match_id}"
         return True, ""
 
@@ -1276,6 +1295,28 @@ def _build_time_deadline_map(config, venue_model):
     return result
 
 
+def _build_earliest_start_map(config, venue_model):
+    """Build (div_code, round_name) -> earliest_minute map from config.
+
+    Matches in specified rounds won't be scheduled before this time.
+    """
+    entries = get_earliest_start(config)
+    result = {}
+    for entry in entries:
+        minute = _parse_deadline(entry.get("time", ""), venue_model)
+        if minute is None:
+            continue
+        rounds = entry.get("rounds", [])
+        divisions = entry.get("divisions")
+        for rnd in rounds:
+            if divisions:
+                for div in divisions:
+                    result[(div, rnd)] = minute
+            else:
+                result[(None, rnd)] = minute
+    return result
+
+
 def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                       all_slots, slot_duration, config, venue_model,
                       court_sched, player_tracker, pca_config,
@@ -1283,7 +1324,7 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                       unschedulable, unscheduled, sched_trace,
                       round_day_assignments, same_day_key,
                       day_start_minutes, day_end_minutes,
-                      min_prereq_rest, deadline_map,
+                      min_prereq_rest, deadline_map, earliest_start_map,
                       rc_enabled, rc_exceptions, div_round_matches):
     """Schedule both SF matches of a division at the same time slot.
 
@@ -1343,6 +1384,14 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
         if dl is not None:
             dl_latest = dl - m.duration_min
             latest = min(latest, dl_latest) if latest else dl_latest
+
+    # Earliest start time
+    for m in pair:
+        es = earliest_start_map.get((m.division_code, m.round_name))
+        if es is None:
+            es = earliest_start_map.get((None, m.round_name))
+        if es is not None:
+            earliest = max(earliest, es)
 
     # Ensure the Final can fit after the SF: tighten latest
     # SF end + same-division rest + Final duration must be before day end
@@ -1608,6 +1657,9 @@ def schedule_matches(matches, match_by_id, config, venue_model):
     # Time deadlines: (div_code, round_name) -> deadline minute
     deadline_map = _build_time_deadline_map(config, venue_model)
 
+    # Earliest start times: (div_code, round_name) -> earliest minute
+    earliest_start_map = _build_earliest_start_map(config, venue_model)
+
     # Match density limits
     density_cfg = get_match_density(config)
 
@@ -1793,6 +1845,13 @@ def schedule_matches(matches, match_by_id, config, venue_model):
             else:
                 latest = min(latest, dl_latest)
 
+        # Earliest start time: match must not start before this minute
+        es = earliest_start_map.get((match.division_code, match.round_name))
+        if es is None:
+            es = earliest_start_map.get((None, match.round_name))  # global
+        if es is not None:
+            earliest = max(earliest, es)
+
         # Round time limit: match must finish within time_limit of the round's first match
         # Soft limits can be relaxed in fallback; hard limits are never relaxed
         # Use per-group key for pool rounds (not merged across groups)
@@ -1835,7 +1894,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                     unschedulable, unscheduled, sched_trace,
                     round_day_assignments, same_day_key,
                     day_start_minutes, day_end_minutes,
-                    min_prereq_rest, deadline_map,
+                    min_prereq_rest, deadline_map, earliest_start_map,
                     rc_enabled, rc_exceptions, div_round_matches,
                 )
                 continue  # pair handler deals with both matches
@@ -2133,7 +2192,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                         if match.effective_players and player_tracker.potential_history:
                             ok, _ = player_tracker.check_potential_overlap_relaxed(
                                 match.effective_players, slot, match.duration_min,
-                                category=match.category,
+                                category=match.category, div_code=match.division_code,
                             )
                             if not ok:
                                 continue
@@ -2213,13 +2272,9 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                                 match.division_code, match.category
                             ):
                                 continue
-                        if match.effective_players and player_tracker.potential_history:
-                            ok, _ = player_tracker.check_potential_overlap_relaxed(
-                                match.effective_players, slot, match.duration_min,
-                                category=match.category,
-                            )
-                            if not ok:
-                                continue
+                        # Last resort: skip potential overlap check entirely.
+                        # Confirmed rest is already relaxed; potential conflicts
+                        # will be reported by the verifier.
 
                         # Book it
                         for bc, bm in overridden:

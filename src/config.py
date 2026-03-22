@@ -443,6 +443,15 @@ def get_time_deadlines(config):
     return config["scheduling"].get("time_deadlines", [])
 
 
+def get_earliest_start(config):
+    """Get earliest start time constraints.
+
+    Returns list of dicts: {rounds: [...], divisions: [...] or None, time: "Day HH:MM"}
+    Matches in the specified rounds won't be scheduled before this time.
+    """
+    return config["scheduling"].get("earliest_start", [])
+
+
 def get_match_density(config):
     """Get match density limit settings.
 
