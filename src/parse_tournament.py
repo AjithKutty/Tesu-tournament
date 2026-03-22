@@ -359,22 +359,35 @@ def extract_group_playoff(rows, is_doubles, layout=None):
 
     groups = []
     current_group = None
+    current_group_rows = []
 
     for r in rows:
         a_val = r.get("A", "")
         if re.match(r"^[A-Z]{2}\s+.+- Group [A-Z]$", a_val):
             if current_group:
+                num_players = len(current_group["players"])
+                current_group["_round_schedule"] = extract_roundrobin_schedule(
+                    current_group_rows, num_players, layout
+                )
                 groups.append(current_group)
             group_letter = a_val[-1]
             current_group = {"name": f"Group {group_letter}", "players": []}
+            current_group_rows = []
             continue
 
         if current_group is None:
             continue
 
+        current_group_rows.append(r)
+
         if r.get(ccol) == "Standings":
+            num_players = len(current_group["players"])
+            current_group["_round_schedule"] = extract_roundrobin_schedule(
+                current_group_rows, num_players, layout
+            )
             groups.append(current_group)
             current_group = None
+            current_group_rows = []
             continue
 
         p_val = r.get(pcol)
@@ -405,6 +418,10 @@ def extract_group_playoff(rows, is_doubles, layout=None):
                     })
 
     if current_group:
+        num_players = len(current_group["players"])
+        current_group["_round_schedule"] = extract_roundrobin_schedule(
+            current_group_rows, num_players, layout
+        )
         groups.append(current_group)
 
     return groups
@@ -642,8 +659,49 @@ def build_playoff_bracket(rows, is_doubles, layout=None):
     }
 
 
-def generate_roundrobin_matches(players, is_doubles):
-    """Generate all-vs-all match pairings for round-robin."""
+def extract_roundrobin_schedule(rows, num_players, layout=None):
+    """Extract round assignments from the round-robin cross-table matrix.
+
+    Returns dict mapping (pos_i, pos_j) -> round_number (1-based),
+    where pos_i < pos_j. Returns empty dict if no round markers found.
+    """
+    if layout is None:
+        layout = detect_layout(rows)
+    pcol = layout["player_col"]
+    # Matrix columns start right after the player column
+    matrix_start = chr(ord(pcol) + 1)
+
+    schedule = {}
+    for r in rows:
+        a_val = r.get("A", "")
+        if not a_val.isdigit():
+            continue
+        pos_i = int(a_val)
+        if pos_i < 1 or pos_i > num_players:
+            continue
+
+        for offset in range(num_players):
+            col = chr(ord(matrix_start) + offset)
+            pos_j = offset + 1
+            if pos_j == pos_i:
+                continue
+            cell = r.get(col, "")
+            m = re.match(r"^R(\d+)", cell.strip())
+            if m:
+                round_num = int(m.group(1))
+                key = (min(pos_i, pos_j), max(pos_i, pos_j))
+                if key not in schedule:
+                    schedule[key] = round_num
+
+    return schedule
+
+
+def generate_roundrobin_matches(players, is_doubles, round_schedule=None):
+    """Generate all-vs-all match pairings for round-robin.
+
+    If round_schedule is provided (dict mapping (pos_i, pos_j) -> round_number),
+    each match gets a 'pool_round' field from the schedule.
+    """
     matches = []
     match_num = 1
     for i in range(len(players)):
@@ -652,11 +710,18 @@ def generate_roundrobin_matches(players, is_doubles):
             p2 = players[j]
             name1 = player_label(p1, is_doubles)
             name2 = player_label(p2, is_doubles)
-            matches.append({
+            match = {
                 "match": match_num,
                 "player1": name1,
                 "player2": name2,
-            })
+            }
+            if round_schedule:
+                key = (min(p1["position"], p2["position"]),
+                       max(p1["position"], p2["position"]))
+                pool_round = round_schedule.get(key)
+                if pool_round is not None:
+                    match["pool_round"] = pool_round
+            matches.append(match)
             match_num += 1
     return matches
 
@@ -803,7 +868,12 @@ def process_workbook(filepath, config):
 
         elif fmt == "round_robin":
             players = extract_roundrobin_players(rows, is_doubles, layout)
-            matches = generate_roundrobin_matches(players, is_doubles)
+            round_schedule = extract_roundrobin_schedule(
+                rows, len(players), layout
+            )
+            matches = generate_roundrobin_matches(
+                players, is_doubles, round_schedule
+            )
 
             division_json["players"] = players
             division_json["matches"] = matches
@@ -812,7 +882,10 @@ def process_workbook(filepath, config):
         elif fmt == "group_playoff":
             groups = extract_group_playoff(rows, is_doubles, layout)
             for g in groups:
-                g["matches"] = generate_roundrobin_matches(g["players"], is_doubles)
+                round_schedule = g.pop("_round_schedule", None)
+                g["matches"] = generate_roundrobin_matches(
+                    g["players"], is_doubles, round_schedule
+                )
                 div_clubs |= collect_clubs(g["players"], is_doubles)
 
             division_json["groups"] = groups

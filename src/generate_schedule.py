@@ -372,6 +372,7 @@ def _load_roundrobin_matches(config, data, div_code, div_name, category, duratio
     )
     pool_priority = resolve_priority(config, "Pool", category, div_code,
                                      day_name=day_constraint)
+    has_pool_rounds = False
     for m in data.get("matches", []):
         match_id = make_match_id(div_code, "Pool", m["match"])
         p1 = m.get("player1", "")
@@ -388,10 +389,14 @@ def _load_roundrobin_matches(config, data, div_code, div_name, category, duratio
             prerequisites=[], is_elite=False,
             overrun_buffer=overrun_buf,
         )
+        if "pool_round" in m:
+            match.pool_round = m["pool_round"] - 1  # JSON is 1-based, internal is 0-based
+            has_pool_rounds = True
         matches.append(match)
 
-    # Compute scheduling rounds for parallelism
-    _compute_pool_rounds(matches)
+    # Compute scheduling rounds only if not provided in the data
+    if not has_pool_rounds:
+        _compute_pool_rounds(matches)
     return matches
 
 
@@ -407,6 +412,7 @@ def _load_group_playoff_matches(config, data, div_code, div_name, category, dura
     pool_priority = resolve_priority(config, "Pool", category, div_code,
                                      day_name=group_day_constraint)
 
+    has_pool_rounds = False
     for group in data.get("groups", []):
         group_name = group["name"]
         for m in group.get("matches", []):
@@ -425,6 +431,9 @@ def _load_group_playoff_matches(config, data, div_code, div_name, category, dura
                 prerequisites=[], is_elite=False,
                 overrun_buffer=overrun_buf,
             )
+            if "pool_round" in m:
+                match.pool_round = m["pool_round"] - 1  # JSON is 1-based, internal is 0-based
+                has_pool_rounds = True
             matches.append(match)
             group_match_ids.append(match_id)
 
