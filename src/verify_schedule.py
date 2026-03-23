@@ -1072,13 +1072,17 @@ def verify(config):
     total_failures = 0
     total_severe_warnings = 0
     total_warnings = 0
+    fatal_errors = []  # critical failures that indicate a broken schedule
+    check_summaries = []  # (check_name, status) for final report
 
-    def _report_failures(issues):
+    def _report_failures(issues, check_name=None, fatal=False):
         nonlocal total_failures
         all_issues.extend(issues)
         total_failures += len(issues)
         for issue in issues:
             print(f"  FAIL: {issue}")
+        if fatal and issues:
+            fatal_errors.append((check_name, issues))
 
     def _report_severe_warnings(issues):
         nonlocal total_severe_warnings
@@ -1099,7 +1103,7 @@ def verify(config):
     issues = check_bracket_completeness(divisions)
     total_checks += 1
     if issues:
-        _report_failures(issues)
+        _report_failures(issues, "Bracket completeness", fatal=True)
     else:
         print("  PASS")
 
@@ -1118,7 +1122,7 @@ def verify(config):
         issues = check_schedule_coverage(divisions, schedule)
         total_checks += 1
         if issues:
-            _report_failures(issues)
+            _report_failures(issues, "Schedule coverage (unscheduled matches)", fatal=True)
         else:
             print("  PASS")
 
@@ -1127,7 +1131,7 @@ def verify(config):
         issues = check_player_conflicts(schedule)
         total_checks += 1
         if issues:
-            _report_failures(issues)
+            _report_failures(issues, "Player conflicts (double-bookings)", fatal=True)
         else:
             print("  PASS")
     else:
@@ -1184,7 +1188,16 @@ def verify(config):
         else:
             print("  PASS")
 
+    # Final summary
     print()
+    if fatal_errors:
+        print("=" * 60)
+        print("FATAL ERRORS — schedule is incomplete or invalid:")
+        for check_name, issues in fatal_errors:
+            print(f"  {check_name}: {len(issues)} issue(s)")
+        print("=" * 60)
+        print()
+
     if all_issues:
         parts = []
         if total_failures:
