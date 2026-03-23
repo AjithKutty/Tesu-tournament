@@ -1,29 +1,216 @@
-# Priority levels (lower number = scheduled first)
+# Scheduling priorities (lower number = scheduled first).
+# Use round names directly. Override per category or per division.
+#
+# Saturday strategy: large elimination divisions first (singles > doubles),
+# then Junior pools, then medium elimination, then other pools.
+# Sunday strategy: QFs first (singles), then pools, SFs, Finals last.
 priorities:
-  elite_pool: 5
-  pool: 10
-  round_1: 20
-  group_playoff: 30
-  round_2: 40
-  quarter_final: 50
-  semi_final: 60
-  final: 70
+  # Base priorities by round type (defaults for divisions not explicitly listed)
+  rounds:
+    "Round 1": 25
+    "Round 2": 35
+    "Pool": 50
+    "Quarter-Final": 45
+    "Semi-Final": 60
+    "Final": 70
 
-# Which round names map to which priority key
-round_priority_map:
-  "Round 1": round_1
-  "Round 2": round_2
-  "Quarter-Final": quarter_final
-  "Semi-Final": semi_final
-  "Final": final
+  # Per-division overrides (highest precedence)
+  divisions:
+    # --- Tier 1: Large elimination R1 (singles before doubles) ---
+    "MS C":
+      "Round 1": 5
+      "Round 2": 12
+      "Quarter-Final": 36
+    "MS B":
+      "Round 1": 6
+      "Round 2": 13
+    "MD C":
+      "Round 1": 8
+      "Round 2": 15
+      "Quarter-Final": 38
+    "MD B":
+      "Round 1": 9
+      "Round 2": 16
+      "Quarter-Final": 39
+    # --- Tier 3: Junior pool matches (exception — higher than other pools) ---
+    "BS U13":
+      "Pool": 18
+    "BS U17":
+      "Pool": 18
+    "BS U15":
+      "Pool": 19
+    # --- Tier 4: Medium elimination (singles before doubles) ---
+    "MS A":
+      "Round 1": 20
+      "Round 2": 30
+      "Quarter-Final": 40
+    "XD C":
+      "Round 1": 22
+      "Round 2": 32
+      "Quarter-Final": 41
+    "MD A":
+      "Round 1": 23
+      "Round 2": 33
+      "Quarter-Final": 42
+    "XD B":
+      "Round 1": 24
+      "Round 2": 34
+      "Quarter-Final": 43
 
-# Division codes that get elite_pool priority for their pool matches
-elite_divisions: ["MS V", "WS V", "XD V"]
+  # Per-day overrides — use divisions-only for QFs to avoid
+  # affecting inferred priorities of non-Sunday QFs.
+  day_overrides:
+    Sunday:
+      rounds:
+        "Pool": 25
+        "Semi-Final": 40
+        "Final": 60
+      divisions:
+        "MS C":
+          "Semi-Final": 10      # Large singles SF early
+        "MS B":
+          "Quarter-Final": 5    # Singles QF highest on Sunday
+          "Semi-Final": 12      # Large singles SF early
+        "MD C":
+          "Semi-Final": 15      # Large doubles SF early
+        "MD B":
+          "Semi-Final": 17      # Large doubles SF early
+        "MD A":
+          "Semi-Final": 19      # Medium doubles SF early
+        "XD C":
+          "Semi-Final": 21      # Medium mixed SF early
+        "XD B":
+          "Semi-Final": 23      # Medium mixed SF early
+        "MS 35":
+          "Pool": 20            # Veterans singles pool earlier on Sunday
 
-# Rounds that must be scheduled on a specific day
+# Earliest start time: rounds won't be scheduled before this time.
+# Ensures Finals are in the afternoon, not squeezed into morning gaps.
+earliest_start:
+  - rounds: ["Final"]
+    time: "Sunday 14:00"
+
+# Rounds that must be scheduled on a specific day (global — applies to all divisions)
 day_constraints:
   - rounds: ["Semi-Final", "Final"]
     day: "Sunday"
+
+# Per-division day constraints (override global constraints for specific divisions)
+# Round names: "Round 1", "Round 2", "Quarter-Final", "Semi-Final", "Final",
+#              "Pool" (round-robin), "Group" (group stage), "Playoff Round 1", etc.
+division_day_constraints:
+  "MS C":
+    - rounds: ["Semi-Final", "Final"]
+      day: "Sunday"
+  "MS B":
+    - rounds: ["Quarter-Final", "Semi-Final", "Final"]
+      day: "Sunday"
+  "MD A":
+    - rounds: ["Semi-Final", "Final"]
+      day: "Sunday"
+  "XD C":
+    - rounds: ["Semi-Final", "Final"]
+      day: "Sunday"
+  "XD B":
+    - rounds: ["Semi-Final", "Final"]
+      day: "Sunday"
+  "XD 35":
+    - rounds: ["Pool"]
+      day: "Sunday"
+  "XD 55":
+    - rounds: ["Pool"]
+      day: "Sunday"
+  "BS U13":
+    - rounds: ["Semi-Final", "Final"]
+      day: "Saturday"
+  "BS U15":
+    - rounds: ["Semi-Final", "Final"]
+      day: "Saturday"
+  "BS U17":
+    - rounds: ["Semi-Final", "Final"]
+      day: "Saturday"
+
+# Pool round same-day: when enabled, each pool round (R1, R2, R3) is a
+# separate same-day unit. When disabled, all pool matches share one same-day key.
+pool_round_same_day:
+  default: true
+  categories:
+    Junior: false           # Junior uses pool time limit instead
+    #"Open A": false         # Open A players have heavy cross-division scheduling
+
+# Round time limit: all matches in a round (per division/group) must finish
+# within this many minutes of the first match starting.
+# Plain number = soft limit (WARN in verifier, scheduler may relax).
+# Dict with {limit, hard: true} = hard limit (FAIL in verifier, never relaxed).
+round_time_limit:
+  # Per-round defaults
+  rounds:
+    "Quarter-Final": 120   # QF matches within 2 hours (soft)
+  # Per-category overrides (can specify per-round within category)
+  categories:
+    Junior:
+      "Pool":              # Junior pool matches within 5 hours (hard)
+        limit: 300
+        hard: true
+  # Per-division overrides
+  # divisions:
+  #   "XD B":
+  #     "Quarter-Final": 90
+
+# Semi-final same-time: both SF matches of a division must start at the same time
+semi_final_same_time: true
+
+# Round completion: all matches in a round must finish before the next round
+# starts (per division). Does not apply to round-robin pool matches.
+round_completion:
+  enabled: true
+  # Divisions exempt from this rule (rounds can overlap):
+  # exceptions: ["MD C"]
+
+# ── Draw format overrides (used when input has entries only, no draws) ───
+# Controls which draw format parse_entries.py uses for each division.
+# Format options: "round_robin", "elimination", "group_playoff"
+# group_playoff accepts: groups (number of groups), advancers_per_group
+
+draw_formats:
+  # Default format for divisions with >6 entries (<=6 always use round_robin)
+  default: elimination
+
+  # Per-category defaults (override the global default)
+  categories:
+    Veterans: round_robin
+
+  # Per-division overrides (override both default and category)
+  divisions:
+    "BS U13":
+      format: group_playoff
+      groups: 2
+      advancers_per_group: 2   # 4 in playoff → Semi-Final + Final
+    "BS U15":
+      format: group_playoff
+      groups: 2
+      advancers_per_group: 2
+    "BS U17":
+      format: group_playoff
+      groups: 4
+      advancers_per_group: 2   # 4 in playoff → Quarter-Final + Semi-Final + Final
+    "MD 35":
+      format: group_playoff
+      groups: 2
+      advancers_per_group: 1   # 2 in playoff → Final only
+
+# ── Potential conflict avoidance ────────────────────────────────
+# Avoid scheduling matches at the same time when the same player could
+# potentially be in both (traced from bracket prerequisites).
+# Only checks for time overlap — no rest requirement applied.
+potential_conflict_avoidance:
+  # Default: check potential overlaps for R2 and QF across all categories
+  default:
+    rounds: ["Round 2", "Quarter-Final", "Semi-Final", "Final"]
+  # Junior: also check SF and Final (players often play multiple age groups)
+  #categories:
+  #  Junior:
+  #    rounds: ["Semi-Final", "Final"]
 
 # ── Match durations and court blocking ────────────────────────────
 
@@ -31,6 +218,10 @@ match_duration:
   default: 30           # Minutes
   categories:
     Elite: 45
+    Open A: 40
+  # Per-division overrides (override category)
+  divisions:
+    "XD A": 30
 
 overrun_buffer:
   default: 0            # No buffer needed for non-Elite matches
@@ -56,6 +247,46 @@ rest_rules:
 
   # Between games in any two divisions (absolute minimum)
   cross_division_rest: 30
+
+  # Per-player rest exceptions for specific division pairs.
+  # Overrides all other rest rules for the named player between the listed divisions.
+  #player_exceptions:
+  #  "Jaakko Hakala":
+  #    - between: ["MS A", "MD A"]
+  #      rest: 0
+  #  "Jaakko Hakala / Lassi Lybeck":
+  #    - between: ["MS A", "MD A"]
+  #      rest: 0
+
+# ── Match density limit ──────────────────────────────────────────
+# Maximum matches a player can have within a rolling time window.
+#match_density:
+#  max_matches: 3
+#  time_window: 180       # minutes (3 hours)
+  # Per-player exceptions:
+  #player_exceptions:
+  # "Ari Fingerroos": 
+  #     max_matches: 4
+  #     time_window: 180
+  # "Joonas Huovila":
+  #     max_matches: 4
+  #     time_window: 180
+  # "Kari Laurila":
+  #     max_matches: 4
+  #     time_window: 180
+
+# ── Time deadlines ──────────────────────────────────────────────
+# Rounds must finish (match end time) by a specific day+time.
+# Global (no divisions list) or per-division.
+time_deadlines:
+   - rounds: ["Round 1"]
+     divisions: ["MS C", "MS B"]
+     deadline: "Saturday 12:00"
+   - rounds: ["Round 1"]
+     divisions: ["MD C", "MD B"]
+     deadline: "Saturday 13:00"
+#   - rounds: ["Semi-Final"]
+#     deadline: "Sunday 12:00"
 
 # ── Probability-based player filtering ────────────────────────────
 # For later-round matches with placeholder players ("Winner R1-M1"),

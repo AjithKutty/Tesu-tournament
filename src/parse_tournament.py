@@ -94,23 +94,127 @@ def read_sheet_rows(ws):
     return rows
 
 
+# ── Column layout detection ──────────────────────────────────────
+
+def detect_layout(rows):
+    """Detect column layout from header rows.
+
+    Returns dict with:
+        player_col: column letter for player names (first round / name column)
+        club_col: column letter for club names
+        status_col: column letter for status (WDN/SUB), or None
+        has_flag_col: whether there's a flag column
+
+    Two known layouts:
+        2025-style: A=pos, B=status, C=club, D=flag, E=player/rounds
+        2026-style: A=pos, B=club, C=player/rounds (no status/flag columns)
+    """
+    for r in rows:
+        # Look for header row with known round names or "Club"
+        vals = {col: r.get(col, "") for col in "ABCDEFGHIJKLMNO" if col in r}
+
+        # Find the first column with a round name or numbered round-robin header
+        for col in sorted(vals.keys()):
+            if col == "A":
+                continue
+            v = vals[col]
+            if v in ROUND_NAMES:
+                # Elimination: this column is both the header AND the player name column
+                player_col = col
+            elif v in ("1", "2", "3"):
+                # Round-robin grid: numbered columns are the match grid,
+                # player names are in the column before the numbers
+                player_col = chr(ord(col) - 1)
+            else:
+                continue
+
+            # Determine club and status columns relative to player_col
+            prev = chr(ord(player_col) - 1)
+            prev2 = chr(ord(player_col) - 2)
+            if vals.get(prev, "").rstrip() == "Club":
+                club_col = prev
+                status_col = prev2 if vals.get(prev2, "").rstrip() in ("St.",) else None
+                has_flag = False
+            elif vals.get(prev2, "").rstrip() == "Club":
+                # There's a flag column between club and player
+                club_col = prev2
+                prev3 = chr(ord(player_col) - 3)
+                status_col = prev3 if vals.get(prev3, "").rstrip() in ("St.",) else None
+                has_flag = True
+            else:
+                club_col = prev
+                status_col = None
+                has_flag = False
+            return {
+                "player_col": player_col,
+                "club_col": club_col,
+                "status_col": status_col,
+                "has_flag_col": has_flag,
+            }
+
+        # Check for "St." marker (2025-style header)
+        if vals.get("B") in ("St.", "St. "):
+            return {
+                "player_col": "E",
+                "club_col": "C",
+                "status_col": "B",
+                "has_flag_col": True,
+            }
+
+    # Fallback: try both known layouts
+    # Check if column E has player-like data (names with seeds)
+    for r in rows:
+        if r.get("A", "").isdigit() and r.get("E"):
+            return {
+                "player_col": "E",
+                "club_col": "C",
+                "status_col": "B",
+                "has_flag_col": True,
+            }
+        if r.get("A", "").isdigit() and r.get("C"):
+            return {
+                "player_col": "C",
+                "club_col": "B",
+                "status_col": None,
+                "has_flag_col": False,
+            }
+
+    # Default to 2025-style
+    return {
+        "player_col": "E",
+        "club_col": "C",
+        "status_col": "B",
+        "has_flag_col": True,
+    }
+
+
 # ── Format detection ─────────────────────────────────────────────
 
-def detect_format(rows):
+def detect_format(rows, layout=None):
     """Detect sheet format: 'elimination', 'round_robin', or 'group_playoff'."""
+    if layout is None:
+        layout = detect_layout(rows)
+    pcol = layout["player_col"]
+
     for r in rows:
         a_val = r.get("A", "")
         if re.match(r"^[A-Z]{2}\s+.+- Group [A-Z]$", a_val):
             return "group_playoff"
     for r in rows:
-        e_val = r.get("E", "")
-        if e_val in ("Round 1", "Quarterfinals", "Semifinals", "Final"):
+        val = r.get(pcol, "")
+        if val in ("Round 1", "Quarterfinals", "Semifinals", "Final"):
             return "elimination"
+    # Round-robin: check for numbered columns after player col and "Standings" row
+    rr_start = chr(ord(pcol) + 1)
     for r in rows:
-        if r.get("F") in ("1", "2") and r.get("B") == "St.":
+        if r.get(rr_start) in ("1", "2") and layout["status_col"] and r.get(layout["status_col"]) == "St.":
+            return "round_robin"
+    # Alternative round-robin detection: "Club" header + numbered columns
+    for r in rows:
+        if r.get(layout["club_col"]) in ("Club", "Club ") and r.get(rr_start) in ("1", "2"):
             return "round_robin"
     for r in rows:
-        if r.get("B") == "Standings":
+        if r.get(layout["club_col"]) == "Standings":
             return "round_robin"
     return "elimination"
 
@@ -132,27 +236,37 @@ def parse_doubles_names(name_str, club_str):
     return players
 
 
-def extract_elimination_players(rows, is_doubles):
+def extract_elimination_players(rows, is_doubles, layout=None):
     """Extract players/pairs from elimination-style draw. Returns list + draw_size."""
+    if layout is None:
+        layout = detect_layout(rows)
+    pcol = layout["player_col"]
+    ccol = layout["club_col"]
+    scol = layout["status_col"]
+
     players = []
     data_rows = [r for r in rows if r["_row"] >= 5]
     max_pos = 0
+
+    def _is_bye_name(val):
+        """Check if a player name is a bye (e.g., 'Bye', 'Bye 1', 'Bye 5')."""
+        return val.lower() == "bye" or val.lower().startswith("bye ")
 
     if is_doubles:
         prev_row = None
         for r in data_rows:
             a_val = r.get("A")
-            e_val = r.get("E")
+            p_val = r.get(pcol)
             if a_val and a_val.isdigit():
                 pos = int(a_val)
                 max_pos = max(max_pos, pos)
-                if e_val and e_val.lower() != "bye":
-                    name1_raw = prev_row.get("E", "") if prev_row else ""
-                    club1 = prev_row.get("C", "") if prev_row else ""
-                    name2_raw = e_val
-                    club2 = r.get("C", "")
-                    status1 = prev_row.get("B") if prev_row else None
-                    status2 = r.get("B")
+                if p_val and not _is_bye_name(p_val):
+                    name1_raw = prev_row.get(pcol, "") if prev_row else ""
+                    club1 = prev_row.get(ccol, "") if prev_row else ""
+                    name2_raw = p_val
+                    club2 = r.get(ccol, "")
+                    status1 = prev_row.get(scol) if prev_row and scol else None
+                    status2 = r.get(scol) if scol else None
                     status = status1 or status2
 
                     name1, seed1 = extract_seed(name1_raw) if name1_raw else ("", None)
@@ -172,39 +286,45 @@ def extract_elimination_players(rows, is_doubles):
                         })
                 prev_row = None
             else:
-                prev_row = r if r.get("E") else None
+                prev_row = r if r.get(pcol) else None
     else:
         for r in data_rows:
             a_val = r.get("A")
-            e_val = r.get("E")
+            p_val = r.get(pcol)
             if a_val and a_val.isdigit():
                 pos = int(a_val)
                 max_pos = max(max_pos, pos)
-                if e_val and e_val.lower() != "bye":
-                    name, seed = extract_seed(e_val)
+                if p_val and not _is_bye_name(p_val):
+                    name, seed = extract_seed(p_val)
                     players.append({
                         "position": pos,
                         "name": name,
-                        "club": r.get("C"),
+                        "club": r.get(ccol),
                         "seed": seed,
-                        "status": r.get("B"),
+                        "status": r.get(scol) if scol else None,
                     })
 
     return players, max_pos
 
 
-def extract_roundrobin_players(rows, is_doubles):
+def extract_roundrobin_players(rows, is_doubles, layout=None):
     """Extract players from round-robin draw."""
+    if layout is None:
+        layout = detect_layout(rows)
+    pcol = layout["player_col"]
+    ccol = layout["club_col"]
+    scol = layout["status_col"]
+
     players = []
     for r in rows:
-        if r.get("B") == "Standings":
+        if r.get(ccol) == "Standings":
             break
         a_val = r.get("A")
-        e_val = r.get("E")
-        if a_val and a_val.isdigit() and e_val:
+        p_val = r.get(pcol)
+        if a_val and a_val.isdigit() and p_val:
             pos = int(a_val)
-            if is_doubles and "\n" in e_val:
-                pair = parse_doubles_names(e_val, r.get("C"))
+            if is_doubles and "\n" in p_val:
+                pair = parse_doubles_names(p_val, r.get(ccol))
                 seed = None
                 for p in pair:
                     if p["seed"]:
@@ -214,48 +334,67 @@ def extract_roundrobin_players(rows, is_doubles):
                     "position": pos,
                     "players": pair,
                     "seed": seed,
-                    "status": r.get("B"),
+                    "status": r.get(scol) if scol else None,
                 })
             else:
-                name, seed = extract_seed(e_val)
+                name, seed = extract_seed(p_val)
                 if name.lower() != "bye":
                     players.append({
                         "position": pos,
                         "name": name,
-                        "club": r.get("C"),
+                        "club": r.get(ccol),
                         "seed": seed,
-                        "status": r.get("B"),
+                        "status": r.get(scol) if scol else None,
                     })
     return players
 
 
-def extract_group_playoff(rows, is_doubles):
+def extract_group_playoff(rows, is_doubles, layout=None):
     """Extract groups from group+playoff format."""
+    if layout is None:
+        layout = detect_layout(rows)
+    pcol = layout["player_col"]
+    ccol = layout["club_col"]
+    scol = layout["status_col"]
+
     groups = []
     current_group = None
+    current_group_rows = []
 
     for r in rows:
         a_val = r.get("A", "")
         if re.match(r"^[A-Z]{2}\s+.+- Group [A-Z]$", a_val):
             if current_group:
+                num_players = len(current_group["players"])
+                current_group["_round_schedule"] = extract_roundrobin_schedule(
+                    current_group_rows, num_players, layout
+                )
                 groups.append(current_group)
             group_letter = a_val[-1]
             current_group = {"name": f"Group {group_letter}", "players": []}
+            current_group_rows = []
             continue
 
         if current_group is None:
             continue
 
-        if r.get("B") == "Standings":
+        current_group_rows.append(r)
+
+        if r.get(ccol) == "Standings":
+            num_players = len(current_group["players"])
+            current_group["_round_schedule"] = extract_roundrobin_schedule(
+                current_group_rows, num_players, layout
+            )
             groups.append(current_group)
             current_group = None
+            current_group_rows = []
             continue
 
-        e_val = r.get("E")
-        if a_val.isdigit() and e_val:
+        p_val = r.get(pcol)
+        if a_val.isdigit() and p_val:
             pos = int(a_val)
-            if is_doubles and "\n" in e_val:
-                pair = parse_doubles_names(e_val, r.get("C"))
+            if is_doubles and "\n" in p_val:
+                pair = parse_doubles_names(p_val, r.get(ccol))
                 seed = None
                 for p in pair:
                     if p["seed"]:
@@ -265,20 +404,24 @@ def extract_group_playoff(rows, is_doubles):
                     "position": pos,
                     "players": pair,
                     "seed": seed,
-                    "status": r.get("B"),
+                    "status": r.get(scol) if scol else None,
                 })
             else:
-                name, seed = extract_seed(e_val)
+                name, seed = extract_seed(p_val)
                 if name.lower() != "bye":
                     current_group["players"].append({
                         "position": pos,
                         "name": name,
-                        "club": r.get("C"),
+                        "club": r.get(ccol),
                         "seed": seed,
-                        "status": r.get("B"),
+                        "status": r.get(scol) if scol else None,
                     })
 
     if current_group:
+        num_players = len(current_group["players"])
+        current_group["_round_schedule"] = extract_roundrobin_schedule(
+            current_group_rows, num_players, layout
+        )
         groups.append(current_group)
 
     return groups
@@ -286,20 +429,27 @@ def extract_group_playoff(rows, is_doubles):
 
 # ── Bracket / match generation ───────────────────────────────────
 
-def get_round_headers(rows):
-    """Extract ordered round names from header row (row with B='St.')."""
+def get_round_headers(rows, layout=None):
+    """Extract ordered round names from header row."""
+    if layout is None:
+        layout = detect_layout(rows)
+    pcol = layout["player_col"]
+
     for r in rows:
-        if r.get("B") == "St.":
-            rounds = []
-            for col in sorted(r.keys()):
-                if col in ("A", "B", "C", "D", "_row"):
-                    continue
-                val = r[col]
-                if val in ROUND_NAMES:
-                    rounds.append(ROUND_NAMES[val])
-                elif val == "Winner":
-                    continue
-            return rounds
+        # Find the header row: it has a known round name in the player column
+        val = r.get(pcol, "")
+        if val not in ROUND_NAMES:
+            continue
+        rounds = []
+        for col in sorted(r.keys()):
+            if col < pcol or col == "_row":
+                continue
+            v = r[col]
+            if v in ROUND_NAMES:
+                rounds.append(ROUND_NAMES[v])
+            elif v == "Winner":
+                continue
+        return rounds
     return []
 
 
@@ -369,6 +519,17 @@ def build_full_bracket(players, draw_size, round_names, is_doubles):
 
     rounds = [{"name": round_names[0], "matches": r1_matches}]
 
+    # Build a map of known winners from bye matches so later rounds can
+    # use actual player names instead of "Winner X-MN" placeholders.
+    # Key: (round_name, match_num) -> winner name
+    bye_winners = {}
+    for m in r1_matches:
+        if "auto-advances" in m.get("notes", ""):
+            p1 = m["player1"]
+            p2 = m["player2"]
+            winner = p1 if p2.startswith("Bye") else p2
+            bye_winners[(round_names[0], m["match"])] = winner
+
     # Later rounds: structural matches, propagating Byes from empty feeders
     prev_round_name = round_names[0]
     prev_match_count = draw_size // 2  # Use expected count, not actual (some were skipped)
@@ -394,15 +555,18 @@ def build_full_bracket(players, draw_size, round_names, is_doubles):
                 continue
             elif p1_empty:
                 p1_label = "Bye"
-                p2_label = f"Winner {prev_abbrev}-M{m2}"
+                p2_label = bye_winners.get((prev_round_name, m2),
+                                           f"Winner {prev_abbrev}-M{m2}")
                 match = {
                     "match": m + 1,
                     "player1": p1_label,
                     "player2": p2_label,
                     "notes": f"{p2_label} auto-advances",
                 }
+                bye_winners[(rnd_name, m + 1)] = p2_label
             elif p2_empty:
-                p1_label = f"Winner {prev_abbrev}-M{m1}"
+                p1_label = bye_winners.get((prev_round_name, m1),
+                                           f"Winner {prev_abbrev}-M{m1}")
                 p2_label = "Bye"
                 match = {
                     "match": m + 1,
@@ -410,11 +574,17 @@ def build_full_bracket(players, draw_size, round_names, is_doubles):
                     "player2": p2_label,
                     "notes": f"{p1_label} auto-advances",
                 }
+                bye_winners[(rnd_name, m + 1)] = p1_label
             else:
+                # Resolve feeder labels: use actual name if bye winner, else placeholder
+                p1_label = bye_winners.get((prev_round_name, m1),
+                                           f"Winner {prev_abbrev}-M{m1}")
+                p2_label = bye_winners.get((prev_round_name, m2),
+                                           f"Winner {prev_abbrev}-M{m2}")
                 match = {
                     "match": m + 1,
-                    "player1": f"Winner {prev_abbrev}-M{m1}",
-                    "player2": f"Winner {prev_abbrev}-M{m2}",
+                    "player1": p1_label,
+                    "player2": p2_label,
                 }
 
             matches.append(match)
@@ -426,9 +596,9 @@ def build_full_bracket(players, draw_size, round_names, is_doubles):
     return rounds
 
 
-def build_playoff_bracket(rows, is_doubles):
+def build_playoff_bracket(rows, is_doubles, layout=None):
     """Build bracket structure for a playoff sheet (positions may be empty — just slots)."""
-    round_names = get_round_headers(rows)
+    round_names = get_round_headers(rows, layout)
     # Get draw positions
     data_rows = [r for r in rows if r["_row"] >= 5]
     positions = []
@@ -489,8 +659,49 @@ def build_playoff_bracket(rows, is_doubles):
     }
 
 
-def generate_roundrobin_matches(players, is_doubles):
-    """Generate all-vs-all match pairings for round-robin."""
+def extract_roundrobin_schedule(rows, num_players, layout=None):
+    """Extract round assignments from the round-robin cross-table matrix.
+
+    Returns dict mapping (pos_i, pos_j) -> round_number (1-based),
+    where pos_i < pos_j. Returns empty dict if no round markers found.
+    """
+    if layout is None:
+        layout = detect_layout(rows)
+    pcol = layout["player_col"]
+    # Matrix columns start right after the player column
+    matrix_start = chr(ord(pcol) + 1)
+
+    schedule = {}
+    for r in rows:
+        a_val = r.get("A", "")
+        if not a_val.isdigit():
+            continue
+        pos_i = int(a_val)
+        if pos_i < 1 or pos_i > num_players:
+            continue
+
+        for offset in range(num_players):
+            col = chr(ord(matrix_start) + offset)
+            pos_j = offset + 1
+            if pos_j == pos_i:
+                continue
+            cell = r.get(col, "")
+            m = re.match(r"^R(\d+)", cell.strip())
+            if m:
+                round_num = int(m.group(1))
+                key = (min(pos_i, pos_j), max(pos_i, pos_j))
+                if key not in schedule:
+                    schedule[key] = round_num
+
+    return schedule
+
+
+def generate_roundrobin_matches(players, is_doubles, round_schedule=None):
+    """Generate all-vs-all match pairings for round-robin.
+
+    If round_schedule is provided (dict mapping (pos_i, pos_j) -> round_number),
+    each match gets a 'pool_round' field from the schedule.
+    """
     matches = []
     match_num = 1
     for i in range(len(players)):
@@ -499,11 +710,18 @@ def generate_roundrobin_matches(players, is_doubles):
             p2 = players[j]
             name1 = player_label(p1, is_doubles)
             name2 = player_label(p2, is_doubles)
-            matches.append({
+            match = {
                 "match": match_num,
                 "player1": name1,
                 "player2": name2,
-            })
+            }
+            if round_schedule:
+                key = (min(p1["position"], p2["position"]),
+                       max(p1["position"], p2["position"]))
+                pool_round = round_schedule.get(key)
+                if pool_round is not None:
+                    match["pool_round"] = pool_round
+            matches.append(match)
             match_num += 1
     return matches
 
@@ -549,7 +767,8 @@ def process_workbook(filepath, config):
 
         ws = wb[sheet_name]
         rows = read_sheet_rows(ws)
-        fmt = detect_format(rows)
+        layout = detect_layout(rows)
+        fmt = detect_format(rows, layout)
 
         # Apply format overrides from config
         div_code = info["code"]
@@ -560,6 +779,7 @@ def process_workbook(filepath, config):
             "info": info,
             "rows": rows,
             "format": fmt,
+            "layout": layout,
         }
 
     # Second pass: build division JSON and link playoffs to main draws
@@ -573,7 +793,7 @@ def process_workbook(filepath, config):
             continue
 
         rows = sd["rows"]
-        bracket = build_playoff_bracket(rows, info["is_doubles"])
+        bracket = build_playoff_bracket(rows, info["is_doubles"], layout=sd["layout"])
         if bracket:
             playoff_data[info["code"]] = bracket
 
@@ -634,9 +854,11 @@ def process_workbook(filepath, config):
 
         div_clubs = set()
 
+        layout = sd["layout"]
+
         if fmt == "elimination":
-            players, draw_size = extract_elimination_players(rows, is_doubles)
-            round_names = get_round_headers(rows)
+            players, draw_size = extract_elimination_players(rows, is_doubles, layout)
+            round_names = get_round_headers(rows, layout)
             rounds = build_full_bracket(players, draw_size, round_names, is_doubles)
 
             division_json["drawSize"] = draw_size
@@ -645,17 +867,25 @@ def process_workbook(filepath, config):
             div_clubs = collect_clubs(players, is_doubles)
 
         elif fmt == "round_robin":
-            players = extract_roundrobin_players(rows, is_doubles)
-            matches = generate_roundrobin_matches(players, is_doubles)
+            players = extract_roundrobin_players(rows, is_doubles, layout)
+            round_schedule = extract_roundrobin_schedule(
+                rows, len(players), layout
+            )
+            matches = generate_roundrobin_matches(
+                players, is_doubles, round_schedule
+            )
 
             division_json["players"] = players
             division_json["matches"] = matches
             div_clubs = collect_clubs(players, is_doubles)
 
         elif fmt == "group_playoff":
-            groups = extract_group_playoff(rows, is_doubles)
+            groups = extract_group_playoff(rows, is_doubles, layout)
             for g in groups:
-                g["matches"] = generate_roundrobin_matches(g["players"], is_doubles)
+                round_schedule = g.pop("_round_schedule", None)
+                g["matches"] = generate_roundrobin_matches(
+                    g["players"], is_doubles, round_schedule
+                )
                 div_clubs |= collect_clubs(g["players"], is_doubles)
 
             division_json["groups"] = groups

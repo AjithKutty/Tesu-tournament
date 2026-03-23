@@ -259,19 +259,38 @@ def render_rr_matches(matches, div_code="", round_prefix="Pool", schedule_lookup
     if not matches:
         return ""
 
-    cards = []
-    for m in matches:
-        p1 = h(m.get("player1", ""))
-        p2 = h(m.get("player2", ""))
+    # Group matches by pool_round if available
+    has_rounds = any("pool_round" in m for m in matches)
 
-        sched_html = ""
-        if schedule_lookup and div_code:
-            info = schedule_lookup.get((div_code, round_prefix, m.get("match")))
-            if info:
-                day = info["date"][:3]
-                sched_html = f'<span class="match-schedule">{day} {info["time"]} Ct {info["court"]}</span>'
+    if has_rounds:
+        # Organize matches by round
+        rounds_map = {}
+        for m in matches:
+            pr = m.get("pool_round", 0)
+            rounds_map.setdefault(pr, []).append(m)
+        sorted_rounds = sorted(rounds_map.keys())
+    else:
+        sorted_rounds = [None]
+        rounds_map = {None: matches}
 
-        cards.append(f"""<div class="rr-match">
+    all_cards = []
+    for pr in sorted_rounds:
+        round_matches = rounds_map[pr]
+        if has_rounds and pr is not None:
+            all_cards.append(f'<div class="rr-round-header">Round {pr}</div>')
+
+        for m in round_matches:
+            p1 = h(m.get("player1", ""))
+            p2 = h(m.get("player2", ""))
+
+            sched_html = ""
+            if schedule_lookup and div_code:
+                info = schedule_lookup.get((div_code, round_prefix, m.get("match")))
+                if info:
+                    day = info["date"][:3]
+                    sched_html = f'<span class="match-schedule">{day} {info["time"]} Ct {info["court"]}</span>'
+
+            all_cards.append(f"""<div class="rr-match">
 <span class="p1">{p1}</span>
 <span class="vs">VS</span>
 <span class="p2">{p2}</span>
@@ -280,7 +299,7 @@ def render_rr_matches(matches, div_code="", round_prefix="Pool", schedule_lookup
 
     return f"""<div class="section-title">Matches</div>
 <div class="rr-matches">
-{"".join(cards)}
+{"".join(all_cards)}
 </div>"""
 
 
@@ -597,6 +616,7 @@ CSS = """:root {
   .conn-cell.conn-bot::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 50%; border-bottom: 2px solid var(--border); border-right: 2px solid var(--border); border-bottom-right-radius: 4px; }
   .conn-cell.conn-bot::before { content: ''; position: absolute; top: 0; right: -12px; width: 12px; border-top: 2px solid var(--border); }
   .rr-matches { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.4rem; margin-top: 0.5rem; }
+  .rr-round-header { grid-column: 1 / -1; font-weight: 700; font-size: 0.85rem; color: var(--primary); margin-top: 0.5rem; padding: 0.2rem 0.4rem; border-bottom: 2px solid var(--primary-light); }
   .rr-match { display: flex; align-items: center; gap: 0.5rem; background: var(--bg); border-radius: 6px; padding: 0.4rem 0.7rem; font-size: 0.82rem; border: 1px solid var(--border); }
   .rr-match .vs { font-weight: 700; color: var(--accent-dark); font-size: 0.7rem; flex-shrink: 0; }
   .rr-match .p1, .rr-match .p2 { flex: 1; }
@@ -626,6 +646,7 @@ CSS = """:root {
   .sched-div { margin-bottom: 0.15rem; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
   .sched-div .badge { font-size: 0.6rem; padding: 0.1rem 0.4rem; }
   .sched-round { font-size: 0.6rem; color: var(--text-light); }
+  .sched-time { font-size: 0.6rem; color: var(--accent-dark); font-weight: 600; }
   .sched-p { font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
   .sched-vs { font-size: 0.55rem; color: var(--accent-dark); font-weight: 700; }
   .sched-empty { border: 1px solid #edf2f7; background: var(--bg); }
@@ -677,27 +698,27 @@ function showPlayerSchedule(name) {
 }"""
 
 
-def add_30min(time_str):
-    """Add 30 minutes to a HH:MM time string."""
+def add_minutes(time_str, minutes):
+    """Add N minutes to a HH:MM time string."""
     hh, mm = map(int, time_str.split(":"))
-    mm += 30
-    if mm >= 60:
+    mm += minutes
+    while mm >= 60:
         hh += 1
         mm -= 60
     return f"{hh:02d}:{mm:02d}"
 
 
-def time_slots_range(start_str, end_str):
-    """Generate 30-min time slots from start to end (exclusive)."""
+def time_slots_range(start_str, end_str, slot_duration=30):
+    """Generate time slots from start to end (exclusive) at slot_duration intervals."""
     slots = []
     current = start_str
     while current < end_str:
         slots.append(current)
-        current = add_30min(current)
+        current = add_minutes(current, slot_duration)
     return slots
 
 
-def render_schedule_grid(session_data, badge_lookup):
+def render_schedule_grid(session_data, badge_lookup, slot_duration=30):
     """Render a time x court grid table for one session."""
     matches = session_data.get("matches", [])
     if not matches:
@@ -705,16 +726,20 @@ def render_schedule_grid(session_data, badge_lookup):
 
     # Determine courts and time slots
     courts = sorted(set(m["court"] for m in matches))
-    time_slots = time_slots_range(session_data["start"], session_data["end"])
+    time_slots = time_slots_range(session_data["start"], session_data["end"], slot_duration)
 
     # Build grid and blocked set
+    # A match spanning N slots blocks slots 2..N (the first slot has the cell)
     grid = {}
     blocked = set()
     for m in matches:
         grid[(m["time"], m["court"])] = m
-        if m["duration_min"] > 30:
-            next_time = add_30min(m["time"])
-            blocked.add((next_time, m["court"]))
+        dur = m.get("duration_min", slot_duration)
+        extra_slots = (dur + slot_duration - 1) // slot_duration - 1
+        t = m["time"]
+        for _ in range(extra_slots):
+            t = add_minutes(t, slot_duration)
+            blocked.add((t, m["court"]))
 
     # Header row
     header_cells = '<th>Time</th>'
@@ -735,11 +760,15 @@ def render_schedule_grid(session_data, badge_lookup):
                 div_code = h(m["division"])
                 rnd = h(m.get("round", ""))
                 mnum = m.get("match_num", "")
+                pool_round = m.get("pool_round")
+                round_label = f"{rnd} R{pool_round}" if pool_round else rnd
                 p1 = h(m["player1"])
                 p2 = h(m["player2"])
-                rowspan = ' rowspan="2"' if m["duration_min"] > 30 else ""
+                dur = m.get("duration_min", slot_duration)
+                span = (dur + slot_duration - 1) // slot_duration
+                rowspan = f' rowspan="{span}"' if span > 1 else ""
                 cells += f'''<td class="sched-cell"{rowspan}>
-<div class="sched-div"><span class="badge {badge}">{div_code}</span><span class="sched-round">{rnd} M{mnum}</span></div>
+<div class="sched-div"><span class="badge {badge}">{div_code}</span><span class="sched-round">{round_label} M{mnum}</span><span class="sched-time">{t}</span></div>
 <div class="sched-p" title="{p1}">{p1}</div>
 <div class="sched-vs">vs</div>
 <div class="sched-p" title="{p2}">{p2}</div>
@@ -758,7 +787,7 @@ def render_schedule_grid(session_data, badge_lookup):
 </div>"""
 
 
-def render_schedule_panel(all_sessions, badge_lookup):
+def render_schedule_panel(all_sessions, badge_lookup, slot_duration=30):
     """Render the Schedule tab panel content with session sub-tabs and grids."""
     if not all_sessions:
         return '<p style="color: var(--text-light); padding: 1rem;">No schedule data available.</p>'
@@ -778,7 +807,7 @@ def render_schedule_panel(all_sessions, badge_lookup):
         tab_buttons.append(
             f'<button class="sched-tab-btn{active}" data-session="{sess_id}">{label} ({count})</button>'
         )
-        grid = render_schedule_grid(sess, badge_lookup)
+        grid = render_schedule_grid(sess, badge_lookup, slot_duration)
         tab_panels.append(f'<div class="sched-panel{active}" id="sched-{sess_id}">{grid}</div>')
 
     total = sum(len(s.get("matches", [])) for s in all_sessions)
@@ -904,8 +933,9 @@ def generate_html(config, schedule_lookup=None, all_sessions=None):
         fullwidth_panels.append(f"""<div class="tab-panel" id="tab-players">
 {render_players_tab(player_matches, badge_lookup)}
 </div>""")
+        slot_duration = config["venue"].get("slot_duration", 30)
         fullwidth_panels.append(f"""<div class="tab-panel" id="tab-schedule">
-{render_schedule_panel(all_sessions, badge_lookup)}
+{render_schedule_panel(all_sessions, badge_lookup, slot_duration)}
 </div>""")
 
     # Hero meta line: use description from config if available

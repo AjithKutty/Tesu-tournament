@@ -9,6 +9,11 @@ Checks:
   2. Round ordering: preceding rounds are scheduled before succeeding rounds
   3. Schedule coverage: all playable matches appear in the schedule
   4. Player conflicts: no player is double-booked
+  5. No double-bye matches
+  6. Scheduling constraints: same-day rule, pool time limits, time deadlines, round completion, SF same-time
+  7. Potential player conflicts: same player could be in overlapping later-round matches
+  8. Court buffer violations: matches scheduled over court buffer break slots
+  9. Court preference violations: matches on less-preferred courts when better were available
 """
 
 import argparse
@@ -257,7 +262,12 @@ def check_round_ordering(schedule_matches):
 # ── Check 3: Schedule Coverage ───────────────────────────────────
 
 def check_schedule_coverage(divisions, schedule_matches):
-    """Check that all playable matches from divisions appear in the schedule."""
+    """Check that all playable matches from divisions appear in the schedule.
+
+    Only reports the first round with missing matches per division —
+    later rounds that depend on failed earlier rounds are suppressed
+    since they are cascading failures.
+    """
     issues = []
 
     # Build set of scheduled match keys: (division, round, match_num)
@@ -270,15 +280,28 @@ def check_schedule_coverage(divisions, schedule_matches):
         fmt = div["format"]
 
         if fmt == "elimination":
+            # Check rounds in order; stop at the first round with failures
             for rnd in div.get("rounds", []):
+                round_issues = []
                 for m in rnd["matches"]:
                     if _is_playable(m):
                         key = (code, rnd["name"], m["match"])
                         if key not in scheduled_keys:
-                            issues.append(
+                            round_issues.append(
                                 f"{code}: {rnd['name']} M{m['match']} not in schedule "
                                 f"({m['player1']} vs {m['player2']})"
                             )
+                if round_issues:
+                    issues.extend(round_issues)
+                    remaining = [r["name"] for r in div["rounds"]
+                                 if r["name"] != rnd["name"]
+                                 and _round_sort_key(r["name"]) > _round_sort_key(rnd["name"])]
+                    if remaining:
+                        issues.append(
+                            f"{code}: skipping later rounds ({', '.join(remaining)}) "
+                            f"— depend on unscheduled {rnd['name']} matches"
+                        )
+                    break
 
         elif fmt == "round_robin":
             for m in div.get("matches", []):
@@ -290,6 +313,7 @@ def check_schedule_coverage(divisions, schedule_matches):
                     )
 
         elif fmt == "group_playoff":
+            group_has_failures = False
             for group in div.get("groups", []):
                 group_name = group["name"]
                 round_name = f"{group_name} Pool"
@@ -299,17 +323,36 @@ def check_schedule_coverage(divisions, schedule_matches):
                         issues.append(
                             f"{code}: {round_name} M{m['match']} not in schedule"
                         )
+                        group_has_failures = True
 
             playoff = div.get("playoff")
             if playoff:
-                for rnd in playoff.get("rounds", []):
-                    for m in rnd["matches"]:
-                        if _is_playable(m):
-                            key = (code, f"Playoff {rnd['name']}", m["match"])
-                            if key not in scheduled_keys:
+                if group_has_failures:
+                    issues.append(
+                        f"{code}: skipping playoff rounds — depend on unscheduled group matches"
+                    )
+                else:
+                    # Check playoff rounds in order; stop at first failure
+                    for rnd in playoff.get("rounds", []):
+                        round_issues = []
+                        for m in rnd["matches"]:
+                            if _is_playable(m):
+                                key = (code, f"Playoff {rnd['name']}", m["match"])
+                                if key not in scheduled_keys:
+                                    round_issues.append(
+                                        f"{code}: Playoff {rnd['name']} M{m['match']} not in schedule"
+                                    )
+                        if round_issues:
+                            issues.extend(round_issues)
+                            remaining = [r["name"] for r in playoff["rounds"]
+                                         if r["name"] != rnd["name"]
+                                         and _round_sort_key(r["name"]) > _round_sort_key(rnd["name"])]
+                            if remaining:
                                 issues.append(
-                                    f"{code}: Playoff {rnd['name']} M{m['match']} not in schedule"
+                                    f"{code}: skipping later playoff rounds ({', '.join(remaining)}) "
+                                    f"— depend on unscheduled Playoff {rnd['name']} matches"
                                 )
+                            break
 
     return issues
 
@@ -319,6 +362,8 @@ def _is_playable(match):
     p1 = match.get("player1", "")
     p2 = match.get("player2", "")
     if p1 == "Bye" or p2 == "Bye":
+        return False
+    if p1.startswith("Bye") or p2.startswith("Bye"):
         return False
     notes = match.get("notes", "")
     if "auto-advances" in notes or "Empty slot" in notes:
@@ -396,6 +441,622 @@ def check_player_conflicts(schedule_matches):
     return issues
 
 
+# ── Check 7: Potential Player Conflicts ─────────────────────────
+
+def _build_possible_players(divisions_dir):
+    """Build match_id -> set of all possible players from division JSON data.
+
+    Traces through bracket prerequisites to find all players who could
+    reach each match. Independent of the scheduling trace.
+    """
+    import re
+    idx_path = os.path.join(divisions_dir, "tournament_index.json")
+    if not os.path.exists(idx_path):
+        return {}
+
+    with open(idx_path, encoding="utf-8") as f:
+        index = json.load(f)
+
+    # First pass: collect all match data and direct players
+    match_players = {}  # match_id -> set of confirmed player names
+    match_prereqs = {}  # match_id -> [prereq_match_ids]
+    has_placeholder = {}  # match_id -> bool
+
+    def extract_names(player_str):
+        if not player_str or player_str == "Bye" or player_str.startswith("Bye"):
+            return []
+        if player_str.startswith("Winner ") or player_str.startswith("Slot "):
+            return []
+        return [n.strip() for n in player_str.split(" / ") if n.strip()]
+
+    def parse_winner_ref(player_str, div_code, prefix=""):
+        m = re.match(r"Winner\s+(\w+)-M(\d+)", player_str)
+        if not m:
+            return None
+        abbrev_to_round = {
+            "R1": "Round 1", "R2": "Round 2", "QF": "Quarter-Final",
+            "SF": "Semi-Final", "F": "Final",
+        }
+        round_name = abbrev_to_round.get(m.group(1), m.group(1))
+        match_num = int(m.group(2))
+        return f"{div_code}:{prefix}{round_name}:M{match_num}"
+
+    for entry in index["divisions"]:
+        if entry["draw_type"] != "main_draw":
+            continue
+        filepath = os.path.join(divisions_dir, entry["file"])
+        with open(filepath, encoding="utf-8") as f:
+            data = json.load(f)
+
+        div_code = data["code"]
+        fmt = data["format"]
+
+        if fmt == "elimination":
+            for rnd in data.get("rounds", []):
+                for match in rnd["matches"]:
+                    mid = f"{div_code}:{rnd['name']}:M{match['match']}"
+                    p1, p2 = match.get("player1", ""), match.get("player2", "")
+                    names = set(extract_names(p1) + extract_names(p2))
+                    match_players[mid] = names
+                    is_ph = p1.startswith("Winner ") or p1.startswith("Slot ") or \
+                            p2.startswith("Winner ") or p2.startswith("Slot ")
+                    has_placeholder[mid] = is_ph
+                    prereqs = []
+                    for ps in (p1, p2):
+                        ref = parse_winner_ref(ps, div_code)
+                        if ref:
+                            prereqs.append(ref)
+                    match_prereqs[mid] = prereqs
+
+        elif fmt == "round_robin":
+            for match in data.get("matches", []):
+                mid = f"{div_code}:Pool:M{match['match']}"
+                p1, p2 = match.get("player1", ""), match.get("player2", "")
+                match_players[mid] = set(extract_names(p1) + extract_names(p2))
+                has_placeholder[mid] = False
+                match_prereqs[mid] = []
+
+        elif fmt == "group_playoff":
+            for group in data.get("groups", []):
+                gname = group["name"]
+                for match in group.get("matches", []):
+                    mid = f"{div_code}:{gname} Pool:M{match['match']}"
+                    p1, p2 = match.get("player1", ""), match.get("player2", "")
+                    match_players[mid] = set(extract_names(p1) + extract_names(p2))
+                    has_placeholder[mid] = False
+                    match_prereqs[mid] = []
+            playoff = data.get("playoff")
+            if playoff:
+                for rnd in playoff.get("rounds", []):
+                    for match in rnd["matches"]:
+                        mid = f"{div_code}:Playoff {rnd['name']}:M{match['match']}"
+                        p1, p2 = match.get("player1", ""), match.get("player2", "")
+                        names = set(extract_names(p1) + extract_names(p2))
+                        match_players[mid] = names
+                        is_ph = p1.startswith("Winner ") or p1.startswith("Slot ") or \
+                                p2.startswith("Winner ") or p2.startswith("Slot ")
+                        has_placeholder[mid] = is_ph
+                        prereqs = []
+                        for ps in (p1, p2):
+                            ref = parse_winner_ref(ps, div_code, prefix="Playoff ")
+                            if ref:
+                                prereqs.append(ref)
+                        match_prereqs[mid] = prereqs
+
+    # Second pass: trace through prerequisites to resolve all possible players
+    def get_all_players(mid, visited=None):
+        if visited is None:
+            visited = set()
+        if mid in visited:
+            return set()
+        visited.add(mid)
+        if mid not in match_players:
+            return set()
+        if not has_placeholder.get(mid, False):
+            return set(match_players[mid])
+        result = set(match_players[mid])
+        for prereq in match_prereqs.get(mid, []):
+            result |= get_all_players(prereq, visited)
+        return result
+
+    all_possible = {}
+    for mid in match_players:
+        all_possible[mid] = get_all_players(mid)
+
+    return all_possible, has_placeholder
+
+
+def check_potential_player_conflicts(schedule_matches, config):
+    """Check for potential double-bookings in later-round matches.
+
+    Independently traces all possible players from division JSON data
+    (not from the scheduling trace). Flags cases where the same player
+    could be in two overlapping matches across divisions.
+
+    Only reports conflicts involving at least one placeholder match —
+    confirmed double-bookings are caught by check_player_conflicts.
+    """
+    issues = []
+    from collections import defaultdict
+
+    divisions_dir = config["paths"]["divisions_dir"]
+    all_possible, has_placeholder_map = _build_possible_players(divisions_dir)
+
+    # Build match_id -> scheduling info
+    match_info = {}
+    for m in schedule_matches:
+        match_id = f"{m['division']}:{m['round']}:M{m['match_num']}"
+        t = _time_to_minutes(m["_date"], m["time"])
+        dur = m.get("duration_min", 30)
+        match_info[match_id] = {
+            "time": t, "dur": dur,
+            "date": m["_date"], "time_str": m["time"],
+            "division": m["division"],
+            "category": m.get("category", ""),
+            "players": all_possible.get(match_id, set()),
+            "has_placeholder": has_placeholder_map.get(match_id, False),
+        }
+
+    # Build player -> list of match entries sorted by time
+    player_potential = defaultdict(list)
+    for mid, info in match_info.items():
+        for player in info.get("players", []):
+            player_potential[player].append({
+                "time": info["time"], "end": info["time"] + info["dur"],
+                "id": mid, "placeholder": info.get("has_placeholder", False),
+                "date": info["date"], "time_str": info["time_str"],
+                "division": info["division"], "category": info["category"],
+            })
+
+    # Check for overlapping or rest-violating matches for the same player
+    # FAIL: any time overlap (same-div or cross-div), same-division rest violation
+    # SEVERE: cross-division rest violation where neither match is a Final
+    # WARN: cross-division rest violation where at least one match is a Final
+    from config import compute_rest_between
+    errors = []
+    severe_warnings = []
+    warnings = []
+    seen = set()
+    for player, pmatches in player_potential.items():
+        pmatches.sort(key=lambda x: x["time"])
+        for i in range(len(pmatches) - 1):
+            m1 = pmatches[i]
+            m2 = pmatches[i + 1]
+            # Only report if at least one match has a placeholder
+            if not (m1["placeholder"] or m2["placeholder"]):
+                continue
+
+            # Skip same-division same-round conflicts
+            div1 = m1["id"].split(":")[0]
+            div2 = m2["id"].split(":")[0]
+            rnd1 = m1["id"].split(":")[1]
+            rnd2 = m2["id"].split(":")[1]
+            if div1 == div2 and rnd1 == rnd2:
+                continue
+
+            key = (min(m1["id"], m2["id"]), max(m1["id"], m2["id"]), player)
+            if key in seen:
+                continue
+
+            same_division = (div1 == div2)
+
+            # Check overlap — always FAIL
+            if m2["time"] < m1["end"]:
+                seen.add(key)
+                msg = (
+                    f"Potential overlap: {player} in "
+                    f"{m1['id']} ({m1['date']} {m1['time_str']}) and "
+                    f"{m2['id']} ({m2['date']} {m2['time_str']})"
+                )
+                errors.append(msg)
+            else:
+                # Check rest requirement
+                gap = m2["time"] - m1["end"]
+                rest = compute_rest_between(
+                    config, m1["division"], m1["category"],
+                    m2["division"], m2["category"], player_name=player,
+                )
+                if gap < rest:
+                    seen.add(key)
+                    msg = (
+                        f"Potential rest: {player} has {gap}min gap between "
+                        f"{m1['id']} ({m1['date']} {m1['time_str']}) and "
+                        f"{m2['id']} ({m2['date']} {m2['time_str']}) "
+                        f"(needs {rest}min)"
+                    )
+                    if same_division:
+                        # Same division rest violation — FAIL
+                        errors.append(msg)
+                    else:
+                        # Cross-division rest: check if a Final is involved
+                        involves_final = False
+                        for mid_check in (m1["id"], m2["id"]):
+                            rnd_check = mid_check.split(":")[1]
+                            bare = rnd_check.replace("Playoff ", "")
+                            if bare == "Final":
+                                involves_final = True
+                                break
+                        if involves_final:
+                            # At least one is a Final — WARN
+                            warnings.append(msg)
+                        else:
+                            # Neither is a Final — SEVERE
+                            severe_warnings.append(msg)
+
+    return errors, severe_warnings, warnings
+
+
+# ── Check 8: Court Buffer Violations ────────────────────────────
+
+def check_court_buffer_violations(schedules_dir):
+    """Check if any matches were scheduled by overriding court buffer breaks.
+
+    Reads the scheduling trace to find matches with buffer override warnings.
+    """
+    issues = []
+    trace_path = os.path.join(schedules_dir, "scheduling_trace.json")
+    if not os.path.exists(trace_path):
+        return issues
+
+    with open(trace_path, encoding="utf-8") as f:
+        trace = json.load(f)
+
+    for entry in trace:
+        if entry.get("warning") == "court buffer overridden":
+            slots = entry.get("buffer_slots_overridden", [])
+            issues.append(
+                f"Buffer override: {entry['match_id']} at {entry['placed']} court {entry['court']} "
+                f"— overrode buffer at {', '.join(slots)}"
+            )
+
+    return issues
+
+
+# ── Check 6: Scheduling Constraints ─────────────────────────────
+
+def check_scheduling_constraints(schedule_matches, config):
+    """Check scheduling constraints:
+    - Same-day rule: all matches in same round+division on same day
+    - Pool time limit: pool matches finish within configured window (WARN)
+    - Time deadlines: rounds finish by configured deadline
+    - Round completion: later rounds start after previous rounds finish
+    - Semi-final same-time: both SF matches at same time
+
+    Returns (errors, warnings) — pool time limit violations are warnings.
+    """
+    issues = []
+    warnings = []
+    from collections import defaultdict
+    from config import (get_round_time_limit, get_time_deadlines,
+                        get_round_completion, build_venue_model,
+                        get_pool_round_same_day)
+
+    # Build (division, round_group) -> {date: [match_descs]}
+    # Pool-round-aware: when pool_round_same_day is enabled, each pool round
+    # (R1, R2, R3) is a separate same-day unit
+    round_days = defaultdict(lambda: defaultdict(list))
+    round_times = defaultdict(list)
+
+    for m in schedule_matches:
+        div = m["division"]
+        rnd = m["round"]
+        category = m.get("category", "")
+
+        if "Pool" in rnd:
+            use_pool_round = get_pool_round_same_day(config, category, div)
+            if use_pool_round and "pool_round" in m:
+                pr = m["pool_round"]
+                if " Pool" in rnd and rnd != "Pool":
+                    round_group = f"Group Pool R{pr}"
+                else:
+                    round_group = f"Pool R{pr}"
+            else:
+                if " Pool" in rnd and rnd != "Pool":
+                    round_group = "Group Pool"
+                else:
+                    round_group = rnd
+        else:
+            round_group = rnd
+
+        date = m["_date"]
+        round_days[(div, round_group)][date].append(
+            f"M{m['match_num']} at {m['time']}"
+        )
+        t = _time_to_minutes(m["_date"], m["time"])
+        dur = m.get("duration_min", 30)
+        round_times[(div, round_group)].append((t, t + dur, m["time"], m["match_num"]))
+
+    # 1. Same-day rule
+    for (div, round_group), day_matches in sorted(round_days.items()):
+        if len(day_matches) > 1:
+            day_list = ", ".join(
+                f"{d} ({len(ids)} matches)" for d, ids in day_matches.items()
+            )
+            issues.append(
+                f"Same-day: {div} {round_group} split across days: {day_list}"
+            )
+
+    # 2. Round time limits (applies to any round, not just pools)
+    # Hard limits → FAIL (issues), soft limits → WARN (warnings)
+    round_groups = defaultdict(list)
+    for m in schedule_matches:
+        div = m["division"]
+        rnd = m["round"]
+        round_groups[(div, rnd)].append({
+            "start": _time_to_minutes(m["_date"], m["time"]),
+            "end": _time_to_minutes(m["_date"], m["time"]) + m.get("duration_min", 30),
+            "category": m.get("category", ""),
+        })
+
+    for (div, rnd), entries in sorted(round_groups.items()):
+        if not entries:
+            continue
+        category = entries[0]["category"]
+        rtl_result = get_round_time_limit(config, rnd, category, div)
+        if rtl_result is None:
+            continue
+        limit, is_hard = rtl_result
+        first_start = min(e["start"] for e in entries)
+        last_end = max(e["end"] for e in entries)
+        span = last_end - first_start
+        if span > limit:
+            msg = (f"Round time limit: {div} {rnd} spans {span}min "
+                   f"(limit {limit}min)")
+            if is_hard:
+                issues.append(msg)
+            else:
+                warnings.append(msg)
+
+    # 3. Time deadlines
+    deadlines = get_time_deadlines(config)
+    if deadlines:
+        venue_model = build_venue_model(config)
+        for dl in deadlines:
+            dl_str = dl.get("deadline", "")
+            parts = dl_str.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            day_name, time_str = parts
+            dl_h, dl_m = map(int, time_str.split(":"))
+            dl_minutes = _time_to_minutes(day_name, time_str)
+
+            rounds = dl.get("rounds", [])
+            divisions = dl.get("divisions")
+            for m in schedule_matches:
+                if m["round"] not in rounds:
+                    continue
+                if divisions and m["division"] not in divisions:
+                    continue
+                t = _time_to_minutes(m["_date"], m["time"])
+                end = t + m.get("duration_min", 30)
+                if end > dl_minutes and m["_date"] == day_name:
+                    issues.append(
+                        f"Time deadline: {m['division']} {m['round']} M{m['match_num']} "
+                        f"ends at {m['_date']} {_add_minutes(m['time'], m.get('duration_min', 30))} "
+                        f"(deadline: {dl_str})"
+                    )
+
+    # 4. Round completion
+    rc_enabled, rc_exceptions = get_round_completion(config)
+    if rc_enabled:
+        round_order = ["Round 1", "Round 2", "Quarter-Final", "Semi-Final", "Final"]
+        div_round_end = defaultdict(int)  # (div, round) -> latest end time
+        div_round_start = defaultdict(lambda: float('inf'))  # (div, round) -> earliest start
+
+        for m in schedule_matches:
+            div = m["division"]
+            rnd = m["round"]
+            if div in rc_exceptions:
+                continue
+            t = _time_to_minutes(m["_date"], m["time"])
+            end = t + m.get("duration_min", 30)
+            div_round_end[(div, rnd)] = max(div_round_end[(div, rnd)], end)
+            div_round_start[(div, rnd)] = min(div_round_start[(div, rnd)], t)
+
+        for div_rnd, start in sorted(div_round_start.items()):
+            div, rnd = div_rnd
+            if rnd not in round_order:
+                continue
+            idx = round_order.index(rnd)
+            if idx == 0:
+                continue
+            for prev_idx in range(idx - 1, -1, -1):
+                prev_rnd = round_order[prev_idx]
+                if (div, prev_rnd) in div_round_end:
+                    prev_end = div_round_end[(div, prev_rnd)]
+                    if start < prev_end:
+                        issues.append(
+                            f"Round completion: {div} {rnd} starts before "
+                            f"{prev_rnd} finishes"
+                        )
+                    break
+
+    # 5. Semi-final same-time
+    sf_same_time = config["scheduling"].get("semi_final_same_time", False)
+    if sf_same_time:
+        sf_times = defaultdict(list)
+        for m in schedule_matches:
+            rnd = m["round"]
+            bare = rnd.replace("Playoff ", "") if rnd.startswith("Playoff ") else rnd
+            if bare == "Semi-Final":
+                sf_times[(m["division"], rnd)].append(m["time"])
+
+        for (div, rnd), times in sorted(sf_times.items()):
+            if len(times) >= 2 and len(set(times)) > 1:
+                issues.append(
+                    f"SF same-time: {div} {rnd} at different times: {times}"
+                )
+
+    return issues, warnings
+
+
+def _add_minutes(time_str, minutes):
+    """Add minutes to HH:MM, return HH:MM."""
+    hh, mm = map(int, time_str.split(":"))
+    mm += minutes
+    while mm >= 60:
+        hh += 1
+        mm -= 60
+    return f"{hh:02d}:{mm:02d}"
+
+
+# ── Check 9: Court Preference Violations ────────────────────────
+
+def _to_venue_minute(venue_model, day_str, time_str):
+    """Convert (day, HH:MM) to venue model minute offset."""
+    for day in venue_model["days"]:
+        if day["name"] == day_str:
+            start_h, start_m = map(int, day["start_time"].split(":"))
+            h, m = map(int, time_str.split(":"))
+            offset = (h - start_h) * 60 + (m - start_m)
+            return day["start_minute"] + offset
+    return 0
+
+
+def check_court_preferences(schedule_matches, config):
+    """Check if matches are on optimal courts given their preferences.
+
+    For each match, determines the preferred court order and checks if
+    a more-preferred court was available (not occupied) at that time slot.
+    """
+    from collections import defaultdict
+    from config import get_court_preference, build_venue_model
+
+    issues = []
+    venue_model = build_venue_model(config)
+    slot_duration = venue_model["slot_duration"]
+    round_prefs = config["court_preferences"].get("round_court_preferences", {})
+
+    # Build court occupancy: (date, time, court) -> match_desc
+    occupancy = {}
+    for m in schedule_matches:
+        dur = m.get("duration_min", 30)
+        slots = (dur + slot_duration - 1) // slot_duration
+        t = m["time"]
+        for s in range(slots):
+            occupancy[(m["_date"], t, m["court"])] = (
+                f"{m['division']} {m['round']} M{m['match_num']}"
+            )
+            # Advance time
+            hh, mm = map(int, t.split(":"))
+            mm += slot_duration
+            while mm >= 60:
+                hh += 1
+                mm -= 60
+            t = f"{hh:02d}:{mm:02d}"
+
+    # Check each match
+    for m in schedule_matches:
+        category = m.get("category", "")
+        court = m["court"]
+        day = m["_date"]
+        time = m["time"]
+        rnd = m.get("round", "")
+        dur = m.get("duration_min", 30)
+
+        # Get the court preference for this match
+        pref = get_court_preference(config, category, day_name=day, round_name=rnd)
+
+        # Apply round preferences (same logic as get_eligible_courts)
+        bare_round = rnd.replace("Playoff ", "") if rnd.startswith("Playoff ") else rnd
+        if bare_round in round_prefs and not pref.get("required_courts"):
+            pref = dict(pref)
+            rp = round_prefs[bare_round]
+            for key in ("preferred_courts", "fallback_courts", "last_resort_courts"):
+                if key in rp:
+                    pref[key] = rp[key]
+
+        # If required_courts, just check the match is on one of them
+        if pref.get("required_courts"):
+            if court not in pref["required_courts"]:
+                issues.append(
+                    f"Required court: {m['division']} {rnd} M{m['match_num']} "
+                    f"on court {court} (required: {pref['required_courts']})"
+                )
+            continue
+
+        # Build preference order
+        preferred = pref.get("preferred_courts") or []
+        fallback = pref.get("fallback_courts") or []
+
+        # If match is on a preferred court, it's fine
+        if court in preferred:
+            continue
+
+        # Match is on a fallback/other court — check if a preferred court was free
+        slots_needed = (dur + slot_duration - 1) // slot_duration
+        for pc in preferred:
+            # Check if this preferred court was free for all slots of the match
+            all_free = True
+            t_check = time
+            for s in range(slots_needed):
+                if (day, t_check, pc) in occupancy:
+                    occ = occupancy[(day, t_check, pc)]
+                    # It's occupied by another match (not this one)
+                    if occ != f"{m['division']} {rnd} M{m['match_num']}":
+                        all_free = False
+                        break
+                # Check court exists at this time (available in venue)
+                vm_min = _to_venue_minute(venue_model, day, t_check)
+                court_exists = any(
+                    crt == pc and s <= vm_min < e
+                    for crt, s, e in venue_model["court_windows"]
+                )
+                if not court_exists:
+                    all_free = False
+                    break
+                # Advance
+                hh, mm = map(int, t_check.split(":"))
+                mm += slot_duration
+                while mm >= 60:
+                    hh += 1
+                    mm -= 60
+                t_check = f"{hh:02d}:{mm:02d}"
+
+            if all_free:
+                issues.append(
+                    f"Court preference: {m['division']} {rnd} M{m['match_num']} "
+                    f"at {day} {time} on court {court} — "
+                    f"preferred court {pc} was available"
+                )
+                break  # report only the best available preferred court
+        else:
+            # No preferred court was free from matches — check if one was
+            # only blocked by court buffers (could have been overridden)
+            for pc in preferred:
+                only_buffer_blocking = True
+                t_check = time
+                for s_idx in range(slots_needed):
+                    vm_min = _to_venue_minute(venue_model, day, t_check)
+                    court_exists = any(
+                        crt == pc and s <= vm_min < e
+                        for crt, s, e in venue_model["court_windows"]
+                    )
+                    if not court_exists:
+                        only_buffer_blocking = False
+                        break
+                    if (day, t_check, pc) in occupancy:
+                        only_buffer_blocking = False
+                        break
+                    # Advance
+                    hh, mm = map(int, t_check.split(":"))
+                    mm += slot_duration
+                    while mm >= 60:
+                        hh += 1
+                        mm -= 60
+                    t_check = f"{hh:02d}:{mm:02d}"
+
+                if only_buffer_blocking:
+                    issues.append(
+                        f"Court preference: {m['division']} {rnd} M{m['match_num']} "
+                        f"at {day} {time} on court {court} — "
+                        f"preferred court {pc} available with buffer override"
+                    )
+                    break
+
+    return issues
+
+
 # ── Main ─────────────────────────────────────────────────────────
 
 def verify(config):
@@ -408,15 +1069,41 @@ def verify(config):
 
     all_issues = []
     total_checks = 0
+    total_failures = 0
+    total_severe_warnings = 0
+    total_warnings = 0
+    fatal_errors = []  # critical failures that indicate a broken schedule
+    check_summaries = []  # (check_name, status) for final report
+
+    def _report_failures(issues, check_name=None, fatal=False):
+        nonlocal total_failures
+        all_issues.extend(issues)
+        total_failures += len(issues)
+        for issue in issues:
+            print(f"  FAIL: {issue}")
+        if fatal and issues:
+            fatal_errors.append((check_name, issues))
+
+    def _report_severe_warnings(issues):
+        nonlocal total_severe_warnings
+        all_issues.extend(issues)
+        total_severe_warnings += len(issues)
+        for issue in issues:
+            print(f"  SEVERE: {issue}")
+
+    def _report_warnings(issues):
+        nonlocal total_warnings
+        all_issues.extend(issues)
+        total_warnings += len(issues)
+        for issue in issues:
+            print(f"  WARN: {issue}")
 
     # Check 1: Bracket completeness
     print("Check 1: Bracket completeness...")
     issues = check_bracket_completeness(divisions)
     total_checks += 1
     if issues:
-        all_issues.extend(issues)
-        for issue in issues:
-            print(f"  FAIL: {issue}")
+        _report_failures(issues, "Bracket completeness", fatal=True)
     else:
         print("  PASS")
 
@@ -426,9 +1113,7 @@ def verify(config):
         issues = check_round_ordering(schedule)
         total_checks += 1
         if issues:
-            all_issues.extend(issues)
-            for issue in issues:
-                print(f"  FAIL: {issue}")
+            _report_failures(issues)
         else:
             print("  PASS")
 
@@ -437,9 +1122,7 @@ def verify(config):
         issues = check_schedule_coverage(divisions, schedule)
         total_checks += 1
         if issues:
-            all_issues.extend(issues)
-            for issue in issues:
-                print(f"  FAIL: {issue}")
+            _report_failures(issues, "Schedule coverage (unscheduled matches)", fatal=True)
         else:
             print("  PASS")
 
@@ -448,9 +1131,7 @@ def verify(config):
         issues = check_player_conflicts(schedule)
         total_checks += 1
         if issues:
-            all_issues.extend(issues)
-            for issue in issues:
-                print(f"  FAIL: {issue}")
+            _report_failures(issues, "Player conflicts (double-bookings)", fatal=True)
         else:
             print("  PASS")
     else:
@@ -461,15 +1142,71 @@ def verify(config):
     issues = check_double_byes(divisions)
     total_checks += 1
     if issues:
-        all_issues.extend(issues)
-        for issue in issues:
-            print(f"  FAIL: {issue}")
+        _report_failures(issues)
     else:
         print("  PASS")
 
+    # Check 6: Scheduling constraints (same-day, pool time limit, deadlines, round completion, SF same-time)
+    if schedule:
+        print("Check 6: Scheduling constraints...")
+        errors, warnings = check_scheduling_constraints(schedule, config)
+        total_checks += 1
+        if errors or warnings:
+            _report_failures(errors)
+            _report_warnings(warnings)
+        if not errors and not warnings:
+            print("  PASS")
+
+    # Check 7: Potential player conflicts (later-round placeholder matches)
+    if schedule:
+        print("Check 7: Potential player conflicts...")
+        errors, severe_warns, warns = check_potential_player_conflicts(schedule, config)
+        total_checks += 1
+        if errors or severe_warns or warns:
+            _report_failures(errors)
+            _report_severe_warnings(severe_warns)
+            _report_warnings(warns)
+        if not errors and not severe_warns and not warns:
+            print("  PASS")
+
+    # Check 8: Court buffer violations
+    print("Check 8: Court buffer violations...")
+    issues = check_court_buffer_violations(schedules_dir)
+    total_checks += 1
+    if issues:
+        _report_warnings(issues)
+    else:
+        print("  PASS")
+
+    # Check 9: Court preference violations
+    if schedule:
+        print("Check 9: Court preference violations...")
+        issues = check_court_preferences(schedule, config)
+        total_checks += 1
+        if issues:
+            _report_warnings(issues)
+        else:
+            print("  PASS")
+
+    # Final summary
     print()
+    if fatal_errors:
+        print("=" * 60)
+        print("FATAL ERRORS — schedule is incomplete or invalid:")
+        for check_name, issues in fatal_errors:
+            print(f"  {check_name}: {len(issues)} issue(s)")
+        print("=" * 60)
+        print()
+
     if all_issues:
-        print(f"RESULT: {len(all_issues)} issues found across {total_checks} checks")
+        parts = []
+        if total_failures:
+            parts.append(f"{total_failures} failures")
+        if total_severe_warnings:
+            parts.append(f"{total_severe_warnings} severe warnings")
+        if total_warnings:
+            parts.append(f"{total_warnings} warnings")
+        print(f"RESULT: {len(all_issues)} issues ({', '.join(parts)}) across {total_checks} checks")
     else:
         print(f"RESULT: All {total_checks} checks passed")
 
