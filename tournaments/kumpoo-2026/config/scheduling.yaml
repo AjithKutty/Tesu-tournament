@@ -75,6 +75,12 @@ priorities:
           "Semi-Final": 15      # Large doubles SF early
         "MD B":
           "Semi-Final": 17      # Large doubles SF early
+        "MD A":
+          "Semi-Final": 19      # Medium doubles SF early
+        "XD C":
+          "Semi-Final": 21      # Medium mixed SF early
+        "XD B":
+          "Semi-Final": 23      # Medium mixed SF early
         "MS 35":
           "Pool": 20            # Veterans singles pool earlier on Sunday
 
