@@ -1340,7 +1340,8 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                       round_day_assignments, same_day_key,
                       day_start_minutes, day_end_minutes,
                       min_prereq_rest, deadline_map, earliest_start_map,
-                      rc_enabled, rc_exceptions, div_round_matches):
+                      rc_enabled, rc_exceptions, div_round_matches,
+                      allow_relaxation=True):
     """Schedule both SF matches of a division at the same time slot.
 
     Finds a slot where two courts are available and both matches' player
@@ -1555,7 +1556,7 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
             break
 
     # Fallback: retry with relaxed cross-division rest
-    if not placed:
+    if not placed and allow_relaxation:
         for slot in all_slots:
             if slot < earliest:
                 continue
@@ -1639,7 +1640,7 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
             if placed:
                 break
 
-    if not placed:
+    if not placed and allow_relaxation:
         for m in pair:
             unschedulable.add(m.id)
             unscheduled.append(m)
@@ -1657,7 +1658,7 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                 "players": m.effective_players,
             })
 
-    return True  # handled (whether placed or not)
+    return placed
 
 
 def schedule_matches(matches, match_by_id, config, venue_model):
@@ -1758,13 +1759,31 @@ def schedule_matches(matches, match_by_id, config, venue_model):
     # Track matches that can't be scheduled because a prerequisite failed
     unschedulable = set()
 
-    for match in sorted_matches:
-        # If any non-bye prerequisite was unschedulable, this match is too
+    # Two-phase scheduling:
+    # Phase 1: Pass 1 only — matches that fail are deferred, not immediately relaxed.
+    #          This lets lower-priority matches take their natural slots first.
+    # Phase 2: Full 3-pass chain for deferred matches (retry with relaxed constraints).
+    deferred_ids = set()
+    scheduling_phase = 1
+
+    def _process_match(match):
+        # Skip if already placed (e.g., SF pair partner, or placed in Phase 1)
+        if match.id in scheduled or match.id in sf_already_placed:
+            return
+
+        # If any prerequisite was unschedulable or deferred, handle accordingly
         prereq_failed = False
+        prereq_deferred = False
         for prereq_id in match.prerequisites:
             if prereq_id in unschedulable:
                 prereq_failed = True
                 break
+            if scheduling_phase == 1 and prereq_id in deferred_ids:
+                prereq_deferred = True
+                break
+        if prereq_deferred:
+            deferred_ids.add(match.id)
+            return
         if prereq_failed:
             unschedulable.add(match.id)
             unscheduled.append(match)
@@ -1772,7 +1791,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 "match_id": match.id, "status": "UNSCHEDULED",
                 "reason": f"prerequisite failed: {prereq_id}",
             })
-            continue
+            return
 
         # Compute earliest start time from hard constraints
         # (player rest is checked bidirectionally per-slot via can_play_at)
@@ -1796,7 +1815,7 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                 prev_match_ids = []
                 for pr in prev_rounds:
                     prev_match_ids.extend(div_round_matches.get((match.division_code, pr), []))
-                # Check if any previous-round match failed to schedule
+                # Check if any previous-round match failed or was deferred
                 prev_failed = any(mid in unschedulable for mid in prev_match_ids)
                 if prev_failed:
                     failed_ids = [mid for mid in prev_match_ids if mid in unschedulable]
@@ -1806,7 +1825,10 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                         "match_id": match.id, "status": "UNSCHEDULED",
                         "reason": f"previous round incomplete: {prev_rounds} has unscheduled {failed_ids}",
                     })
-                    continue
+                    return
+                if scheduling_phase == 1 and any(mid in deferred_ids for mid in prev_match_ids):
+                    deferred_ids.add(match.id)
+                    return
                 # All previous-round matches should be scheduled by now
                 # (they have lower priority). Use latest end time as earliest start.
                 if prev_match_ids:
@@ -1830,7 +1852,10 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                             "match_id": match.id, "status": "UNSCHEDULED",
                             "reason": f"previous pool round incomplete: R{match.pool_round} has unscheduled {failed_ids}",
                         })
-                        continue
+                        return
+                    if scheduling_phase == 1 and any(mid in deferred_ids for mid in prev_pr_ids):
+                        deferred_ids.add(match.id)
+                        return
                     latest_prev_pr = max(
                         scheduled_end.get(mid, 0) for mid in prev_pr_ids
                     )
@@ -1901,14 +1926,14 @@ def schedule_matches(matches, match_by_id, config, venue_model):
         # Semi-final pair scheduling: skip if already placed as part of a pair
         bare_round = match.round_name.replace("Playoff ", "") if match.round_name.startswith("Playoff ") else match.round_name
         if match.id in sf_already_placed:
-            continue
+            return
 
         # If this is a SF match in a pair, schedule both together
         if sf_same_time_enabled and bare_round == "Semi-Final":
             sf_key = (match.division_code, match.round_name)
             pair = sf_pairs.get(sf_key, [])
             if len(pair) == 2:
-                placed = _schedule_sf_pair(
+                sf_placed = _schedule_sf_pair(
                     pair, earliest, latest, match.day_constraint,
                     all_slots, slot_duration, config, venue_model,
                     court_sched, player_tracker, pca_config,
@@ -1918,8 +1943,12 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                     day_start_minutes, day_end_minutes,
                     min_prereq_rest, deadline_map, earliest_start_map,
                     rc_enabled, rc_exceptions, div_round_matches,
+                    allow_relaxation=(scheduling_phase == 2),
                 )
-                continue  # pair handler deals with both matches
+                if not sf_placed and scheduling_phase == 1:
+                    for m in pair:
+                        deferred_ids.add(m.id)
+                return  # pair handler deals with both matches
 
         # Collect trace info for this match
         trace_constraints = []
@@ -2178,6 +2207,16 @@ def schedule_matches(matches, match_by_id, config, venue_model):
                     break
                 if placed:
                     break
+
+        # Phase 1: defer instead of escalating to relaxed passes
+        if not placed and scheduling_phase == 1:
+            deferred_ids.add(match.id)
+            sched_trace.append({
+                "match_id": match.id, "status": "DEFERRED",
+                "priority": match.priority,
+                "player1": match.player1, "player2": match.player2,
+            })
+            return
 
         # Fallback: if soft time limit was the blocker, retry without it
         # Hard limits are never relaxed — match stays unscheduled or uses later fallbacks
@@ -2447,6 +2486,17 @@ def schedule_matches(matches, match_by_id, config, venue_model):
             if warnings_list:
                 trace_entry["warning"] = "; ".join(warnings_list)
             sched_trace.append(trace_entry)
+
+
+    # Phase 1: Pass 1 only, defer failures
+    for match in sorted_matches:
+        _process_match(match)
+
+    # Phase 2: full 3-pass chain for deferred matches
+    if deferred_ids:
+        scheduling_phase = 2
+        for match in [m for m in sorted_matches if m.id in deferred_ids]:
+            _process_match(match)
 
     # Write scheduling trace log
     trace_path = os.path.join(config["paths"]["schedules_dir"], "scheduling_trace.json")

@@ -136,7 +136,7 @@ pool_round_same_day:
   default: true
   categories:
     Junior: false           # Junior uses pool time limit instead
-    "Open A": false         # Open A players have heavy cross-division scheduling
+    #"Open A": false         # Open A players have heavy cross-division scheduling
 
 # Round time limit: all matches in a round (per division/group) must finish
 # within this many minutes of the first match starting.
