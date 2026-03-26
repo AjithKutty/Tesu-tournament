@@ -619,6 +619,21 @@ def get_pool_round_same_day(config, category, div_code=None):
     return bool(cfg.get("default", True))
 
 
+def get_skip_finals(config, div_code=None):
+    """Check whether finals should be skipped for a division.
+
+    Resolution: per-division override → global default → False.
+    """
+    cfg = config["scheduling"].get("skip_finals", {})
+    if isinstance(cfg, bool):
+        return cfg
+    if div_code:
+        divs = cfg.get("divisions", {})
+        if div_code in divs:
+            return bool(divs[div_code])
+    return bool(cfg.get("default", False))
+
+
 def get_day_constraints(config):
     """Get global day constraints (rounds that must be on a specific day)."""
     return config["scheduling"].get("day_constraints", [])

@@ -27,6 +27,7 @@ from config import (load_config, get_tournament_name, resolve_priority,
                     get_court_preference, get_round_completion,
                     get_potential_conflict_avoidance, get_round_time_limit,
                     get_pool_round_same_day, get_slot_duration, build_venue_model,
+                    get_skip_finals,
                     minute_to_display as config_minute_to_display)
 
 
@@ -223,10 +224,25 @@ def load_all_matches(config):
     # Use this inferred day to resolve day-specific priorities.
     _infer_day_and_resolve_priorities(all_matches, config)
 
+    # Filter out Final matches for divisions with skip_finals enabled
+    skipped_finals = []
+    filtered = []
+    for m in all_matches:
+        bare = m.round_name.replace("Playoff ", "") if m.round_name.startswith("Playoff ") else m.round_name
+        if bare == "Final" and get_skip_finals(config, m.division_code):
+            skipped_finals.append(m)
+            del match_by_id[m.id]
+        else:
+            filtered.append(m)
+    if skipped_finals:
+        divs = sorted(set(m.division_code for m in skipped_finals))
+        print(f"  Skipped {len(skipped_finals)} Final match(es) (skip_finals): {', '.join(divs)}")
+    all_matches = filtered
+
     # Resolve known_players for later rounds by tracing back through brackets
     _resolve_known_players(all_matches, match_by_id)
 
-    return all_matches, match_by_id
+    return all_matches, match_by_id, skipped_finals
 
 
 def _infer_day_and_resolve_priorities(all_matches, config):
@@ -1661,7 +1677,8 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
     return placed
 
 
-def schedule_matches(matches, match_by_id, config, venue_model):
+def schedule_matches(matches, match_by_id, config, venue_model,
+                     skipped_finals=None):
     """Main scheduling loop. Returns (scheduled_dict, unscheduled_list)."""
     # Compute probabilities and filter effective players
     probabilities = _compute_player_probabilities(matches, match_by_id, config)
@@ -1691,6 +1708,16 @@ def schedule_matches(matches, match_by_id, config, venue_model):
 
     # Scheduling trace log — records why each match was placed or rejected
     sched_trace = []
+
+    # Record skipped finals in trace
+    for m in (skipped_finals or []):
+        sched_trace.append({
+            "match_id": m.id,
+            "status": "SKIPPED",
+            "reason": "skip_finals enabled for this division",
+            "player1": m.player1,
+            "player2": m.player2,
+        })
 
     # Pre-block court buffer slots (breaks/maintenance)
     for court, minute in venue_model.get("court_buffer_blocks", []):
@@ -2732,12 +2759,13 @@ def main(config=None):
     divisions_dir = config["paths"]["divisions_dir"]
 
     print(f"Loading divisions from: {divisions_dir}/")
-    matches, match_by_id = load_all_matches(config)
+    matches, match_by_id, skipped_finals = load_all_matches(config)
     print(f"Loaded {len(matches)} schedulable matches (byes excluded)\n")
 
     print("Scheduling...")
     scheduled, unscheduled, court_sched, player_tracker = schedule_matches(
-        matches, match_by_id, config, venue_model
+        matches, match_by_id, config, venue_model,
+        skipped_finals=skipped_finals,
     )
 
     print(f"  Scheduled: {len(scheduled)}")

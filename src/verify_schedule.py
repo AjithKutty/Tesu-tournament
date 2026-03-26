@@ -23,7 +23,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from config import load_config, get_tournament_name
+from config import load_config, get_tournament_name, get_skip_finals
 
 
 def load_divisions(divisions_dir):
@@ -90,13 +90,20 @@ def expected_round_structure(draw_size):
     return rounds
 
 
-def check_bracket_completeness(divisions):
+def _is_final_round(round_name):
+    """Check if a round name is a Final (including Playoff Final)."""
+    bare = round_name.replace("Playoff ", "") if round_name.startswith("Playoff ") else round_name
+    return bare == "Final"
+
+
+def check_bracket_completeness(divisions, config=None):
     """Check that elimination brackets have all expected rounds with correct match counts."""
     issues = []
 
     for div in divisions:
         code = div["code"]
         fmt = div["format"]
+        skip_final = config and get_skip_finals(config, code)
 
         if fmt == "elimination":
             draw_size = div.get("drawSize", 0)
@@ -109,6 +116,9 @@ def check_bracket_completeness(divisions):
             for exp in expected:
                 rnd_name = exp["name"]
                 exp_matches = exp["expected_matches"]
+
+                if skip_final and _is_final_round(rnd_name):
+                    continue
 
                 if rnd_name not in actual_rounds:
                     issues.append(f"{code}: Missing round '{rnd_name}' (expected {exp_matches} matches)")
@@ -144,6 +154,9 @@ def check_bracket_completeness(divisions):
                 for exp in expected:
                     rnd_name = exp["name"]
                     exp_matches = exp["expected_matches"]
+
+                    if skip_final and _is_final_round(rnd_name):
+                        continue
 
                     if rnd_name not in actual_rounds:
                         issues.append(
@@ -261,7 +274,7 @@ def check_round_ordering(schedule_matches):
 
 # ── Check 3: Schedule Coverage ───────────────────────────────────
 
-def check_schedule_coverage(divisions, schedule_matches):
+def check_schedule_coverage(divisions, schedule_matches, config=None):
     """Check that all playable matches from divisions appear in the schedule.
 
     Only reports the first round with missing matches per division —
@@ -278,10 +291,13 @@ def check_schedule_coverage(divisions, schedule_matches):
     for div in divisions:
         code = div["code"]
         fmt = div["format"]
+        skip_final = config and get_skip_finals(config, code)
 
         if fmt == "elimination":
             # Check rounds in order; stop at the first round with failures
             for rnd in div.get("rounds", []):
+                if skip_final and _is_final_round(rnd["name"]):
+                    continue
                 round_issues = []
                 for m in rnd["matches"]:
                     if _is_playable(m):
@@ -295,7 +311,8 @@ def check_schedule_coverage(divisions, schedule_matches):
                     issues.extend(round_issues)
                     remaining = [r["name"] for r in div["rounds"]
                                  if r["name"] != rnd["name"]
-                                 and _round_sort_key(r["name"]) > _round_sort_key(rnd["name"])]
+                                 and _round_sort_key(r["name"]) > _round_sort_key(rnd["name"])
+                                 and not (skip_final and _is_final_round(r["name"]))]
                     if remaining:
                         issues.append(
                             f"{code}: skipping later rounds ({', '.join(remaining)}) "
@@ -334,6 +351,8 @@ def check_schedule_coverage(divisions, schedule_matches):
                 else:
                     # Check playoff rounds in order; stop at first failure
                     for rnd in playoff.get("rounds", []):
+                        if skip_final and _is_final_round(rnd["name"]):
+                            continue
                         round_issues = []
                         for m in rnd["matches"]:
                             if _is_playable(m):
@@ -346,7 +365,8 @@ def check_schedule_coverage(divisions, schedule_matches):
                             issues.extend(round_issues)
                             remaining = [r["name"] for r in playoff["rounds"]
                                          if r["name"] != rnd["name"]
-                                         and _round_sort_key(r["name"]) > _round_sort_key(rnd["name"])]
+                                         and _round_sort_key(r["name"]) > _round_sort_key(rnd["name"])
+                                         and not (skip_final and _is_final_round(r["name"]))]
                             if remaining:
                                 issues.append(
                                     f"{code}: skipping later playoff rounds ({', '.join(remaining)}) "
@@ -1098,9 +1118,14 @@ def verify(config):
         for issue in issues:
             print(f"  WARN: {issue}")
 
+    # Report skipped finals
+    skip_finals_divs = [d["code"] for d in divisions if get_skip_finals(config, d["code"])]
+    if skip_finals_divs:
+        print(f"Note: Finals skipped (skip_finals) for: {', '.join(skip_finals_divs)}")
+
     # Check 1: Bracket completeness
     print("Check 1: Bracket completeness...")
-    issues = check_bracket_completeness(divisions)
+    issues = check_bracket_completeness(divisions, config)
     total_checks += 1
     if issues:
         _report_failures(issues, "Bracket completeness", fatal=True)
@@ -1119,7 +1144,7 @@ def verify(config):
 
         # Check 3: Schedule coverage
         print("Check 3: Schedule coverage...")
-        issues = check_schedule_coverage(divisions, schedule)
+        issues = check_schedule_coverage(divisions, schedule, config)
         total_checks += 1
         if issues:
             _report_failures(issues, "Schedule coverage (unscheduled matches)", fatal=True)

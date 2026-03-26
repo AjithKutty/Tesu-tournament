@@ -1,3 +1,15 @@
+# ── Skip finals ──────────────────────────────────────────────────
+# When enabled, Final matches are not scheduled (useful when finals
+# are managed separately, e.g. ceremony timing).
+# Per-division overrides can re-enable or disable finals individually.
+skip_finals:
+  default: true
+  # Per-division overrides (true = skip, false = schedule)
+  divisions:
+     "BS U15": false
+     "BS U13": false
+     "BS U17": false
+
 # Scheduling priorities (lower number = scheduled first).
 # Use round names directly. Override per category or per division.
 #
@@ -114,12 +126,12 @@ division_day_constraints:
   "XD B":
     - rounds: ["Semi-Final", "Final"]
       day: "Sunday"
-  "XD 35":
-    - rounds: ["Pool"]
-      day: "Sunday"
-  "XD 55":
-    - rounds: ["Pool"]
-      day: "Sunday"
+  #"XD 35":
+  #  - rounds: ["Pool"]
+  #    day: "Sunday"
+  #"XD 55":
+  #  - rounds: ["Pool"]
+  #    day: "Sunday"
   "BS U13":
     - rounds: ["Semi-Final", "Final"]
       day: "Saturday"
