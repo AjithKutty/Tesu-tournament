@@ -125,17 +125,54 @@ def make_player_str(entry, is_doubles):
     return entry['name']
 
 
+def assign_pool_rounds(n):
+    """Assign pool rounds for n players using the circle method.
+
+    Returns dict mapping (i, j) -> round_number (1-based) where i < j
+    are 0-based player indices. Each round has floor(n/2) matches;
+    odd-n tournaments give one player a bye per round.
+    """
+    schedule = {}
+    # For the circle method, use n_eff (even number)
+    n_eff = n if n % 2 == 0 else n + 1  # add phantom player for odd n
+    # Fixed player is index 0, rotate indices 1..n_eff-1
+    rotating = list(range(1, n_eff))
+    for rnd in range(n_eff - 1):
+        # Pair fixed player 0 with rotating[0]
+        pairs = [(0, rotating[0])]
+        # Pair remaining: rotating[1] with rotating[-1], etc.
+        for k in range(1, n_eff // 2):
+            pairs.append((rotating[k], rotating[n_eff - 1 - k]))
+        for a, b in pairs:
+            if a < n and b < n:  # skip phantom player
+                key = (min(a, b), max(a, b))
+                schedule[key] = rnd + 1  # 1-based
+        # Rotate: move last to front
+        rotating = [rotating[-1]] + rotating[:-1]
+    return schedule
+
+
 def generate_round_robin(entries, is_doubles):
-    """Generate round-robin matches for all entries playing each other."""
+    """Generate round-robin matches for all entries playing each other.
+
+    Assigns pool_round to each match using the circle method so that
+    matches are evenly distributed across rounds.
+    """
     players = [make_player_str(e, is_doubles) for e in entries]
+    n = len(players)
+    pool_rounds = assign_pool_rounds(n)
     matches = []
     match_num = 1
-    for i, j in combinations(range(len(players)), 2):
-        matches.append({
+    for i, j in combinations(range(n), 2):
+        match = {
             'match': match_num,
             'player1': players[i],
             'player2': players[j],
-        })
+        }
+        rnd = pool_rounds.get((i, j))
+        if rnd is not None:
+            match['pool_round'] = rnd
+        matches.append(match)
         match_num += 1
     return matches
 

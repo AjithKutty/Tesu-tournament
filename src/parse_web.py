@@ -1155,11 +1155,15 @@ def build_roundrobin_division(matches, is_doubles, full_results):
                 "status": None,
             })
 
-    # Generate all-vs-all match list (mirrors generate_roundrobin_matches)
+    # Generate all-vs-all match list with pool round assignments
+    from parse_entries import assign_pool_rounds
+    n = len(players)
+    pool_round_map = assign_pool_rounds(n)
+
     rr_matches = []
     match_num = 1
-    for i in range(len(players)):
-        for j in range(i + 1, len(players)):
+    for i in range(n):
+        for j in range(i + 1, n):
             p1_label = player_label(players[i], is_doubles)
             p2_label = player_label(players[j], is_doubles)
             entry = {
@@ -1167,6 +1171,10 @@ def build_roundrobin_division(matches, is_doubles, full_results):
                 "player1": p1_label,
                 "player2": p2_label,
             }
+
+            rnd = pool_round_map.get((i, j))
+            if rnd is not None:
+                entry["pool_round"] = rnd
 
             # Try to find corresponding scraped match for full_results
             if full_results:
