@@ -1,0 +1,3 @@
+# No specific court preferences — all 5 courts treated equally
+default:
+  preferred_courts: [1, 2, 3, 4, 5]

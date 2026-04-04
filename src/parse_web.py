@@ -287,7 +287,7 @@ def group_draws_by_division(draw_list):
     non_group = []
 
     for draw in draw_list:
-        m = re.match(r"^(.+?)\s*-\s*Group\s+([A-Z])$", draw["name"])
+        m = re.match(r"^(.+?)\s*-\s*(?:Group|Pool)\s+([A-Z])$", draw["name"])
         if m:
             base_name = m.group(1).strip()
             letter = m.group(2)

@@ -1,0 +1,168 @@
+# ── Skip finals ──────────────────────────────────────────────────
+skip_finals:
+  default: true
+
+# ── Scheduling priorities ────────────────────────────────────────
+# Lower number = scheduled first. Singles before doubles to stagger
+# divisions that share players (MS C <-> MD C, MS B <-> MD B).
+#
+# Saturday strategy: large elimination R1 first (singles > doubles),
+# then junior pools, then smaller elimination, then R2/QF staggered.
+# Sunday strategy: pools first, then SFs staggered by division.
+priorities:
+  # Base priorities by round type
+  rounds:
+    "Round 1": 25
+    "Round 2": 35
+    "Pool": 40
+    "Quarter-Final": 45
+    "Semi-Final": 60
+    "Final": 70
+
+  # Per-division overrides
+  divisions:
+    # --- Tier 1: Largest elimination R1 (singles before doubles) ---
+    "MS C":
+      "Round 1": 5
+      "Round 2": 28
+      "Quarter-Final": 40
+    "MD C":
+      "Round 1": 8
+      "Round 2": 32
+      "Quarter-Final": 46
+    # --- Tier 2: Medium elimination R1 ---
+    "MS B":
+      "Round 1": 10
+      "Quarter-Final": 36
+    "MD B":
+      "Round 1": 12
+      "Quarter-Final": 42
+    # --- Tier 3: Junior pools ---
+    "BS U17":
+      "Pool": 15
+    "BS U15":
+      "Pool": 16
+    # --- Tier 4: Smaller elimination QF ---
+    "MS A":
+      "Quarter-Final": 20
+    "MD A":
+      "Quarter-Final": 22
+    "XD C":
+      "Quarter-Final": 24
+    "XD B":
+      "Quarter-Final": 26
+    "MD 40":
+      "Quarter-Final": 27
+
+  # Per-day overrides — Sunday: pools early, then SFs staggered
+  day_overrides:
+    Sunday:
+      rounds:
+        "Pool": 10       # Sunday pool divisions fill morning
+        "Semi-Final": 50
+        "Final": 70
+      divisions:
+        # Stagger SFs: separate divisions sharing players
+        # MS C <-> MD C, MS B <-> MD B, MS A <-> MD A, MD 40 <-> MD B
+        "MS C":
+          "Semi-Final": 25
+        "MD C":
+          "Semi-Final": 30
+        "MS B":
+          "Semi-Final": 32
+        "MD B":
+          "Semi-Final": 38
+        "MS A":
+          "Semi-Final": 34
+        "MD A":
+          "Semi-Final": 40
+        "MD 40":
+          "Semi-Final": 42
+        "XD C":
+          "Semi-Final": 44
+        "XD B":
+          "Semi-Final": 46
+
+# ── Day constraints ──────────────────────────────────────────────
+day_constraints:
+  - rounds: ["Semi-Final", "Final"]
+    day: "Sunday"
+
+# Per-division day constraints
+division_day_constraints:
+  "WD C":
+    - rounds: ["Pool"]
+      day: "Sunday"
+  "XD A":
+    - rounds: ["Pool"]
+      day: "Sunday"
+  "XD 55":
+    - rounds: ["Pool"]
+      day: "Sunday"
+  "WD B":
+    - rounds: ["Pool"]
+      day: "Sunday"
+  "MD 55":
+    - rounds: ["Pool"]
+      day: "Sunday"
+  "MS 60":
+    - rounds: ["Group"]
+      day: "Sunday"
+  "XD 45":
+    - rounds: ["Pool"]
+      day: "Sunday"
+
+# ── Round completion ─────────────────────────────────────────────
+round_completion:
+  enabled: true
+
+# ── Semi-final same-time ─────────────────────────────────────────
+semi_final_same_time: true
+
+# ── Potential conflict avoidance ─────────────────────────────────
+potential_conflict_avoidance:
+  default:
+    rounds: ["Round 2", "Quarter-Final", "Semi-Final"]
+
+# ── Round time limit ─────────────────────────────────────────────
+# Keep QF matches clustered within 2 hours.
+round_time_limit:
+  rounds:
+    "Quarter-Final": 120
+
+# ── Time deadlines ───────────────────────────────────────────────
+time_deadlines:
+  - rounds: ["Round 1"]
+    divisions: ["MS C"]
+    deadline: "Saturday 12:00"
+  - rounds: ["Round 1"]
+    divisions: ["MD C"]
+    deadline: "Saturday 13:00"
+
+# ── Match durations ──────────────────────────────────────────────
+match_duration:
+  default: 30
+
+overrun_buffer:
+  default: 0
+
+# ── Rest rules ───────────────────────────────────────────────────
+rest_rules:
+  same_division_rest:
+    default: 30
+
+  same_category_rest:
+    default: 30
+
+  cross_division_rest: 30
+
+# ── Probability-based player filtering ───────────────────────────
+probability_filter:
+  default_threshold: 0.0
+  use_seeding: false
+  seeding_probabilities:
+    1_vs_unseeded: 0.75
+    2_vs_unseeded: 0.70
+    3/4_vs_unseeded: 0.65
+    seed_vs_seed: 0.55
+    default: 0.50

@@ -1,0 +1,7 @@
+name: "Sulkasadon kansalliset kilpailut 2025"
+description: "Badminton tournament organized by Sulkasato Iisalmi"
+
+input:
+  source: web
+  web_url: "https://badmintonfinland.tournamentsoftware.com/sport/events.aspx?id=74a80429-d6d6-471a-88ed-31ecfb068985"
+  full_results: false

@@ -1987,6 +1987,7 @@ def schedule_matches(matches, match_by_id, config, venue_model,
             trace_constraints.append(f"day={match.day_constraint}")
 
         # Find available slot
+        check_potential, pca_scope = _should_check_potential_conflicts(match, pca_config)
         placed = False
         # Trace: collect per-slot rejection info (all slots, not just last N)
         # court_busy_by_slot: minute -> list of busy courts
