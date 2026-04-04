@@ -1,58 +1,136 @@
-# Priority levels (lower number = scheduled first)
+# ── Skip finals ──────────────────────────────────────────────────
+# When enabled, Final matches are not scheduled (useful when finals
+# are managed separately, e.g. ceremony timing).
+skip_finals:
+  default: true
+  # Per-division overrides (true = skip, false = schedule)
+  #divisions:
+  #   "BS U15": false
+  #   "BS U13": false
+  #   "BS U17": false
+
+# ── Scheduling priorities ────────────────────────────────────────
+# Lower number = scheduled first. Hierarchical: base rounds,
+# per-division overrides, and per-day overrides.
+#
+# Saturday strategy: large elimination R1 early, then elite/junior pools,
+# medium elimination R1, other pools, then R2/QF in afternoon.
+# Sunday strategy: QFs first (if any spill from Saturday), then SFs.
+# Semi-final spacing handled by semi_final_same_time +
+# potential_conflict_avoidance — no manual priority staggering needed.
 priorities:
-  elite_pool: 5
-  pool: 10
-  round_1: 20
-  group_playoff: 30
-  round_2: 40
-  quarter_final: 50
-  semi_final: 60
-  final: 70
+  # Base priorities by round type
+  rounds:
+    "Round 1": 25
+    "Round 2": 35
+    "Pool": 20
+    "Quarter-Final": 45
+    "Semi-Final": 60
+    "Final": 70
 
-# Which round names map to which priority key
-round_priority_map:
-  "Round 1": round_1
-  "Round 2": round_2
-  "Quarter-Final": quarter_final
-  "Semi-Final": semi_final
-  "Final": final
+  # Per-division overrides
+  divisions:
+    # --- Tier 1: Largest elimination R1 (MS C has 9 R1 matches) ---
+    "MS C":
+      "Round 1": 5
+      "Round 2": 28
+      "Quarter-Final": 40
+    # --- Tier 2: Other large elimination R1 ---
+    "MS B":
+      "Round 1": 7
+      "Round 2": 30
+      "Quarter-Final": 42
+    "MD B":
+      "Round 1": 8
+      "Round 2": 31
+      "Quarter-Final": 43
+    # --- Tier 3: Elite pools (need long rest intervals) ---
+    "MS V":
+      "Pool": 10
+    "WS V":
+      "Pool": 11
+    "XD V":
+      "Pool": 12
+    # --- Tier 4: Junior groups ---
+    "BS U17":
+      "Pool": 14
+      "Playoff Quarter-Final": 36
+      "Playoff Semi-Final": 62
+    "BS U13":
+      "Pool": 15
+    "BS U15":
+      "Pool": 16
+    # --- Tier 5: Medium elimination R1 (16 draws) ---
+    "MD A":
+      "Round 1": 20
+      "Quarter-Final": 44
+    "MD C":
+      "Round 1": 22
+      "Quarter-Final": 46
+    "MS A":
+      "Round 1": 23
+      "Quarter-Final": 47
+    # --- Tier 6: Small elimination (start at QF) ---
+    "XD A":
+      "Quarter-Final": 33
+    "XD B":
+      "Quarter-Final": 34
+    "XD C":
+      "Quarter-Final": 35
 
-# Division codes that get elite_pool priority for their pool matches
-elite_divisions: ["MS V", "WS V", "XD V"]
+  # Per-day overrides — only for rounds that need different Sunday behavior.
+  # NOTE: SF priorities are NOT overridden per-division to avoid breaking
+  # round_completion (SFs must always have higher priority numbers than QFs).
+  day_overrides:
+    Sunday:
+      rounds:
+        "Pool": 25
 
-# Rounds that must be scheduled on a specific day (global — applies to all divisions)
+# ── Day constraints ──────────────────────────────────────────────
+# Rounds that must be scheduled on a specific day (global)
 day_constraints:
   - rounds: ["Semi-Final", "Final"]
     day: "Sunday"
 
-# Per-division day constraints (override global constraints for specific divisions)
-# Round names: "Round 1", "Round 2", "Quarter-Final", "Semi-Final", "Final",
-#              "Pool" (round-robin), "Group" (group stage), "Playoff Round 1", etc.
-# division_day_constraints:
-#   "BS U17":
-#     - rounds: ["Group"]
-#       day: "Saturday"
-#   "MS C":
-#     - rounds: ["Round 1", "Round 2"]
-#       day: "Saturday"
+# Per-division day constraints
+division_day_constraints:
+  "MD B":
+    - rounds: ["Quarter-Final"]
+      day: "Saturday"
 
-# Round completion: all matches in a round must finish before the next round
-# starts (per division). Does not apply to round-robin pool matches.
-# round_completion:
-#   enabled: true
-#   exceptions: ["MD C"]   # Divisions exempt from this rule
+# ── Round completion ─────────────────────────────────────────────
+# All matches in a round must finish before the next round starts
+# (per division). Does not apply to round-robin pool matches.
+round_completion:
+  enabled: true
 
-# ── Draw format overrides (used when input has entries only, no draws) ───
-# Controls which draw format parse_entries.py uses for each division.
-# draw_formats:
-#   default: elimination
-#   categories:
-#     Veterans: round_robin
-#   divisions:
-#     "BS U17":
-#       format: group_playoff
-#       groups: 2
-#       advancers_per_group: 2
+# ── Semi-final same-time ─────────────────────────────────────────
+# Both SF matches of a division must start at the same time.
+semi_final_same_time: false
+
+# ── Potential conflict avoidance ─────────────────────────────────
+# Avoid scheduling matches at the same time when the same player
+# could potentially be in both (traced from bracket prerequisites).
+potential_conflict_avoidance:
+  default:
+    rounds: ["Round 2", "Quarter-Final", "Semi-Final"]
+
+# ── Round time limit ─────────────────────────────────────────────
+# All matches in a round (per division) must finish within this
+# many minutes of the first match starting.
+round_time_limit:
+  rounds:
+    "Quarter-Final": 120
+
+# ── Time deadlines ───────────────────────────────────────────────
+# Rounds must finish (match end time) by a specific day+time.
+time_deadlines:
+  - rounds: ["Round 1"]
+    divisions: ["MS C"]
+    deadline: "Saturday 12:00"
+  - rounds: ["Round 1"]
+    divisions: ["MD A"]
+    deadline: "Saturday 13:00"
 
 # ── Match durations and court blocking ────────────────────────────
 
@@ -95,30 +173,13 @@ rest_rules:
 # ── Probability-based player filtering ────────────────────────────
 # For later-round matches with placeholder players ("Winner R1-M1"),
 # controls which possible players are checked for rest enforcement.
-# See docs/architecture/scheduling-probability.md for full details.
 
 probability_filter:
-  # Normalized probability threshold (0.0–1.0).
-  #   0.0 = include all possible players (conservative, default)
-  #   0.5 = include players with above-average advancement chance
-  #   1.0 = only confirmed players (ignores rest for placeholder matches)
   default_threshold: 0.0
-
-  # Use seed information to compute win probabilities.
-  # When false, all matches are treated as 50/50 coin flips.
   use_seeding: false
-
-  # Win probability lookup by seed matchup (only used when use_seeding: true)
   seeding_probabilities:
     1_vs_unseeded: 0.75
     2_vs_unseeded: 0.70
     3/4_vs_unseeded: 0.65
     seed_vs_seed: 0.55
     default: 0.50
-
-  # Per-division threshold overrides
-  # divisions:
-  #   "MS A":
-  #     threshold: 0.5        # More aggressive filtering for top division
-  #   "MS B":
-  #     threshold: 0.3
