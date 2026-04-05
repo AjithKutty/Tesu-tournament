@@ -3,12 +3,11 @@ skip_finals:
   default: true
 
 # ── Scheduling priorities ────────────────────────────────────────
-# Lower number = scheduled first. Singles before doubles to stagger
-# divisions that share players (MS C <-> MD C, MS B <-> MD B).
+# Lower number = scheduled first. Singles before doubles (shared players).
 #
-# Saturday strategy: large elimination R1 first (singles > doubles),
-# then junior pools, then smaller elimination, then R2/QF staggered.
-# Sunday strategy: pools first, then SFs staggered by division.
+# Saturday: C R1 → B R1 → Junior → C R2 → B QF → C QF → Sat pools
+# Sunday: pools first, then SFs: C → A → B, XD SFs last
+# (women play WD pool + XD SF — XD SFs pushed late so pools finish).
 priorities:
   # Base priorities by round type
   rounds:
@@ -21,28 +20,31 @@ priorities:
 
   # Per-division overrides
   divisions:
-    # --- Tier 1: Largest elimination R1 (singles before doubles) ---
+    # --- Phase 1: C division R1 (largest, Saturday morning) ---
     "MS C":
       "Round 1": 5
       "Round 2": 28
-      "Quarter-Final": 40
+      "Quarter-Final": 42
     "MD C":
       "Round 1": 8
       "Round 2": 32
       "Quarter-Final": 46
-    # --- Tier 2: Medium elimination R1 ---
+
+    # --- Phase 2: B division R1 ---
     "MS B":
       "Round 1": 10
       "Quarter-Final": 36
     "MD B":
       "Round 1": 12
-      "Quarter-Final": 42
-    # --- Tier 3: Junior pools ---
+      "Quarter-Final": 38
+
+    # --- Phase 3: Junior pools ---
     "BS U17":
       "Pool": 15
     "BS U15":
       "Pool": 16
-    # --- Tier 4: Smaller elimination QF ---
+
+    # --- Phase 4: A/small division QFs ---
     "MS A":
       "Quarter-Final": 20
     "MD A":
@@ -54,34 +56,39 @@ priorities:
     "MD 40":
       "Quarter-Final": 27
 
-  # Per-day overrides — Sunday: pools early, then SFs staggered
+  # Sunday: pools early, SFs staggered C → A → B, XD SFs last
   day_overrides:
     Sunday:
       rounds:
-        "Pool": 10       # Sunday pool divisions fill morning
+        "Pool": 10
         "Semi-Final": 50
         "Final": 70
       divisions:
-        # Stagger SFs: separate divisions sharing players
-        # MS C <-> MD C, MS B <-> MD B, MS A <-> MD A, MD 40 <-> MD B
+        # C SFs first
         "MS C":
           "Semi-Final": 25
         "MD C":
-          "Semi-Final": 30
-        "MS B":
-          "Semi-Final": 32
-        "MD B":
-          "Semi-Final": 38
+          "Semi-Final": 28
+        # A SFs as buffer
         "MS A":
-          "Semi-Final": 34
+          "Semi-Final": 31
         "MD A":
+          "Semi-Final": 34
+        # B SFs after
+        "MS B":
+          "Semi-Final": 37
+        "MD B":
           "Semi-Final": 40
+        # Veterans + Junior
         "MD 40":
-          "Semi-Final": 42
+          "Semi-Final": 43
+        "BS U17":
+          "Semi-Final": 45
+        # XD SFs last — women play WD pool + XD SF, give pools time
         "XD C":
-          "Semi-Final": 44
+          "Semi-Final": 52
         "XD B":
-          "Semi-Final": 46
+          "Semi-Final": 55
 
 # ── Day constraints ──────────────────────────────────────────────
 day_constraints:
@@ -117,7 +124,7 @@ round_completion:
   enabled: true
 
 # ── Semi-final same-time ─────────────────────────────────────────
-semi_final_same_time: true
+semi_final_same_time: false
 
 # ── Potential conflict avoidance ─────────────────────────────────
 potential_conflict_avoidance:
@@ -125,7 +132,6 @@ potential_conflict_avoidance:
     rounds: ["Round 2", "Quarter-Final", "Semi-Final"]
 
 # ── Round time limit ─────────────────────────────────────────────
-# Keep QF matches clustered within 2 hours.
 round_time_limit:
   rounds:
     "Quarter-Final": 120
