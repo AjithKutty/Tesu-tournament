@@ -17,7 +17,7 @@ skip_finals:
 # medium elimination R1, other pools, then R2/QF in afternoon.
 # Sunday strategy: QFs first (if any spill from Saturday), then SFs.
 # Semi-final spacing handled by semi_final_same_time +
-# potential_conflict_avoidance — no manual priority staggering needed.
+# potential conflict avoidance — no manual priority staggering needed.
 priorities:
   # Base priorities by round type
   rounds:
@@ -107,13 +107,6 @@ round_completion:
 # ── Semi-final same-time ─────────────────────────────────────────
 # Both SF matches of a division must start at the same time.
 semi_final_same_time: false
-
-# ── Potential conflict avoidance ─────────────────────────────────
-# Avoid scheduling matches at the same time when the same player
-# could potentially be in both (traced from bracket prerequisites).
-potential_conflict_avoidance:
-  default:
-    rounds: ["Round 2", "Quarter-Final", "Semi-Final"]
 
 # ── Round time limit ─────────────────────────────────────────────
 # All matches in a round (per division) must finish within this

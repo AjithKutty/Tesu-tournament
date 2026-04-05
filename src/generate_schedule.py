@@ -25,7 +25,7 @@ from config import (load_config, get_tournament_name, resolve_priority,
                     get_match_density, get_overrun_buffer, compute_rest_between,
                     get_cross_division_rest, get_same_division_rest,
                     get_court_preference, get_round_completion,
-                    get_potential_conflict_avoidance, get_round_time_limit,
+                    get_round_time_limit,
                     get_pool_round_same_day, get_slot_duration, build_venue_model,
                     get_skip_finals,
                     minute_to_display as config_minute_to_display)
@@ -1257,28 +1257,20 @@ def _player_conflict_detail(player_tracker, match, slot):
     return "; ".join(conflicts) if conflicts else "unknown"
 
 
-def _should_check_potential_conflicts(match, pca_config):
-    """Check if this match's round is configured for potential conflict avoidance.
+_PCA_ROUNDS = {"Round 2", "Quarter-Final", "Semi-Final", "Final"}
 
-    Returns (should_check, scope) where scope is:
-      "all" — from default config, check across all categories
-      "same_category" — from category-specific config, check within category only
-      None — not configured
+
+def _should_check_potential_conflicts(match):
+    """Check if this match's round requires potential conflict avoidance.
+
+    Always enabled for Round 2, Quarter-Final, Semi-Final, and Final.
+    Returns (should_check, scope) where scope is "all" (check across
+    all categories) or None.
     """
-    if not pca_config:
-        return False, None
-    category = match.category
     round_name = match.round_name
     bare_round = round_name.replace("Playoff ", "") if round_name.startswith("Playoff ") else round_name
 
-    # Check category-specific config first
-    if category in pca_config:
-        if bare_round in pca_config[category]:
-            return True, "same_category"
-
-    # Fall back to default (applies across all categories)
-    default_rounds = pca_config.get("_default", set())
-    if bare_round in default_rounds:
+    if bare_round in _PCA_ROUNDS:
         return True, "all"
 
     return False, None
@@ -1350,7 +1342,7 @@ def _build_earliest_start_map(config, venue_model):
 
 def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                       all_slots, slot_duration, config, venue_model,
-                      court_sched, player_tracker, pca_config,
+                      court_sched, player_tracker,
                       scheduled, scheduled_end, sf_already_placed,
                       unschedulable, unscheduled, sched_trace,
                       round_day_assignments, same_day_key,
@@ -1484,7 +1476,7 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                 ):
                     ok1 = False
                 if ok1 and player_tracker.potential_history:
-                    _, sf_scope = _should_check_potential_conflicts(m1, pca_config)
+                    _, sf_scope = _should_check_potential_conflicts(m1)
                     if sf_scope:
                         ok_p, _ = player_tracker.check_potential_overlap(
                             m1.effective_players, slot, m1.duration_min,
@@ -1504,7 +1496,7 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                 ):
                     ok2 = False
                 if ok2 and player_tracker.potential_history:
-                    _, sf_scope2 = _should_check_potential_conflicts(m2, pca_config)
+                    _, sf_scope2 = _should_check_potential_conflicts(m2)
                     if sf_scope2:
                         ok_p, _ = player_tracker.check_potential_overlap(
                             m2.effective_players, slot, m2.duration_min,
@@ -1539,7 +1531,7 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                             m.duration_min, m.division_code, m.category
                         )
 
-                check_potential, pca_scope = _should_check_potential_conflicts(m, pca_config)
+                check_potential, pca_scope = _should_check_potential_conflicts(m)
                 if check_potential and m.effective_players:
                     player_tracker.update_potential(
                         m.effective_players, slot, m.duration_min, m.id,
@@ -1632,7 +1624,7 @@ def _schedule_sf_pair(pair, earliest_base, latest_base, day_constraint,
                                 list(confirmed), slot,
                                 m.duration_min, m.division_code, m.category
                             )
-                    check_potential, pca_scope = _should_check_potential_conflicts(m, pca_config)
+                    check_potential, pca_scope = _should_check_potential_conflicts(m)
                     if check_potential and m.effective_players:
                         player_tracker.update_potential(
                             m.effective_players, slot, m.duration_min, m.id,
@@ -1698,9 +1690,6 @@ def schedule_matches(matches, match_by_id, config, venue_model,
 
     # Match density limits
     density_cfg = get_match_density(config)
-
-    # Potential conflict avoidance config
-    pca_config = get_potential_conflict_avoidance(config)
 
     # Pool time limit: track earliest start per pool group
     # Key: (div_code, pool_key) -> earliest_start_minute
@@ -1963,7 +1952,7 @@ def schedule_matches(matches, match_by_id, config, venue_model,
                 sf_placed = _schedule_sf_pair(
                     pair, earliest, latest, match.day_constraint,
                     all_slots, slot_duration, config, venue_model,
-                    court_sched, player_tracker, pca_config,
+                    court_sched, player_tracker,
                     scheduled, scheduled_end, sf_already_placed,
                     unschedulable, unscheduled, sched_trace,
                     round_day_assignments, same_day_key,
@@ -1987,7 +1976,7 @@ def schedule_matches(matches, match_by_id, config, venue_model,
             trace_constraints.append(f"day={match.day_constraint}")
 
         # Find available slot
-        check_potential, pca_scope = _should_check_potential_conflicts(match, pca_config)
+        check_potential, pca_scope = _should_check_potential_conflicts(match)
         placed = False
         # Trace: collect per-slot rejection info (all slots, not just last N)
         # court_busy_by_slot: minute -> list of busy courts
@@ -2042,7 +2031,7 @@ def schedule_matches(matches, match_by_id, config, venue_model,
                 # Check potential player overlaps — always check against
                 # potential_history (populated by configured rounds), so that
                 # e.g. a Pool match won't overlap with a R2 match's potential players
-                check_potential, pca_scope = _should_check_potential_conflicts(match, pca_config)
+                check_potential, pca_scope = _should_check_potential_conflicts(match)
                 if match.effective_players and player_tracker.potential_history:
                     ok, detail = player_tracker.check_potential_overlap(
                         match.effective_players, slot, match.duration_min,
@@ -2301,7 +2290,7 @@ def schedule_matches(matches, match_by_id, config, venue_model,
                                     list(confirmed), slot,
                                     match.duration_min, match.division_code, match.category
                                 )
-                        check_potential, pca_scope = _should_check_potential_conflicts(match, pca_config)
+                        check_potential, pca_scope = _should_check_potential_conflicts(match)
                         if check_potential and match.effective_players:
                             player_tracker.update_potential(
                                 match.effective_players, slot, match.duration_min, match.id,
@@ -2380,7 +2369,7 @@ def schedule_matches(matches, match_by_id, config, venue_model,
                                     list(confirmed), slot,
                                     match.duration_min, match.division_code, match.category
                                 )
-                        check_potential, pca_scope = _should_check_potential_conflicts(match, pca_config)
+                        check_potential, pca_scope = _should_check_potential_conflicts(match)
                         if check_potential and match.effective_players:
                             player_tracker.update_potential(
                                 match.effective_players, slot, match.duration_min, match.id,

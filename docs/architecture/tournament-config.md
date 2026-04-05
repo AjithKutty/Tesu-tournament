@@ -216,14 +216,6 @@ round_completion:
   enabled: true
   exceptions: ["MD C"]             # Divisions exempt from the rule
 
-# Potential conflict avoidance
-potential_conflict_avoidance:
-  default:
-    rounds: ["Round 2", "Quarter-Final", "Semi-Final", "Final"]
-  categories:
-    Junior:
-      rounds: ["Semi-Final", "Final"]
-
 # Round time limits (soft constraint)
 round_time_limit:
   rounds:

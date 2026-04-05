@@ -148,11 +148,7 @@ If the normal pair search fails, a relaxed fallback retries with cross-division 
 
 For later-round matches where players are unknown (placeholders like "Winner R1-M1"), the scheduler traces all possible players through the bracket prerequisites and can avoid scheduling matches at the same time when the same player could potentially be in both.
 
-Configured via `potential_conflict_avoidance` in `scheduling.yaml`:
-- **`default.rounds`**: Rounds checked across ALL categories (e.g., Round 2, Quarter-Final, Semi-Final, Final)
-- **`categories.<name>.rounds`**: Rounds checked within a specific category only (e.g., Junior: Semi-Final, Final)
-
-The `default` scope prevents both time overlaps AND enforces rest between potential matches across all categories. The `categories` scope only checks within the same category.
+Always enabled for **Round 2, Quarter-Final, Semi-Final, and Final** across all categories. This prevents both time overlaps and enforces rest between potential matches.
 
 When the full potential conflict check fails, a relaxed fallback accepts cross-category potential overlaps but still prevents same-category conflicts. The verifier independently reports any remaining potential conflicts.
 

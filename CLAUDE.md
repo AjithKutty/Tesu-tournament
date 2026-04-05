@@ -108,7 +108,7 @@ Each tournament is configured via 6 YAML files in `tournaments/<name>/config/`. 
 | `match_rules.yaml` | Match durations and rest periods per category |
 | `court_preferences.yaml` | Court preferences per category, round overrides, global round preferences |
 | `divisions.yaml` | Event names, level→category mapping, tab display, format overrides |
-| `scheduling.yaml` | Priorities (hierarchical with day overrides), day constraints, draw formats, round completion, SF same-time, potential conflict avoidance, round time limits, time deadlines, match density, rest rules with player exceptions |
+| `scheduling.yaml` | Priorities (hierarchical with day overrides), day constraints, draw formats, round completion, SF same-time, round time limits, time deadlines, match density, rest rules with player exceptions |
 
 ## Input Modes
 
@@ -138,7 +138,7 @@ Generates match schedules respecting court availability, player rest, and round 
 - **Round time limits**: Soft constraint on time span within a round (verifier reports violations)
 - **Time deadlines**: Rounds must finish by a specific day+time
 - **Semi-final pair scheduling**: Both SFs of a division at same time on 2 courts, with Final-aware latest bound
-- **Potential conflict avoidance**: Trace all possible players through brackets, prevent overlaps/rest violations for configured rounds
+- **Potential conflict avoidance**: Trace all possible players through brackets, prevent overlaps/rest violations for R2, QF, SF, Final (always enabled)
 - **Bye resolution**: Bye winners' names propagated to later rounds
 - **Fallback chain**: Normal → buffer override → round time limit relaxation → cross-division rest relaxation
 - **Scheduling trace**: Detailed `scheduling_trace.json` with per-match placement decisions and rejection reasons

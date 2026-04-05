@@ -468,36 +468,6 @@ def get_match_density(config):
     }
 
 
-def get_potential_conflict_avoidance(config):
-    """Get potential conflict avoidance settings.
-
-    Returns dict: category -> set of round names where all possible players
-    should be checked for time overlaps across divisions.
-    """
-    pca = config["scheduling"].get("potential_conflict_avoidance", {})
-    result = {}
-
-    # Default rounds (apply to all categories not explicitly listed)
-    default_rounds = set(pca.get("default", {}).get("rounds", []))
-
-    # Per-category overrides
-    categories = pca.get("categories", {})
-
-    # Resolve level codes to full category names
-    level_cats = config.get("divisions", {}).get("level_categories", {})
-    resolved_categories = {}
-    for key, val in categories.items():
-        rounds = set(val.get("rounds", []))
-        # Check if key is a level code
-        if key in level_cats:
-            resolved_categories[level_cats[key]] = rounds
-        else:
-            resolved_categories[key] = rounds
-
-    result["_default"] = default_rounds
-    result.update(resolved_categories)
-    return result
-
 
 def _parse_time_limit_value(val):
     """Parse a time limit value that may be int or dict.

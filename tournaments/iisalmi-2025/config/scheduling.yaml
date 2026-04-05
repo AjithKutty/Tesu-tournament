@@ -126,11 +126,6 @@ round_completion:
 # ── Semi-final same-time ─────────────────────────────────────────
 semi_final_same_time: false
 
-# ── Potential conflict avoidance ─────────────────────────────────
-potential_conflict_avoidance:
-  default:
-    rounds: ["Round 2", "Quarter-Final", "Semi-Final"]
-
 # ── Round time limit ─────────────────────────────────────────────
 round_time_limit:
   rounds:

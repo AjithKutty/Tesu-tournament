@@ -211,18 +211,6 @@ draw_formats:
       groups: 2
       advancers_per_group: 1   # 2 in playoff → Final only
 
-# ── Potential conflict avoidance ────────────────────────────────
-# Avoid scheduling matches at the same time when the same player could
-# potentially be in both (traced from bracket prerequisites).
-# Only checks for time overlap — no rest requirement applied.
-potential_conflict_avoidance:
-  # Default: check potential overlaps for R2 and QF across all categories
-  default:
-    rounds: ["Round 2", "Quarter-Final", "Semi-Final", "Final"]
-  # Junior: also check SF and Final (players often play multiple age groups)
-  #categories:
-  #  Junior:
-  #    rounds: ["Semi-Final", "Final"]
 
 # ── Match durations and court blocking ────────────────────────────
 
